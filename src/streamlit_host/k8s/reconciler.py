@@ -345,6 +345,7 @@ class Reconciler:
         timeout = app.hibernate_after_seconds or s.hibernation_timeout_seconds
         if timeout <= 0:
             return
+        timeout = min(timeout, s.hibernation_max_timeout_seconds)
         idle_for = (datetime.now(UTC) - ensure_aware(app.last_active_at)).total_seconds()
         if idle_for < timeout:
             return
@@ -371,6 +372,7 @@ class Reconciler:
         if not app.poll_enabled:
             return
         interval = app.poll_interval_seconds or self.settings.git_poll_default_interval_seconds
+        interval = max(interval, self.settings.git_poll_min_interval_seconds)
         now = datetime.now(UTC)
         if app.last_polled_at and (now - ensure_aware(app.last_polled_at)).total_seconds() < interval:
             return

@@ -6,7 +6,7 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import CopyField from "@/components/CopyField";
 import StateChip from "@/components/StateChip";
-import { useBuilds } from "@/lib/api";
+import { useBuilds, useMe } from "@/lib/api";
 import type { AppOut } from "@/lib/types";
 import { mono } from "@/theme";
 
@@ -25,7 +25,13 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 
 export default function OverviewTab({ app }: { app: AppOut }) {
   const { data: builds } = useBuilds(app.id);
+  const { data: me } = useMe();
   const current = builds?.find((b) => b.id === app.current_build_id);
+  const hibernateHours = app.hibernate_after_seconds
+    ? app.hibernate_after_seconds / 3600
+    : me
+      ? me.hibernation_timeout_seconds / 3600
+      : null;
 
   return (
     <Stack spacing={2} direction={{ xs: "column", md: "row" }} sx={{ alignItems: "flex-start" }}>
@@ -53,7 +59,11 @@ export default function OverviewTab({ app }: { app: AppOut }) {
             </Row>
             <Row label="Hibernation">
               {app.hibernate_enabled
-                ? `sleeps after ${app.hibernate_after_seconds ? `${(app.hibernate_after_seconds / 3600).toFixed(1)}h` : "the platform default"} idle`
+                ? app.hibernate_after_seconds
+                  ? `sleeps after ${hibernateHours!.toFixed(1)}h idle`
+                  : hibernateHours !== null
+                    ? `sleeps after ${hibernateHours.toFixed(1)}h (platform default) idle`
+                    : "sleeps after the platform default idle"
                 : "disabled"}
             </Row>
             {app.state !== "sleeping" && (

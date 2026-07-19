@@ -132,6 +132,10 @@ def me(
         "role": user.role,
         "can_create": user.role in ("admin", "creator"),
         "can_publish": can_publish(user, settings),
+        "git_poll_default_interval_seconds": settings.git_poll_default_interval_seconds,
+        "git_poll_min_interval_seconds": settings.git_poll_min_interval_seconds,
+        "hibernation_timeout_seconds": settings.hibernation_timeout_seconds,
+        "hibernation_max_timeout_seconds": settings.hibernation_max_timeout_seconds,
     }
 
 

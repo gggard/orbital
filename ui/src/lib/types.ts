@@ -69,6 +69,10 @@ export interface Me {
   role: "admin" | "creator" | "viewer";
   can_create: boolean;
   can_publish: boolean;
+  git_poll_default_interval_seconds: number;
+  git_poll_min_interval_seconds: number;
+  hibernation_timeout_seconds: number;
+  hibernation_max_timeout_seconds: number;
 }
 
 export interface MetricsPoint {

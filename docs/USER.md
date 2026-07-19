@@ -63,7 +63,8 @@ Notes:
 - **By polling**: if your git host can't reach this cluster to deliver a
   webhook, enable *Poll for updates* in Settings instead — the platform
   periodically checks the tracked branch for new commits (default interval
-  set by your admin) and redeploys when it has moved.
+  set by your admin) and redeploys when it has moved. You can shorten the
+  interval, down to a platform-wide minimum shown in Settings.
 - **Manually**: the **Redeploy** button rebuilds from the branch head.
 - **Reboot** restarts the app without rebuilding (clears memory and
   `st.cache_*`).
@@ -125,8 +126,9 @@ as **Sleeping**. The next visit to the app's URL wakes it automatically — the
 visitor sees a "waking up" page for a few seconds while it starts back up,
 then lands on the app. No sign-in beyond what the app normally requires.
 
-In Settings you can raise or lower your app's timeout, or turn hibernation
-off entirely if it needs to stay warm (e.g. it's polled by another system).
+In Settings you can raise or lower your app's timeout — up to a
+platform-wide maximum shown there — or turn hibernation off entirely if it
+needs to stay warm (e.g. it's polled by another system).
 A sleeping app can also be woken from the console with the **Wake now**
 button on the app page.
 

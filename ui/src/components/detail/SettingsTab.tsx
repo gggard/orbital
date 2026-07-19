@@ -14,10 +14,13 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import CopyField from "@/components/CopyField";
-import { deleteApp, patchApp } from "@/lib/api";
+import { deleteApp, patchApp, useMe } from "@/lib/api";
 import type { AppOut } from "@/lib/types";
 
 const PYTHON_VERSIONS = ["3.12"];
+
+// trims to at most 1 decimal, e.g. 10 -> "10", 0.5 -> "0.5"
+const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
 
 export default function SettingsTab({
   app,
@@ -27,6 +30,7 @@ export default function SettingsTab({
   onSaved: (msg: string) => void;
 }) {
   const router = useRouter();
+  const { data: me } = useMe();
   const [branch, setBranch] = useState(app.branch);
   const [mainFile, setMainFile] = useState(app.main_file);
   const [python, setPython] = useState(app.python_version);
@@ -57,6 +61,16 @@ export default function SettingsTab({
   const pollDirty =
     pollEnabled !== app.poll_enabled ||
     (pollMinutes !== "" && Number(pollMinutes) * 60 !== app.poll_interval_seconds);
+
+  const pollDefaultMinutes = me ? me.git_poll_default_interval_seconds / 60 : null;
+  const pollMinMinutes = me ? me.git_poll_min_interval_seconds / 60 : null;
+  const pollBelowMin =
+    pollMinutes !== "" && pollMinMinutes !== null && Number(pollMinutes) < pollMinMinutes;
+
+  const hibernateDefaultHours = me ? me.hibernation_timeout_seconds / 3600 : null;
+  const hibernateMaxHours = me ? me.hibernation_max_timeout_seconds / 3600 : null;
+  const hibernateAboveMax =
+    hibernateHours !== "" && hibernateMaxHours !== null && Number(hibernateHours) > hibernateMaxHours;
 
   const webhookUrl =
     typeof window !== "undefined" ? `${window.location.origin}${app.webhook_path}` : app.webhook_path;
@@ -198,19 +212,31 @@ export default function SettingsTab({
             {pollEnabled && (
               <TextField
                 label="Check interval (minutes)"
+                type="number"
                 size="small"
-                sx={{ maxWidth: 220 }}
-                placeholder="platform default"
+                sx={{ maxWidth: 260 }}
+                placeholder={pollDefaultMinutes !== null ? fmt(pollDefaultMinutes) : "platform default"}
                 value={pollMinutes}
                 onChange={(e) => setPollMinutes(e.target.value)}
-                helperText="leave blank to use the platform default"
+                error={pollBelowMin}
+                slotProps={{ htmlInput: { min: pollMinMinutes ?? undefined } }}
+                helperText={
+                  pollBelowMin
+                    ? `must be at least ${fmt(pollMinMinutes!)} min (platform minimum)`
+                    : [
+                        pollDefaultMinutes !== null && `platform default: ${fmt(pollDefaultMinutes)} min`,
+                        pollMinMinutes !== null && `minimum: ${fmt(pollMinMinutes)} min`,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ") || "leave blank to use the platform default"
+                }
               />
             )}
             <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
               <Button
                 variant="contained"
                 startIcon={<SaveIcon />}
-                disabled={!pollDirty}
+                disabled={!pollDirty || pollBelowMin}
                 loading={pollBusy}
                 onClick={savePolling}
               >
@@ -244,19 +270,31 @@ export default function SettingsTab({
             {hibernateEnabled && (
               <TextField
                 label="Idle timeout (hours)"
+                type="number"
                 size="small"
-                sx={{ maxWidth: 220 }}
-                placeholder="platform default"
+                sx={{ maxWidth: 260 }}
+                placeholder={hibernateDefaultHours !== null ? fmt(hibernateDefaultHours) : "platform default"}
                 value={hibernateHours}
                 onChange={(e) => setHibernateHours(e.target.value)}
-                helperText="leave blank to use the platform default"
+                error={hibernateAboveMax}
+                slotProps={{ htmlInput: { max: hibernateMaxHours ?? undefined } }}
+                helperText={
+                  hibernateAboveMax
+                    ? `must be at most ${fmt(hibernateMaxHours!)}h (platform maximum)`
+                    : [
+                        hibernateDefaultHours !== null && `platform default: ${fmt(hibernateDefaultHours)}h`,
+                        hibernateMaxHours !== null && `maximum: ${fmt(hibernateMaxHours)}h`,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ") || "leave blank to use the platform default"
+                }
               />
             )}
             <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
               <Button
                 variant="contained"
                 startIcon={<SaveIcon />}
-                disabled={!hibernateDirty}
+                disabled={!hibernateDirty || hibernateAboveMax}
                 loading={hibernateBusy}
                 onClick={saveHibernation}
               >

@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -86,11 +87,19 @@ class Settings(BaseSettings):
     # that can't deliver a push webhook into the cluster. Per-app override
     # lives on App.poll_interval_seconds.
     git_poll_default_interval_seconds: int = 600  # 10 min
+    # Platform floor: no app (regardless of per-app override) may poll more
+    # often than this, to keep git ls-remote traffic against developers' git
+    # hosts bounded.
+    git_poll_min_interval_seconds: int = 60  # 1 min
 
     # Hibernation (SPEC §4.8/§5.6): platform default idle timeout before an
     # app is scaled to zero; per-app override lives on App.hibernate_after_seconds.
     hibernation_enabled: bool = True
     hibernation_timeout_seconds: int = 12 * 3600  # SCC: 12h
+    # Platform ceiling: no app (regardless of per-app override) may stay
+    # active longer than this while idle, so operators can guarantee
+    # resources are eventually reclaimed.
+    hibernation_max_timeout_seconds: int = 7 * 24 * 3600  # 7 days
     # the control plane's own in-cluster Service (doubles as the wake proxy
     # and the authz backend); reachable from the ingress controller
     control_plane_service_host: str = (
@@ -133,6 +142,22 @@ class Settings(BaseSettings):
     def internal_base_url(self) -> str:
         """Control plane URL as reachable from the ingress controller."""
         return f"http://{self.control_plane_service_host}:{self.control_plane_service_port}"
+
+    @model_validator(mode="after")
+    def _validate_poll_and_hibernation_bounds(self) -> "Settings":
+        if self.git_poll_min_interval_seconds > self.git_poll_default_interval_seconds:
+            raise ValueError(
+                "SH_GIT_POLL_MIN_INTERVAL_SECONDS "
+                f"({self.git_poll_min_interval_seconds}) must be <= "
+                f"SH_GIT_POLL_DEFAULT_INTERVAL_SECONDS ({self.git_poll_default_interval_seconds})"
+            )
+        if self.hibernation_max_timeout_seconds < self.hibernation_timeout_seconds:
+            raise ValueError(
+                "SH_HIBERNATION_MAX_TIMEOUT_SECONDS "
+                f"({self.hibernation_max_timeout_seconds}) must be >= "
+                f"SH_HIBERNATION_TIMEOUT_SECONDS ({self.hibernation_timeout_seconds})"
+            )
+        return self
 
 
 @lru_cache
