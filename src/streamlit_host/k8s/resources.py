@@ -211,9 +211,11 @@ def ingress(app: App, settings: Settings) -> dict:
         # public apps have no auth_request in front of them; attach a
         # non-blocking beacon (always 200) purely to record activity so the
         # reconciler knows the app is still being used (SPEC §4.8/§5.6).
-        annotations["nginx.ingress.kubernetes.io/auth-url"] = (
-            f"{settings.internal_base_url()}/activity/{app.id}"
-        )
+        # Same base-URL override as the private-app authz annotation above -
+        # both are auth_request subrequests from the ingress controller, so
+        # they need the same "reachable from inside the cluster" address.
+        base = settings.authz_base_url or settings.internal_base_url()
+        annotations["nginx.ingress.kubernetes.io/auth-url"] = f"{base}/activity/{app.id}"
 
     if app.state == AppState.sleeping and _hibernation_active(app, settings):
         # scaled to zero: route to the control plane, which serves the

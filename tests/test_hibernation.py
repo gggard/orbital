@@ -71,6 +71,23 @@ def test_public_app_gets_activity_beacon(settings):
     assert "nginx.ingress.kubernetes.io/auth-signin" not in ann
 
 
+def test_public_app_activity_beacon_uses_authz_base_url_override():
+    # dev setups where the control plane isn't an in-cluster Service (see
+    # SH_AUTHZ_BASE_URL in docs/DEVELOPMENT.md) need this for public apps
+    # too - not just the private-app /authz annotation.
+    s = Settings(
+        apps_domain="apps.example.com",
+        control_plane_service_host="cp.streamlit-platform.svc.cluster.local",
+        authz_base_url="http://192.168.58.1:8000",
+        _env_file=None,
+    )
+    app = make_app(public=True, state=AppState.running)
+    ann = resources.ingress(app, s)["metadata"]["annotations"]
+    assert ann["nginx.ingress.kubernetes.io/auth-url"] == (
+        f"http://192.168.58.1:8000/activity/{app.id}"
+    )
+
+
 def test_sleeping_app_has_no_activity_beacon(settings):
     app = make_app(public=True, state=AppState.sleeping)
     ann = resources.ingress(app, settings)["metadata"]["annotations"]
