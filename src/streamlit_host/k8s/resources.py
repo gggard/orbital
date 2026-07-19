@@ -1,9 +1,14 @@
 """Per-app runtime manifests: Deployment, Service, Ingress, Secret (SPEC §5.3)."""
 
 from ..config import Settings
-from ..models import App
+from ..models import App, AppState
 
 MANAGED_BY = {"app.streamlit-host.io/managed-by": "control-plane"}
+
+# in-namespace ExternalName Service that lets the apps-namespace Ingress
+# objects reach the control plane (a different namespace) as the wake proxy
+# and activity-beacon backend (SPEC §5.6).
+WAKE_SERVICE_NAME = "sh-wake-proxy"
 
 
 def app_labels(app: App) -> dict:
@@ -148,6 +153,37 @@ def service(app: App, settings: Settings) -> dict:
     }
 
 
+def wake_service(settings: Settings) -> dict:
+    """ExternalName Service in the apps namespace pointing at the control plane."""
+    return {
+        "apiVersion": "v1",
+        "kind": "Service",
+        "metadata": {
+            "name": WAKE_SERVICE_NAME,
+            "namespace": settings.apps_namespace,
+            "labels": MANAGED_BY,
+        },
+        "spec": {
+            "type": "ExternalName",
+            "externalName": settings.control_plane_service_host,
+            "ports": [
+                {
+                    "port": settings.control_plane_service_port,
+                    "targetPort": settings.control_plane_service_port,
+                }
+            ],
+        },
+    }
+
+
+def _hibernation_active(app: App, settings: Settings) -> bool:
+    return bool(
+        settings.hibernation_enabled
+        and settings.control_plane_service_host
+        and app.hibernate_enabled
+    )
+
+
 def ingress(app: App, settings: Settings) -> dict:
     if settings.routing_mode == "path":
         host = settings.apps_domain
@@ -163,14 +199,31 @@ def ingress(app: App, settings: Settings) -> dict:
     }
     if not app.public and settings.auth_enabled:
         # nginx auth_request -> control plane authz (session + group check),
-        # 401 -> redirect the browser to oauth2-proxy sign-in (SPEC §5.5)
+        # 401 -> redirect the browser to oauth2-proxy sign-in (SPEC §5.5).
+        # This request also records activity (SPEC §4.8).
         port = settings.url_port_suffix()
-        annotations["nginx.ingress.kubernetes.io/auth-url"] = (
-            f"{settings.authz_base_url}/authz/{app.id}"
-        )
+        base = settings.authz_base_url or settings.internal_base_url()
+        annotations["nginx.ingress.kubernetes.io/auth-url"] = f"{base}/authz/{app.id}"
         annotations["nginx.ingress.kubernetes.io/auth-signin"] = (
             f"{settings.auth_signin_url()}?rd=http://$host{port}$escaped_request_uri"
         )
+    elif app.public and _hibernation_active(app, settings) and app.state != AppState.sleeping:
+        # public apps have no auth_request in front of them; attach a
+        # non-blocking beacon (always 200) purely to record activity so the
+        # reconciler knows the app is still being used (SPEC §4.8/§5.6).
+        annotations["nginx.ingress.kubernetes.io/auth-url"] = (
+            f"{settings.internal_base_url()}/activity/{app.id}"
+        )
+
+    if app.state == AppState.sleeping and _hibernation_active(app, settings):
+        # scaled to zero: route to the control plane, which serves the
+        # waking-up interstitial and requests a wake-up (SPEC §5.6)
+        backend_name = WAKE_SERVICE_NAME
+        backend_port = settings.control_plane_service_port
+    else:
+        backend_name = name_for(app)
+        backend_port = 80
+
     return {
         "apiVersion": "networking.k8s.io/v1",
         "kind": "Ingress",
@@ -192,8 +245,8 @@ def ingress(app: App, settings: Settings) -> dict:
                                 "pathType": "Prefix",
                                 "backend": {
                                     "service": {
-                                        "name": name_for(app),
-                                        "port": {"number": 80},
+                                        "name": backend_name,
+                                        "port": {"number": backend_port},
                                     }
                                 },
                             }

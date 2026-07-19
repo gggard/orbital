@@ -76,6 +76,19 @@ class App(Base):
     current_build_id: Mapped[str | None] = mapped_column(String(12), default=None)
     current_image: Mapped[str | None] = mapped_column(String(500), default=None)
 
+    # Hibernation (SPEC §4.8): per-app opt-out and timeout override. None
+    # timeout means "use the platform default" (Settings.hibernation_timeout_seconds).
+    hibernate_enabled: Mapped[bool] = mapped_column(default=True)
+    hibernate_after_seconds: Mapped[int | None] = mapped_column(default=None)
+    # bumped on every request while running; the reconciler compares this
+    # against the timeout to decide when to scale to zero
+    last_active_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    # set by the wake path (ingress-facing interstitial) while sleeping; the
+    # reconciler clears it once it has scaled the app back up
+    wake_requested_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), default=None
+    )
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_now, onupdate=_now

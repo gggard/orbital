@@ -18,6 +18,8 @@ class AppCreate(BaseModel):
     allowed_groups: list[str] = []
     owner_groups: list[str] | None = None  # default: the creator's groups
     secrets_toml: str | None = None
+    hibernate_enabled: bool = True
+    hibernate_after_seconds: int | None = Field(default=None, gt=0)
 
     @field_validator("slug")
     @classmethod
@@ -34,6 +36,8 @@ class AppUpdate(BaseModel):
     public: bool | None = None
     allowed_groups: list[str] | None = None
     owner_groups: list[str] | None = None
+    hibernate_enabled: bool | None = None
+    hibernate_after_seconds: int | None = Field(default=None, gt=0)
 
 
 class BuildOut(BaseModel):
@@ -64,6 +68,9 @@ class AppOut(BaseModel):
     current_build_id: str | None
     url: str
     webhook_path: str
+    hibernate_enabled: bool
+    hibernate_after_seconds: int | None
+    last_active_at: datetime
     created_at: datetime
     updated_at: datetime
 

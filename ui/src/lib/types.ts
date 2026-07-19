@@ -25,6 +25,9 @@ export interface AppOut {
   current_build_id: string | null;
   url: string;
   webhook_path: string;
+  hibernate_enabled: boolean;
+  hibernate_after_seconds: number | null;
+  last_active_at: string;
   created_at: string;
   updated_at: string;
 }
@@ -49,6 +52,8 @@ export interface AppCreate {
   public: boolean;
   allowed_groups: string[];
   secrets_toml?: string;
+  hibernate_enabled?: boolean;
+  hibernate_after_seconds?: number;
 }
 
 export interface Me {
@@ -81,4 +86,6 @@ export interface AppUpdate {
   public?: boolean;
   allowed_groups?: string[];
   owner_groups?: string[];
+  hibernate_enabled?: boolean;
+  hibernate_after_seconds?: number;
 }

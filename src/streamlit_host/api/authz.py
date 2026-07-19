@@ -14,6 +14,7 @@ import httpx
 from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy.orm import Session
 
+from .. import activity
 from ..config import Settings, get_settings
 from ..db import get_db
 from ..models import App
@@ -50,6 +51,7 @@ def authz(
     app = db.get(App, app_id)
     if app is None:
         return Response(status_code=404)
+    activity.touch(app)
     if app.public:
         return Response(status_code=200)
     if not settings.oauth2_proxy_auth_url:

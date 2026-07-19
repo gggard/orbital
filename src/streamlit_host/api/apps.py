@@ -1,4 +1,5 @@
 import tomllib
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import PlainTextResponse, StreamingResponse
@@ -62,6 +63,9 @@ def _to_out(app: App, settings: Settings) -> AppOut:
         current_build_id=app.current_build_id,
         url=settings.app_url(app.slug),
         webhook_path=f"/webhooks/apps/{app.id}/{app.webhook_token}",
+        hibernate_enabled=app.hibernate_enabled,
+        hibernate_after_seconds=app.hibernate_after_seconds,
+        last_active_at=app.last_active_at,
         created_at=app.created_at,
         updated_at=app.updated_at,
     )
@@ -112,6 +116,8 @@ def create_app(
         secrets_toml=payload.secrets_toml,
         state=AppState.created,
         pending_action=PendingAction.deploy,
+        hibernate_enabled=payload.hibernate_enabled,
+        hibernate_after_seconds=payload.hibernate_after_seconds,
     )
     db.add(app)
     db.flush()
@@ -181,6 +187,10 @@ def update_app(
                     "(ask an admin to transfer ownership entirely)",
                 )
         app.owner_groups = payload.owner_groups
+    if payload.hibernate_enabled is not None:
+        app.hibernate_enabled = payload.hibernate_enabled
+    if payload.hibernate_after_seconds is not None:
+        app.hibernate_after_seconds = payload.hibernate_after_seconds
     if needs_rebuild and app.state != AppState.building:
         app.pending_action = PendingAction.deploy
     return _to_out(app, settings)
@@ -222,6 +232,20 @@ def reboot_app(
         raise HTTPException(409, f"cannot reboot app in state {app.state.value}")
     app.pending_action = PendingAction.reboot
     return {"status": "reboot scheduled"}
+
+
+@router.post("/apps/{app_id}/wake", status_code=202)
+def wake_app(
+    app_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    # waking requires no more than the app's normal sharing mode (SPEC FR-8.3)
+    app = _visible(db, app_id, user)
+    if app.state != AppState.sleeping:
+        raise HTTPException(409, f"app is not sleeping (state={app.state.value})")
+    app.wake_requested_at = datetime.now(UTC)
+    return {"status": "waking"}
 
 
 @router.get("/apps/{app_id}/builds", response_model=list[BuildOut])

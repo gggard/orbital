@@ -9,7 +9,8 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 
 from . import __version__
-from .api import apps, auth, authz, webhooks
+from .api import apps, auth, authz, wake, webhooks
+from .api.wake import hibernation_middleware
 from .config import get_settings
 from .db import init_engine
 
@@ -39,9 +40,14 @@ app.add_middleware(
     same_site="lax",
     max_age=12 * 3600,
 )
+# intercepts requests to hosts/paths that resolve to a sleeping app (traffic
+# reaching this process for an app host only happens while it's sleeping,
+# since the ingress otherwise points straight at the app's own Service)
+app.middleware("http")(hibernation_middleware)
 app.include_router(apps.router)
 app.include_router(auth.router)
 app.include_router(authz.router)
+app.include_router(wake.router)
 app.include_router(webhooks.router)
 
 

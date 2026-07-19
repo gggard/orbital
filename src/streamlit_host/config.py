@@ -82,6 +82,17 @@ class Settings(BaseSettings):
     reconciler_enabled: bool = True
     reconcile_interval: float = 3.0
 
+    # Hibernation (SPEC §4.8/§5.6): platform default idle timeout before an
+    # app is scaled to zero; per-app override lives on App.hibernate_after_seconds.
+    hibernation_enabled: bool = True
+    hibernation_timeout_seconds: int = 12 * 3600  # SCC: 12h
+    # the control plane's own in-cluster Service (doubles as the wake proxy
+    # and the authz backend); reachable from the ingress controller
+    control_plane_service_host: str = (
+        "streamlit-host-control-plane.streamlit-platform.svc.cluster.local"
+    )
+    control_plane_service_port: int = 8000
+
     def resolved_buildkit_image(self) -> str:
         if self.buildkit_image:
             return self.buildkit_image
@@ -113,6 +124,10 @@ class Settings(BaseSettings):
     def auth_signin_url(self) -> str:
         """Browser-facing oauth2-proxy sign-in URL (auth.<apps_domain>)."""
         return f"http://auth.{self.apps_domain}{self.url_port_suffix()}/oauth2/start"
+
+    def internal_base_url(self) -> str:
+        """Control plane URL as reachable from the ingress controller."""
+        return f"http://{self.control_plane_service_host}:{self.control_plane_service_port}"
 
 
 @lru_cache

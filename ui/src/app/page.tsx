@@ -100,7 +100,7 @@ function AppCard({
           <span>
             <IconButton
               size="small"
-              disabled={app.state !== "running"}
+              disabled={!["running", "sleeping"].includes(app.state)}
               component="a"
               href={app.url}
               target="_blank"
