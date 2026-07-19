@@ -31,16 +31,20 @@ apps:
     memLimit: 2Gi
 
 # Hibernation (SPEC §4.8): idle apps scale to zero and wake on the next
-# request. Timeout is the platform default; apps can override or opt out.
+# request. timeoutHours is the platform default; apps can override or opt
+# out, but never past maxTimeoutHours (a platform-wide ceiling).
 hibernation:
   enabled: true
   timeoutHours: 12
+  maxTimeoutHours: 168 # 7 days
 
 # Git-poll auto-update fallback (SPEC §4.2/FR-2.2): opt-in per app, for git
-# hosts that can't deliver a push webhook into the cluster. This is the
-# platform default interval; apps can override it individually.
+# hosts that can't deliver a push webhook into the cluster.
+# defaultIntervalMinutes is the platform default; apps can override it
+# individually, but never below minIntervalMinutes (a platform-wide floor).
 gitPoll:
   defaultIntervalMinutes: 10
+  minIntervalMinutes: 1
 
 builds:
   namespace: streamlit-builds

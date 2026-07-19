@@ -100,6 +100,15 @@ def test_per_app_hibernation_disabled_skips_beacon(settings):
     assert "nginx.ingress.kubernetes.io/auth-url" not in ann
 
 
+def test_settings_reject_max_timeout_below_default_timeout():
+    with pytest.raises(ValueError, match="SH_HIBERNATION_MAX_TIMEOUT_SECONDS"):
+        Settings(
+            hibernation_timeout_seconds=7200,
+            hibernation_max_timeout_seconds=3600,
+            _env_file=None,
+        )
+
+
 def test_platform_hibernation_disabled_skips_wake_backend():
     s = Settings(apps_domain="apps.example.com", control_plane_service_host="", _env_file=None)
     app = make_app(state=AppState.sleeping)
@@ -187,6 +196,26 @@ def test_maybe_hibernate_respects_per_app_override(reconciler, monkeypatch):
     app.last_active_at = datetime.now(UTC) - timedelta(minutes=90)
     reconciler._maybe_hibernate(app)
     assert app.state == AppState.sleeping
+
+
+def test_maybe_hibernate_clamps_per_app_override_to_platform_maximum(monkeypatch):
+    """A per-app timeout beyond the platform maximum (e.g. set before the
+    maximum existed, or written directly to the DB) must not let an app
+    stay awake past it."""
+    monkeypatch.setenv("SH_DATABASE_URL", "sqlite://")
+    monkeypatch.setenv("SH_HIBERNATION_TIMEOUT_SECONDS", "1800")
+    monkeypatch.setenv("SH_HIBERNATION_MAX_TIMEOUT_SECONDS", "3600")
+    get_settings.cache_clear()
+    from streamlit_host.k8s.reconciler import Reconciler
+
+    _mock_k8s(monkeypatch)
+    reconciler = Reconciler()
+    # per-app override (24h) far exceeds the 1h platform maximum
+    app = make_app(state=AppState.running, hibernate_after_seconds=24 * 3600)
+    app.last_active_at = datetime.now(UTC) - timedelta(hours=2)
+    reconciler._maybe_hibernate(app)
+    assert app.state == AppState.sleeping
+    get_settings.cache_clear()
 
 
 def test_maybe_hibernate_survives_naive_last_active_at_after_db_roundtrip(tmp_path, monkeypatch):
@@ -294,6 +323,28 @@ def test_patch_hibernate_after_seconds_must_be_positive(client):
     app_id = make_client_app(client).json()["id"]
     r = client.patch(f"/api/v1/apps/{app_id}", json={"hibernate_after_seconds": 0})
     assert r.status_code == 422
+
+
+def test_patch_hibernate_after_seconds_rejects_above_platform_maximum(client):
+    app_id = make_client_app(client).json()["id"]
+    over_max = get_settings().hibernation_max_timeout_seconds + 1
+    r = client.patch(f"/api/v1/apps/{app_id}", json={"hibernate_after_seconds": over_max})
+    assert r.status_code == 422
+    assert "platform maximum" in r.text
+
+
+def test_create_app_rejects_hibernate_after_seconds_above_platform_maximum(client):
+    over_max = get_settings().hibernation_max_timeout_seconds + 1
+    r = make_client_app(client, hibernate_after_seconds=over_max)
+    assert r.status_code == 422
+    assert "platform maximum" in r.text
+
+
+def test_me_reports_hibernation_defaults_and_maximum(client):
+    body = client.get("/api/v1/me").json()
+    s = get_settings()
+    assert body["hibernation_timeout_seconds"] == s.hibernation_timeout_seconds
+    assert body["hibernation_max_timeout_seconds"] == s.hibernation_max_timeout_seconds
 
 
 def test_wake_requires_sleeping_state(client):

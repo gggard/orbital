@@ -77,7 +77,7 @@ Each requirement notes its Streamlit Community Cloud (SCC) analog.
 ### 4.2 Automatic redeploys (SCC: "your app updates on git push")
 
 - **FR-2.1** Each app has a unique webhook endpoint (`POST /webhooks/apps/{id}/{token}`) accepting generic, GitHub, GitLab, and Gitea push payloads. A push to the tracked branch triggers a redeploy.
-- **FR-2.2** As a fallback for git hosts that cannot deliver webhooks into the cluster, per-app polling can be enabled (configurable interval, default 5 min) comparing the remote branch head to the deployed commit.
+- **FR-2.2** As a fallback for git hosts that cannot deliver webhooks into the cluster, per-app polling can be enabled (configurable interval, default 10 min, platform-configurable minimum 1 min) comparing the remote branch head to the deployed commit.
 - **FR-2.3** If the changed commit does not touch the dependency file (§4.3) or the Python version, the build reuses the cached dependency layer — only the code layer is rebuilt (fast path). Dependency changes trigger a full dependency install (SCC behaves the same).
 - **FR-2.4** Redeploy triggers are rate-limited per app (default: max 5 per minute, mirroring SCC's update rate limit); excess triggers are coalesced into one trailing redeploy.
 
@@ -127,7 +127,7 @@ Each requirement notes its Streamlit Community Cloud (SCC) analog.
 
 ### 4.8 Hibernation (SCC: apps sleep after 12 h of inactivity)
 
-- **FR-8.1** An app receiving no HTTP/websocket traffic for the hibernation timeout (default **12 h**, configurable per platform and per app; can be disabled per app) is scaled to zero replicas. State: `Sleeping`.
+- **FR-8.1** An app receiving no HTTP/websocket traffic for the hibernation timeout (default **12 h**, configurable per platform and per app up to a platform-configurable maximum, default 7 days; can be disabled per app) is scaled to zero replicas. State: `Sleeping`.
 - **FR-8.2** Any incoming request wakes the app: the wake proxy returns an interstitial "This app is waking up" page (auto-refreshing), scales the Deployment to 1, and routes traffic once the pod is Ready. Target cold-start: < 30 s (image already on a node) / < 2 min (image pull needed).
 - **FR-8.3** Waking does not require authentication beyond what the app's sharing mode requires (matching SCC: "anyone can wake them").
 

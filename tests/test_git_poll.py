@@ -6,7 +6,7 @@ from unittest.mock import patch
 import pytest
 from fastapi.testclient import TestClient
 
-from streamlit_host.config import get_settings
+from streamlit_host.config import Settings, get_settings
 from streamlit_host.gitutil import GitError
 from streamlit_host.models import App, AppState, Build, BuildPhase, PendingAction
 
@@ -56,6 +56,15 @@ def _persist(app: App, build: Build | None = None) -> str:
         if build is not None:
             session.add(build)
     return app.id
+
+
+def test_settings_reject_min_interval_above_default_interval():
+    with pytest.raises(ValueError, match="SH_GIT_POLL_MIN_INTERVAL_SECONDS"):
+        Settings(
+            git_poll_default_interval_seconds=300,
+            git_poll_min_interval_seconds=600,
+            _env_file=None,
+        )
 
 
 def test_poll_disabled_by_default_is_noop(reconciler):
@@ -162,6 +171,34 @@ def test_poll_respects_per_app_interval_override(reconciler):
         mock_resolve.assert_not_called()
 
 
+def test_poll_clamps_per_app_interval_to_platform_minimum(monkeypatch, tmp_path):
+    """A per-app interval below the platform minimum (e.g. set before the
+    minimum existed, or written directly to the DB) must not let an app
+    poll more often than the floor."""
+    monkeypatch.setenv("SH_DATABASE_URL", f"sqlite:///{tmp_path}/test.db")
+    monkeypatch.setenv("SH_GIT_POLL_MIN_INTERVAL_SECONDS", "600")
+    get_settings.cache_clear()
+    from streamlit_host import db as db_mod
+    from streamlit_host.k8s.reconciler import Reconciler
+
+    db_mod.init_engine(f"sqlite:///{tmp_path}/test.db")
+    reconciler = Reconciler()
+    # per-app override (1s) is far below the 10 min platform minimum
+    app_id = _persist(
+        make_app(
+            poll_interval_seconds=1,
+            last_polled_at=datetime.now(UTC) - timedelta(minutes=5),
+        )
+    )
+    with db_mod.session_scope() as session:
+        app = session.get(App, app_id)
+        with patch("streamlit_host.k8s.reconciler.resolve_branch_head") as mock_resolve:
+            reconciler._maybe_poll_git(session, app)
+        # 5 min elapsed < the 10 min platform minimum, so no poll yet
+        mock_resolve.assert_not_called()
+    get_settings.cache_clear()
+
+
 # -- API: poll fields on create/patch ---------------------------------------
 
 
@@ -216,3 +253,25 @@ def test_patch_poll_interval_must_be_positive(client):
     app_id = make_client_app(client).json()["id"]
     r = client.patch(f"/api/v1/apps/{app_id}", json={"poll_interval_seconds": 0})
     assert r.status_code == 422
+
+
+def test_patch_poll_interval_rejects_below_platform_minimum(client):
+    app_id = make_client_app(client).json()["id"]
+    under_min = get_settings().git_poll_min_interval_seconds - 1
+    r = client.patch(f"/api/v1/apps/{app_id}", json={"poll_interval_seconds": under_min})
+    assert r.status_code == 422
+    assert "platform minimum" in r.text
+
+
+def test_create_app_rejects_poll_interval_below_platform_minimum(client):
+    under_min = get_settings().git_poll_min_interval_seconds - 1
+    r = make_client_app(client, poll_enabled=True, poll_interval_seconds=under_min)
+    assert r.status_code == 422
+    assert "platform minimum" in r.text
+
+
+def test_me_reports_poll_defaults_and_minimum(client):
+    body = client.get("/api/v1/me").json()
+    s = get_settings()
+    assert body["git_poll_default_interval_seconds"] == s.git_poll_default_interval_seconds
+    assert body["git_poll_min_interval_seconds"] == s.git_poll_min_interval_seconds

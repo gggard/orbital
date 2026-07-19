@@ -115,8 +115,13 @@ extra authentication is required beyond the app's normal sharing mode.
 
 - Platform default: `hibernation.enabled` / `hibernation.timeoutHours`
   (`SH_HIBERNATION_ENABLED` / `SH_HIBERNATION_TIMEOUT_SECONDS`).
-- Per app: developers can raise/lower the timeout or disable hibernation
-  entirely from the app's Settings tab.
+- Platform maximum: `hibernation.maxTimeoutHours`
+  (`SH_HIBERNATION_MAX_TIMEOUT_SECONDS`), default **7 days**. Caps how high
+  an app's timeout can go, whether raised per-app or via the platform
+  default — apps are guaranteed to eventually be reclaimed. Must be `>=`
+  the default timeout (checked at startup).
+- Per app: developers can raise/lower the timeout — up to the platform
+  maximum — or disable hibernation entirely from the app's Settings tab.
 - Mechanism: activity is recorded via the same nginx `auth_request` hook
   already used for private-app authorization, generalized to a non-blocking
   beacon for public apps — no ingress-log pipeline required. While sleeping,
@@ -136,8 +141,14 @@ head has moved since the last deployed build.
 
 - Platform default interval: `gitPoll.defaultIntervalMinutes`
   (`SH_GIT_POLL_DEFAULT_INTERVAL_SECONDS`), default 10 minutes.
-- Per app: developers enable polling and may override the interval from the
-  app's Settings tab (*Poll for updates*); disabled by default.
+- Platform minimum: `gitPoll.minIntervalMinutes`
+  (`SH_GIT_POLL_MIN_INTERVAL_SECONDS`), default **1 minute**. Floors how low
+  an app's interval can go, whether lowered per-app or via the platform
+  default — keeps `git ls-remote` traffic against developers' git hosts
+  bounded. Must be `<=` the default interval (checked at startup).
+- Per app: developers enable polling and may override the interval — down to
+  the platform minimum — from the app's Settings tab (*Poll for updates*);
+  disabled by default.
 - Failures (host unreachable, bad credentials, renamed branch) are logged and
   retried at the next interval — same as a webhook delivery that never
   arrives needs a fresh push.

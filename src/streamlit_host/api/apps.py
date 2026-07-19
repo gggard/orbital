@@ -83,6 +83,24 @@ def _validate_toml(text: str):
         raise HTTPException(422, f"invalid TOML: {e}")
 
 
+def _validate_poll_interval(value: int | None, settings: Settings) -> None:
+    if value is not None and value < settings.git_poll_min_interval_seconds:
+        raise HTTPException(
+            422,
+            "poll_interval_seconds must be >= "
+            f"{settings.git_poll_min_interval_seconds} (platform minimum)",
+        )
+
+
+def _validate_hibernate_timeout(value: int | None, settings: Settings) -> None:
+    if value is not None and value > settings.hibernation_max_timeout_seconds:
+        raise HTTPException(
+            422,
+            "hibernate_after_seconds must be <= "
+            f"{settings.hibernation_max_timeout_seconds} (platform maximum)",
+        )
+
+
 @router.post("/apps", response_model=AppOut, status_code=201)
 def create_app(
     payload: AppCreate,
@@ -109,6 +127,8 @@ def create_app(
         )
     if payload.secrets_toml:
         _validate_toml(payload.secrets_toml)
+    _validate_poll_interval(payload.poll_interval_seconds, settings)
+    _validate_hibernate_timeout(payload.hibernate_after_seconds, settings)
     app = App(
         slug=payload.slug,
         repo_url=payload.repo_url,
@@ -197,10 +217,12 @@ def update_app(
     if payload.hibernate_enabled is not None:
         app.hibernate_enabled = payload.hibernate_enabled
     if payload.hibernate_after_seconds is not None:
+        _validate_hibernate_timeout(payload.hibernate_after_seconds, settings)
         app.hibernate_after_seconds = payload.hibernate_after_seconds
     if payload.poll_enabled is not None:
         app.poll_enabled = payload.poll_enabled
     if payload.poll_interval_seconds is not None:
+        _validate_poll_interval(payload.poll_interval_seconds, settings)
         app.poll_interval_seconds = payload.poll_interval_seconds
     if needs_rebuild and app.state != AppState.building:
         app.pending_action = PendingAction.deploy
