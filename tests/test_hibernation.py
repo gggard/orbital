@@ -189,6 +189,38 @@ def test_maybe_hibernate_respects_per_app_override(reconciler, monkeypatch):
     assert app.state == AppState.sleeping
 
 
+def test_maybe_hibernate_survives_naive_last_active_at_after_db_roundtrip(tmp_path, monkeypatch):
+    """Regression: sqlite drops the UTC offset on a DateTime(timezone=True)
+    round-trip, so an app fetched fresh from the DB (as the reconciler does
+    every tick, not the in-memory objects the other tests above use) can
+    have a naive last_active_at. _maybe_hibernate must not crash comparing
+    it against an aware `datetime.now(UTC)`.
+    """
+    monkeypatch.setenv("SH_DATABASE_URL", f"sqlite:///{tmp_path}/test.db")
+    get_settings.cache_clear()
+    _mock_k8s(monkeypatch)
+
+    from streamlit_host import db as db_mod
+    from streamlit_host.k8s.reconciler import Reconciler
+
+    db_mod.init_engine(f"sqlite:///{tmp_path}/test.db")
+    reconciler = Reconciler()
+
+    with db_mod.session_scope() as session:
+        app = make_app(state=AppState.running)
+        app.last_active_at = datetime.now(UTC) - timedelta(hours=13)
+        session.add(app)
+
+    with db_mod.session_scope() as session:
+        reloaded = session.get(App, "abc123def456")
+        assert reloaded.last_active_at.tzinfo is None  # confirms the round-trip stripped it
+
+        reconciler._maybe_hibernate(reloaded)  # must not raise
+        assert reloaded.state == AppState.sleeping
+
+    get_settings.cache_clear()
+
+
 def test_maybe_wake_scales_to_one_on_request(reconciler, monkeypatch):
     apps_v1, _, _n = _mock_k8s(monkeypatch)
     app = make_app(state=AppState.sleeping)

@@ -15,6 +15,15 @@ def _now() -> datetime:
     return datetime.now(UTC)
 
 
+def ensure_aware(dt: datetime) -> datetime:
+    """sqlite drops the UTC offset on DateTime(timezone=True) round-trips
+    (postgres doesn't). Every write in this app is UTC via `_now()`/
+    `datetime.now(UTC)`, so a naive read is always UTC too - attach it back
+    rather than let it blow up a comparison against an aware `datetime.now()`.
+    """
+    return dt if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
+
+
 class AppState(str, enum.Enum):
     created = "created"
     building = "building"

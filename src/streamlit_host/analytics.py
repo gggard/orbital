@@ -13,14 +13,8 @@ from fastapi import Request
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from .models import App, ViewEvent
+from .models import App, ViewEvent, ensure_aware
 from .schemas import AnalyticsDailyPoint, AnalyticsOut, AnalyticsViewer
-
-
-def _aware(dt: datetime) -> datetime:
-    """sqlite drops the UTC offset on round-trip; postgres doesn't. Every
-    write in this module is UTC, so a naive read is always UTC too."""
-    return dt if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
 
 # A single page load fires several beacon pings in quick succession (the
 # initial document, static assets, the websocket upgrade). Debouncing
@@ -78,7 +72,7 @@ def summary(session: Session, app: App, *, days: int = 30) -> AnalyticsOut:
         select(func.max(ViewEvent.viewed_at)).where(ViewEvent.app_id == app.id)
     )
     if last_viewed_at is not None:
-        last_viewed_at = _aware(last_viewed_at)
+        last_viewed_at = ensure_aware(last_viewed_at)
 
     rows = session.scalars(
         select(ViewEvent)
@@ -93,7 +87,7 @@ def summary(session: Session, app: App, *, days: int = 30) -> AnalyticsOut:
     cutoff_1d, cutoff_7d = now - timedelta(days=1), now - timedelta(days=7)
 
     for row in rows:
-        viewed_at = _aware(row.viewed_at)
+        viewed_at = ensure_aware(row.viewed_at)
         day = viewed_at.date().isoformat()
         bucket = daily.setdefault(day, {"views": 0, "keys": set()})
         bucket["views"] += 1
