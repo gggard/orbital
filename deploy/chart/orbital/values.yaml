@@ -1,13 +1,13 @@
-# streamlit-host Helm chart values.
+# Orbital Helm chart values.
 # See docs/INSTALL.md for a guided walkthrough.
 
 image:
   controlPlane:
-    repository: localhost:5000/streamlit-host/control-plane
+    repository: localhost:5000/orbital/control-plane
     tag: 0.1.0
     pullPolicy: IfNotPresent
   console:
-    repository: localhost:5000/streamlit-host/console
+    repository: localhost:5000/orbital/console
     tag: 0.1.0
     pullPolicy: IfNotPresent
 
@@ -83,7 +83,7 @@ database:
 ingress:
   className: nginx
   # hostname of the management console (and API)
-  consoleHost: streamlit.example.com
+  consoleHost: orbital.example.com
   tls:
     enabled: false
     secretName: ""
@@ -91,14 +91,14 @@ ingress:
 console:
   enabled: true
   # public URL of the console (used for OIDC redirects)
-  url: http://streamlit.example.com
+  url: http://orbital.example.com
 
 auth:
   # Console login + RBAC (SPEC: management RBAC). Disable only for demos.
   console:
     enabled: false
     issuerUrl: ""            # e.g. https://keycloak.example.com/realms/myrealm
-    clientId: streamlit-host
+    clientId: orbital
     clientSecret: ""         # or use existingSecret
     existingSecret: ""       # secret with keys: oidc-client-secret, session-secret
     sessionSecret: ""        # random string; generated secret recommended

@@ -1,6 +1,6 @@
-# streamlit-host — Developer Guide
+# Orbital — Developer Guide
 
-Audience: contributors working on streamlit-host itself. For deploying the
+Audience: contributors working on Orbital itself. For deploying the
 platform on a real cluster, see [INSTALL.md](INSTALL.md); for platform
 operations, [ADMIN.md](ADMIN.md); for the end-user flow, [USER.md](USER.md);
 for the full spec, [../SPEC.md](../SPEC.md).
@@ -17,7 +17,7 @@ SPEC §4.6–4.8).
 
 ```bash
 make install          # python venv + dependencies
-make setup-minikube   # minikube profile 'streamlit-host' + registry + ingress + base image; writes .env
+make setup-minikube   # minikube profile 'orbital' + registry + ingress + base image; writes .env
 make run              # control plane + dashboard on http://localhost:8000
 ```
 
@@ -47,14 +47,14 @@ on the remote host. To browse apps from your local machine:
    restart the control plane (running apps' ingresses converge automatically):
 
    ```
-   SH_APPS_DOMAIN=127.0.0.1.nip.io
-   SH_APPS_URL_PORT=8090
+   ORBITAL_APPS_DOMAIN=127.0.0.1.nip.io
+   ORBITAL_APPS_URL_PORT=8090
    ```
 
 2. On the remote, expose the ingress controller on localhost:
 
    ```bash
-   kubectl --context streamlit-host -n ingress-nginx \
+   kubectl --context orbital -n ingress-nginx \
      port-forward svc/ingress-nginx-controller 8090:80
    ```
 
@@ -104,9 +104,9 @@ claims via `.env` mappings — users in none of the mapped groups cannot sign in
 
 | Setting | Role | Rights |
 |---|---|---|
-| `SH_ADMIN_GROUPS` | admin | sees and manages every app |
-| `SH_CREATOR_GROUPS` | creator | creates apps; manages apps whose `owner_groups` intersect their groups |
-| `SH_VIEWER_GROUPS` | viewer | read-only (overview/logs/builds) on apps whose `owner_groups` intersect their groups |
+| `ORBITAL_ADMIN_GROUPS` | admin | sees and manages every app |
+| `ORBITAL_CREATOR_GROUPS` | creator | creates apps; manages apps whose `owner_groups` intersect their groups |
+| `ORBITAL_VIEWER_GROUPS` | viewer | read-only (overview/logs/builds) on apps whose `owner_groups` intersect their groups |
 
 Every app has `owner_groups` (defaults to its creator's groups): only members
 of those groups — plus admins — can see the app at all (others get 404).
@@ -128,7 +128,7 @@ to admins only — an admin can share them via the same Ownership panel.
 
 ## How it works
 
-- **Control plane** (FastAPI, `src/streamlit_host/`): REST API + dashboard,
+- **Control plane** (FastAPI, `src/orbital/`): REST API + dashboard,
   SQLite/PostgreSQL app registry, and a reconciler thread — the only component
   that talks to Kubernetes.
 - **Builds**: a Kubernetes Job per build (`k8s/builder.py`) clones the repo

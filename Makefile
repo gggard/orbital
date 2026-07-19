@@ -7,7 +7,7 @@ install: $(VENV)/bin/python
 	uv pip install -p $(VENV)/bin/python -e '.[dev]'
 
 run:
-	$(VENV)/bin/uvicorn streamlit_host.main:app --host 0.0.0.0 --port 8000
+	$(VENV)/bin/uvicorn orbital.main:app --host 0.0.0.0 --port 8000
 
 test:
 	$(VENV)/bin/pytest -q
@@ -28,7 +28,7 @@ ui:
 	cd ui && npm run build && npm run start -- --port 3000
 
 # Container images for cluster deployment (see docs/INSTALL.md)
-IMAGE_PREFIX ?= localhost:45000/streamlit-host
+IMAGE_PREFIX ?= localhost:45000/orbital
 TAG ?= 0.1.0
 
 images:

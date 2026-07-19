@@ -3,7 +3,7 @@
 from ..config import Settings
 from ..models import App, AppState
 
-MANAGED_BY = {"app.streamlit-host.io/managed-by": "control-plane"}
+MANAGED_BY = {"app.orbital.io/managed-by": "control-plane"}
 
 # in-namespace ExternalName Service that lets the apps-namespace Ingress
 # objects reach the control plane (a different namespace) as the wake proxy
@@ -12,7 +12,7 @@ WAKE_SERVICE_NAME = "sh-wake-proxy"
 
 
 def app_labels(app: App) -> dict:
-    return {**MANAGED_BY, "app.streamlit-host.io/app-id": app.id}
+    return {**MANAGED_BY, "app.orbital.io/app-id": app.id}
 
 
 def name_for(app: App) -> str:
@@ -73,12 +73,12 @@ def deployment(app: App, image: str, settings: Settings, restarted_at: str) -> d
         },
         "spec": {
             "replicas": 1,
-            "selector": {"matchLabels": {"app.streamlit-host.io/app-id": app.id}},
+            "selector": {"matchLabels": {"app.orbital.io/app-id": app.id}},
             "strategy": {"type": "RollingUpdate"},
             "template": {
                 "metadata": {
                     "labels": app_labels(app),
-                    "annotations": {"app.streamlit-host.io/restarted-at": restarted_at},
+                    "annotations": {"app.orbital.io/restarted-at": restarted_at},
                 },
                 "spec": {
                     "automountServiceAccountToken": False,
@@ -147,7 +147,7 @@ def service(app: App, settings: Settings) -> dict:
             "labels": app_labels(app),
         },
         "spec": {
-            "selector": {"app.streamlit-host.io/app-id": app.id},
+            "selector": {"app.orbital.io/app-id": app.id},
             "ports": [{"port": 80, "targetPort": settings.app_port}],
         },
     }

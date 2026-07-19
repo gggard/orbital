@@ -3,17 +3,17 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from streamlit_host.config import get_settings
+from orbital.config import get_settings
 
 
 @pytest.fixture
 def client(tmp_path, monkeypatch):
-    monkeypatch.setenv("SH_DATABASE_URL", f"sqlite:///{tmp_path}/test.db")
-    monkeypatch.setenv("SH_RECONCILER_ENABLED", "false")
-    monkeypatch.setenv("SH_UI_AUTH_ENABLED", "false")  # .env may enable it
+    monkeypatch.setenv("ORBITAL_DATABASE_URL", f"sqlite:///{tmp_path}/test.db")
+    monkeypatch.setenv("ORBITAL_RECONCILER_ENABLED", "false")
+    monkeypatch.setenv("ORBITAL_UI_AUTH_ENABLED", "false")  # .env may enable it
     get_settings.cache_clear()
-    from streamlit_host import db
-    from streamlit_host.main import app
+    from orbital import db
+    from orbital.main import app
 
     db.init_engine(f"sqlite:///{tmp_path}/test.db")
     with TestClient(app) as c:

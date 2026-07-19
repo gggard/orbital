@@ -65,7 +65,7 @@ def fetch_app_usage(app_id: str, settings: Settings) -> Sample | None:
     try:
         result = api.list_namespaced_custom_object(
             "metrics.k8s.io", "v1beta1", settings.apps_namespace, "pods",
-            label_selector=f"app.streamlit-host.io/app-id={app_id}",
+            label_selector=f"app.orbital.io/app-id={app_id}",
         )
     except ApiException as e:
         # 404/503: metrics.k8s.io not served (metrics-server absent/unready)

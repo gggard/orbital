@@ -1,7 +1,7 @@
 import { useId } from "react";
 
 /**
- * streamlit-host brand mark: a paper plane (ship your app) with stream
+ * Orbital brand mark: a paper plane (ship your app) with stream
  * trails. Original artwork - intentionally distinct from Streamlit's kite.
  *
  * variant "mark": gradient glyph on transparent background (app bar, inline)
@@ -23,7 +23,7 @@ export default function Logo({
       height={size}
       viewBox="0 0 64 64"
       role="img"
-      aria-label="streamlit-host"
+      aria-label="Orbital"
     >
       <defs>
         <linearGradient id={grad} x1="0" y1="0" x2="1" y2="1">

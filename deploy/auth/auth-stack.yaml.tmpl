@@ -3,13 +3,13 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: streamlit-platform
+  name: orbital-platform
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: keycloak-realm
-  namespace: streamlit-platform
+  namespace: orbital-platform
 data:
   streamlit-realm.json: |
     {
@@ -53,15 +53,15 @@ data:
           "groups": ["/admins"]
         },
         {
-          "username": "service-account-streamlit-host",
+          "username": "service-account-orbital",
           "enabled": true,
-          "serviceAccountClientId": "streamlit-host",
+          "serviceAccountClientId": "orbital",
           "clientRoles": {"realm-management": ["query-groups", "view-users"]}
         }
       ],
       "clients": [
         {
-          "clientId": "streamlit-host",
+          "clientId": "orbital",
           "enabled": true,
           "protocol": "openid-connect",
           "publicClient": false,
@@ -99,7 +99,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: keycloak
-  namespace: streamlit-platform
+  namespace: orbital-platform
 spec:
   replicas: 1
   selector:
@@ -140,7 +140,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: keycloak
-  namespace: streamlit-platform
+  namespace: orbital-platform
 spec:
   selector: {app: keycloak}
   ports:
@@ -150,7 +150,7 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: keycloak
-  namespace: streamlit-platform
+  namespace: orbital-platform
 spec:
   ingressClassName: "@INGRESS_CLASS@"
   rules:
@@ -166,7 +166,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: oauth2-proxy
-  namespace: streamlit-platform
+  namespace: orbital-platform
 stringData:
   cookie-secret: "@COOKIE_SECRET@"
   client-secret: "@CLIENT_SECRET@"
@@ -175,7 +175,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: oauth2-proxy
-  namespace: streamlit-platform
+  namespace: orbital-platform
 spec:
   replicas: 1
   selector:
@@ -195,10 +195,10 @@ spec:
             - --oidc-issuer-url=http://keycloak.@DOMAIN@@PORT_SUFFIX@/realms/streamlit
             - --login-url=http://keycloak.@DOMAIN@@PORT_SUFFIX@/realms/streamlit/protocol/openid-connect/auth
             # ... but token redemption and JWKS fetch go cluster-internal
-            - --redeem-url=http://keycloak.streamlit-platform.svc.cluster.local:8080/realms/streamlit/protocol/openid-connect/token
-            - --oidc-jwks-url=http://keycloak.streamlit-platform.svc.cluster.local:8080/realms/streamlit/protocol/openid-connect/certs
-            - --validate-url=http://keycloak.streamlit-platform.svc.cluster.local:8080/realms/streamlit/protocol/openid-connect/userinfo
-            - --client-id=streamlit-host
+            - --redeem-url=http://keycloak.orbital-platform.svc.cluster.local:8080/realms/streamlit/protocol/openid-connect/token
+            - --oidc-jwks-url=http://keycloak.orbital-platform.svc.cluster.local:8080/realms/streamlit/protocol/openid-connect/certs
+            - --validate-url=http://keycloak.orbital-platform.svc.cluster.local:8080/realms/streamlit/protocol/openid-connect/userinfo
+            - --client-id=orbital
             - --email-domain=*
             - --scope=openid email profile
             - --cookie-domain=.@DOMAIN@
@@ -228,7 +228,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: oauth2-proxy
-  namespace: streamlit-platform
+  namespace: orbital-platform
 spec:
   # NodePort so the control plane (running outside the cluster in local dev)
   # can validate sessions at <node-ip>:30480/oauth2/auth
@@ -241,7 +241,7 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: oauth2-proxy
-  namespace: streamlit-platform
+  namespace: orbital-platform
 spec:
   ingressClassName: "@INGRESS_CLASS@"
   rules:

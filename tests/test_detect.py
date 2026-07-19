@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from streamlit_host.k8s.scripts import DETECT_SH
+from orbital.k8s.scripts import DETECT_SH
 
 BASE = "registry.test:80/streamlit-base:py3.12"
 
@@ -35,7 +35,7 @@ def repo(tmp_path: Path) -> Path:
 
 
 def dockerfile(src: Path) -> str:
-    return (src / "Dockerfile.streamlit-host").read_text()
+    return (src / "Dockerfile.orbital").read_text()
 
 
 def test_requirements_txt(repo: Path):

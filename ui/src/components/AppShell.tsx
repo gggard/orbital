@@ -86,7 +86,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     return (
       <Stack spacing={2} sx={{ alignItems: "center", py: 12 }}>
         <Logo size={72} variant="tile" />
-        <Typography variant="h5">streamlit-host</Typography>
+        <Typography variant="h5">Orbital</Typography>
         <Typography color="text.secondary">
           Sign in with your organization account to manage apps.
         </Typography>
@@ -139,7 +139,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             color="inherit"
             sx={{ fontWeight: 700, textDecoration: "none" }}
           >
-            streamlit-host
+            Orbital
           </Typography>
           <Box sx={{ flexGrow: 1 }} />
           <UserMenu />

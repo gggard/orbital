@@ -3,8 +3,8 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from streamlit_host.api.security import User, get_current_user
-from streamlit_host.config import get_settings
+from orbital.api.security import User, get_current_user
+from orbital.config import get_settings
 
 ADMIN = User(email="carol@example.com", groups=["admins"], role="admin")
 CREATOR = User(email="alice@example.com", groups=["data-team"], role="creator")
@@ -13,15 +13,15 @@ VIEWER = User(email="bob@example.com", groups=["viewers"], role="viewer")
 
 @pytest.fixture
 def client(tmp_path, monkeypatch):
-    monkeypatch.setenv("SH_DATABASE_URL", f"sqlite:///{tmp_path}/test.db")
-    monkeypatch.setenv("SH_RECONCILER_ENABLED", "false")
-    monkeypatch.setenv("SH_UI_AUTH_ENABLED", "true")
-    monkeypatch.setenv("SH_ADMIN_GROUPS", '["admins"]')
-    monkeypatch.setenv("SH_CREATOR_GROUPS", '["data-team"]')
-    monkeypatch.setenv("SH_VIEWER_GROUPS", '["viewers"]')
+    monkeypatch.setenv("ORBITAL_DATABASE_URL", f"sqlite:///{tmp_path}/test.db")
+    monkeypatch.setenv("ORBITAL_RECONCILER_ENABLED", "false")
+    monkeypatch.setenv("ORBITAL_UI_AUTH_ENABLED", "true")
+    monkeypatch.setenv("ORBITAL_ADMIN_GROUPS", '["admins"]')
+    monkeypatch.setenv("ORBITAL_CREATOR_GROUPS", '["data-team"]')
+    monkeypatch.setenv("ORBITAL_VIEWER_GROUPS", '["viewers"]')
     get_settings.cache_clear()
-    from streamlit_host import db
-    from streamlit_host.main import app
+    from orbital import db
+    from orbital.main import app
 
     db.init_engine(f"sqlite:///{tmp_path}/test.db")
     with TestClient(app) as c:
@@ -112,7 +112,7 @@ def test_visibility_scoped_by_owner_groups(client):
 
 @pytest.fixture
 def restricted(client, monkeypatch):
-    monkeypatch.setenv("SH_PUBLIC_SHARING_GROUPS", '["marketing"]')
+    monkeypatch.setenv("ORBITAL_PUBLIC_SHARING_GROUPS", '["marketing"]')
     get_settings.cache_clear()
     yield client
     get_settings.cache_clear()

@@ -3,25 +3,25 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from streamlit_host import groups as groups_mod
-from streamlit_host.config import get_settings
-from streamlit_host.groups import _flatten, known_groups
+from orbital import groups as groups_mod
+from orbital.config import get_settings
+from orbital.groups import _flatten, known_groups
 
 
 @pytest.fixture
 def client(tmp_path, monkeypatch):
-    monkeypatch.setenv("SH_DATABASE_URL", f"sqlite:///{tmp_path}/test.db")
-    monkeypatch.setenv("SH_RECONCILER_ENABLED", "false")
-    monkeypatch.setenv("SH_UI_AUTH_ENABLED", "false")
-    monkeypatch.setenv("SH_ADMIN_GROUPS", '["admins"]')
-    monkeypatch.setenv("SH_CREATOR_GROUPS", '["data-team"]')
-    monkeypatch.setenv("SH_VIEWER_GROUPS", '["viewers"]')
-    monkeypatch.setenv("SH_KNOWN_GROUPS", '["marketing", "data-team"]')
-    monkeypatch.setenv("SH_GROUPS_FROM_KEYCLOAK", "false")  # .env may enable it
+    monkeypatch.setenv("ORBITAL_DATABASE_URL", f"sqlite:///{tmp_path}/test.db")
+    monkeypatch.setenv("ORBITAL_RECONCILER_ENABLED", "false")
+    monkeypatch.setenv("ORBITAL_UI_AUTH_ENABLED", "false")
+    monkeypatch.setenv("ORBITAL_ADMIN_GROUPS", '["admins"]')
+    monkeypatch.setenv("ORBITAL_CREATOR_GROUPS", '["data-team"]')
+    monkeypatch.setenv("ORBITAL_VIEWER_GROUPS", '["viewers"]')
+    monkeypatch.setenv("ORBITAL_KNOWN_GROUPS", '["marketing", "data-team"]')
+    monkeypatch.setenv("ORBITAL_GROUPS_FROM_KEYCLOAK", "false")  # .env may enable it
     get_settings.cache_clear()
     groups_mod.clear_cache()
-    from streamlit_host import db
-    from streamlit_host.main import app
+    from orbital import db
+    from orbital.main import app
 
     db.init_engine(f"sqlite:///{tmp_path}/test.db")
     with TestClient(app) as c:
@@ -45,7 +45,7 @@ def test_known_groups_merges_config_sources(client):
 
 
 def test_known_groups_includes_keycloak(client, monkeypatch):
-    monkeypatch.setenv("SH_GROUPS_FROM_KEYCLOAK", "true")
+    monkeypatch.setenv("ORBITAL_GROUPS_FROM_KEYCLOAK", "true")
     get_settings.cache_clear()
     monkeypatch.setattr(
         groups_mod, "_fetch_keycloak_groups", lambda s: ["from-idp", "admins"]
@@ -54,7 +54,7 @@ def test_known_groups_includes_keycloak(client, monkeypatch):
 
 
 def test_known_groups_keycloak_failure_falls_back(client, monkeypatch):
-    monkeypatch.setenv("SH_GROUPS_FROM_KEYCLOAK", "true")
+    monkeypatch.setenv("ORBITAL_GROUPS_FROM_KEYCLOAK", "true")
     get_settings.cache_clear()
 
     def boom(_):
@@ -83,13 +83,13 @@ def test_groups_endpoint_respects_limit(client):
 
 
 def test_groups_endpoint_requires_login(tmp_path, monkeypatch):
-    monkeypatch.setenv("SH_DATABASE_URL", f"sqlite:///{tmp_path}/t.db")
-    monkeypatch.setenv("SH_RECONCILER_ENABLED", "false")
-    monkeypatch.setenv("SH_UI_AUTH_ENABLED", "true")
-    monkeypatch.setenv("SH_GROUPS_FROM_KEYCLOAK", "false")
+    monkeypatch.setenv("ORBITAL_DATABASE_URL", f"sqlite:///{tmp_path}/t.db")
+    monkeypatch.setenv("ORBITAL_RECONCILER_ENABLED", "false")
+    monkeypatch.setenv("ORBITAL_UI_AUTH_ENABLED", "true")
+    monkeypatch.setenv("ORBITAL_GROUPS_FROM_KEYCLOAK", "false")
     get_settings.cache_clear()
-    from streamlit_host import db
-    from streamlit_host.main import app
+    from orbital import db
+    from orbital.main import app
 
     db.init_engine(f"sqlite:///{tmp_path}/t.db")
     with TestClient(app) as c:

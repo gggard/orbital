@@ -14,4 +14,4 @@ RUN pip install --no-cache-dir .
 
 USER 1000
 EXPOSE 8000
-CMD ["uvicorn", "streamlit_host.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "orbital.main:app", "--host", "0.0.0.0", "--port", "8000"]

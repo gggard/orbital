@@ -4,7 +4,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 
-PROFILE="${PROFILE:-streamlit-host}"
+PROFILE="${PROFILE:-orbital}"
 PYVER="${PYVER:-3.12}"
 
 if ! minikube -p "$PROFILE" status >/dev/null 2>&1; then
@@ -31,11 +31,11 @@ docker push "$LOCAL_TAG"
 
 IP="$(minikube -p "$PROFILE" ip)"
 cat > .env <<EOF
-SH_KUBE_CONTEXT=${PROFILE}
-SH_APPS_DOMAIN=${IP}.nip.io
+ORBITAL_KUBE_CONTEXT=${PROFILE}
+ORBITAL_APPS_DOMAIN=${IP}.nip.io
 # Privileged builds: rootless BuildKit needs user namespaces, often unavailable
 # in nested/LXC dev hosts. Remove this line on a normal cluster.
-SH_BUILDKIT_ROOTLESS=false
+ORBITAL_BUILDKIT_ROOTLESS=false
 EOF
 echo ">> wrote .env:"
 cat .env

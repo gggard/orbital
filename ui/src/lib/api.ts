@@ -56,7 +56,7 @@ export const loginUrl = (next: string) =>
 // the Keycloak SSO cookie is cleared too, not just our session
 export const logout = () => window.location.assign("/api/auth/logout");
 
-// known group directory for group pickers (role config + SH_KNOWN_GROUPS
+// known group directory for group pickers (role config + ORBITAL_KNOWN_GROUPS
 // + optional live Keycloak lookup); advisory — free text is still allowed.
 // q narrows server-side (case-insensitive substring) for large directories.
 export const useGroups = (q = "") =>

@@ -5,11 +5,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    """Platform configuration. All values overridable via SH_* env vars."""
+    """Platform configuration. All values overridable via ORBITAL_* env vars."""
 
-    model_config = SettingsConfigDict(env_prefix="SH_", env_file=".env")
+    model_config = SettingsConfigDict(env_prefix="ORBITAL_", env_file=".env")
 
-    database_url: str = "sqlite:///./streamlit_host.db"
+    database_url: str = "sqlite:///./orbital.db"
 
     # Kubernetes
     kube_context: str | None = None  # None -> default context / in-cluster
@@ -58,7 +58,7 @@ class Settings(BaseSettings):
     known_groups: list[str] = []
     groups_from_keycloak: bool = False
     oidc_issuer_url: str = ""  # e.g. http://keycloak.<domain>:<port>/realms/streamlit
-    oidc_client_id: str = "streamlit-host"
+    oidc_client_id: str = "orbital"
     oidc_client_secret: str = ""
     ui_base_url: str = "http://localhost:3000"  # browser-facing console URL
     session_secret: str = "dev-session-secret-change-me"
@@ -95,7 +95,7 @@ class Settings(BaseSettings):
     # Hibernation (SPEC §4.8/§5.6): platform default idle timeout before an
     # app is scaled to zero; per-app override lives on App.hibernate_after_seconds.
     hibernation_enabled: bool = True
-    hibernation_timeout_seconds: int = 12 * 3600  # SCC: 12h
+    hibernation_timeout_seconds: int = 12 * 3600  # 12h default idle timeout
     # Platform ceiling: no app (regardless of per-app override) may stay
     # active longer than this while idle, so operators can guarantee
     # resources are eventually reclaimed.
@@ -103,7 +103,7 @@ class Settings(BaseSettings):
     # the control plane's own in-cluster Service (doubles as the wake proxy
     # and the authz backend); reachable from the ingress controller
     control_plane_service_host: str = (
-        "streamlit-host-control-plane.streamlit-platform.svc.cluster.local"
+        "orbital-control-plane.orbital-platform.svc.cluster.local"
     )
     control_plane_service_port: int = 8000
 
@@ -147,15 +147,15 @@ class Settings(BaseSettings):
     def _validate_poll_and_hibernation_bounds(self) -> "Settings":
         if self.git_poll_min_interval_seconds > self.git_poll_default_interval_seconds:
             raise ValueError(
-                "SH_GIT_POLL_MIN_INTERVAL_SECONDS "
+                "ORBITAL_GIT_POLL_MIN_INTERVAL_SECONDS "
                 f"({self.git_poll_min_interval_seconds}) must be <= "
-                f"SH_GIT_POLL_DEFAULT_INTERVAL_SECONDS ({self.git_poll_default_interval_seconds})"
+                f"ORBITAL_GIT_POLL_DEFAULT_INTERVAL_SECONDS ({self.git_poll_default_interval_seconds})"
             )
         if self.hibernation_max_timeout_seconds < self.hibernation_timeout_seconds:
             raise ValueError(
-                "SH_HIBERNATION_MAX_TIMEOUT_SECONDS "
+                "ORBITAL_HIBERNATION_MAX_TIMEOUT_SECONDS "
                 f"({self.hibernation_max_timeout_seconds}) must be >= "
-                f"SH_HIBERNATION_TIMEOUT_SECONDS ({self.hibernation_timeout_seconds})"
+                f"ORBITAL_HIBERNATION_TIMEOUT_SECONDS ({self.hibernation_timeout_seconds})"
             )
         return self
 

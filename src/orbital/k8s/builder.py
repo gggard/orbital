@@ -4,7 +4,7 @@ from ..config import Settings
 from ..models import App, Build
 from . import scripts
 
-SUPPORT_CONFIGMAP = "streamlit-host-build-support"
+SUPPORT_CONFIGMAP = "orbital-build-support"
 
 
 def build_support_configmap(settings: Settings) -> dict:
@@ -14,7 +14,7 @@ def build_support_configmap(settings: Settings) -> dict:
         "metadata": {
             "name": SUPPORT_CONFIGMAP,
             "namespace": settings.builds_namespace,
-            "labels": {"app.streamlit-host.io/managed-by": "control-plane"},
+            "labels": {"app.orbital.io/managed-by": "control-plane"},
         },
         "data": {
             "fetch.sh": scripts.FETCH_SH,
@@ -29,9 +29,9 @@ def build_job(app: App, build: Build, settings: Settings) -> dict:
     push_image = settings.app_image(app.id, build.id, pull=False)
     base_image = settings.base_image_for(app.python_version)
     labels = {
-        "app.streamlit-host.io/managed-by": "control-plane",
-        "app.streamlit-host.io/app-id": app.id,
-        "app.streamlit-host.io/build-id": build.id,
+        "app.orbital.io/managed-by": "control-plane",
+        "app.orbital.io/app-id": app.id,
+        "app.orbital.io/build-id": build.id,
     }
     if settings.buildkit_rootless:
         pod_annotations = {

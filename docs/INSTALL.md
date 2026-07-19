@@ -1,9 +1,9 @@
-# streamlit-host — Installation Guide
+# Orbital — Installation Guide
 
-streamlit-host is a self-hosted platform for deploying Streamlit apps from git
+Orbital is a self-hosted platform for deploying Streamlit apps from git
 repositories onto a Kubernetes cluster ([SPEC.md](../SPEC.md)). This guide
 covers a production-style installation with the Helm chart in
-[deploy/chart/streamlit-host](../deploy/chart/streamlit-host). For a local
+[deploy/chart/orbital](../deploy/chart/orbital). For a local
 development setup on minikube, see [DEVELOPMENT.md](DEVELOPMENT.md) instead.
 
 ## 1. Prerequisites
@@ -38,29 +38,29 @@ without user-namespace support (some LXC/nested environments) need
 Tagged releases (`vX.Y.Z`) are built and published automatically by
 [.github/workflows/release.yml](../.github/workflows/release.yml):
 
-- Images: `ghcr.io/gggard/streamlit-hosting/control-plane:X.Y.Z` and
-  `ghcr.io/gggard/streamlit-hosting/console:X.Y.Z`
-- Helm chart: `oci://ghcr.io/gggard/streamlit-hosting/charts/streamlit-host`,
+- Images: `ghcr.io/gggard/orbital/control-plane:X.Y.Z` and
+  `ghcr.io/gggard/orbital/console:X.Y.Z`
+- Helm chart: `oci://ghcr.io/gggard/orbital/charts/orbital`,
   version `X.Y.Z`
 
 ```bash
-helm pull oci://ghcr.io/gggard/streamlit-hosting/charts/streamlit-host --version 0.1.0 --untar
+helm pull oci://ghcr.io/gggard/orbital/charts/orbital --version 0.1.0 --untar
 ```
 
-This is the recommended path if `ghcr.io/gggard/streamlit-hosting` is
+This is the recommended path if `ghcr.io/gggard/orbital` is
 reachable from your cluster's nodes and you don't need a custom registry.
 
 **Building your own images instead** (custom registry, forked platform code,
 or a registry your cluster nodes can reach but GHCR isn't):
 
 ```bash
-make images IMAGE_PREFIX=registry.example.com/streamlit-host TAG=0.1.0
-make push-images IMAGE_PREFIX=registry.example.com/streamlit-host TAG=0.1.0
+make images IMAGE_PREFIX=registry.example.com/orbital TAG=0.1.0
+make push-images IMAGE_PREFIX=registry.example.com/orbital TAG=0.1.0
 ```
 
 This produces `control-plane` (FastAPI + reconciler) and `console`
 (Next.js UI) images. Use your own checkout of
-`deploy/chart/streamlit-host` in the steps below instead of the pulled chart.
+`deploy/chart/orbital` in the steps below instead of the pulled chart.
 
 ## 3. Configure values
 
@@ -69,22 +69,22 @@ Create `my-values.yaml`:
 ```yaml
 image:
   controlPlane:
-    repository: registry.example.com/streamlit-host/control-plane
+    repository: registry.example.com/orbital/control-plane
     tag: 0.1.0
   console:
-    repository: registry.example.com/streamlit-host/console
+    repository: registry.example.com/orbital/console
     tag: 0.1.0
 
 apps:
   domain: apps.example.com          # *.apps.example.com -> ingress
 ingress:
   className: nginx
-  consoleHost: streamlit.example.com
+  consoleHost: orbital.example.com
   tls:
     enabled: true
     secretName: streamlit-tls
 console:
-  url: https://streamlit.example.com
+  url: https://orbital.example.com
 
 registry:
   pushUrl: registry.example.com
@@ -97,7 +97,7 @@ auth:
   console:
     enabled: true
     issuerUrl: https://idp.example.com/realms/main
-    clientId: streamlit-host
+    clientId: orbital
     clientSecret: "***"
     adminGroups: ["platform-admins"]
     creatorGroups: ["developers"]
@@ -133,12 +133,12 @@ working demo (Keycloak + oauth2-proxy) to copy from.
 ## 4. Install
 
 ```bash
-helm install streamlit-host deploy/chart/streamlit-host \
-  -n streamlit-platform --create-namespace \
+helm install orbital deploy/chart/orbital \
+  -n orbital-platform --create-namespace \
   -f my-values.yaml
 ```
 
-(use `streamlit-host` instead of `deploy/chart/streamlit-host` if you pulled
+(use `orbital` instead of `deploy/chart/orbital` if you pulled
 the chart per step 2 rather than working from a checkout of this repo)
 
 The chart creates the `streamlit-apps` and `streamlit-builds` namespaces,
@@ -150,7 +150,7 @@ with BuildKit and pushes them to your registry.
 Verify:
 
 ```bash
-kubectl -n streamlit-platform get pods       # control-plane + console Running
+kubectl -n orbital-platform get pods       # control-plane + console Running
 kubectl -n streamlit-builds get jobs          # base image job(s) Complete
 ```
 
@@ -160,7 +160,7 @@ Open `https://<consoleHost>`, sign in, and deploy a first app
 ## 5. Upgrades
 
 ```bash
-helm upgrade streamlit-host deploy/chart/streamlit-host -n streamlit-platform -f my-values.yaml
+helm upgrade orbital deploy/chart/orbital -n orbital-platform -f my-values.yaml
 ```
 
 - **Always bump the image tag** when releasing new platform images: with
@@ -193,6 +193,6 @@ helm upgrade streamlit-host deploy/chart/streamlit-host -n streamlit-platform -f
 ## 7. Uninstall
 
 ```bash
-helm uninstall streamlit-host -n streamlit-platform
+helm uninstall orbital -n orbital-platform
 kubectl delete ns streamlit-apps streamlit-builds   # removes all hosted apps!
 ```
