@@ -57,12 +57,18 @@ export const loginUrl = (next: string) =>
 export const logout = () => window.location.assign("/api/auth/logout");
 
 // known group directory for group pickers (role config + SH_KNOWN_GROUPS
-// + optional live Keycloak lookup); advisory — free text is still allowed
-export const useGroups = () =>
-  useSWR<{ groups: string[] }>("/api/v1/groups", jsonFetcher, {
-    revalidateOnFocus: false,
-    dedupingInterval: 60000,
-  });
+// + optional live Keycloak lookup); advisory — free text is still allowed.
+// q narrows server-side (case-insensitive substring) for large directories.
+export const useGroups = (q = "") =>
+  useSWR<{ groups: string[] }>(
+    `/api/v1/groups${q ? `?q=${encodeURIComponent(q)}` : ""}`,
+    jsonFetcher,
+    {
+      revalidateOnFocus: false,
+      dedupingInterval: 60000,
+      keepPreviousData: true,
+    },
+  );
 
 export const useApps = () =>
   useSWR<AppOut[]>("/api/v1/apps", jsonFetcher, { refreshInterval: 4000 });

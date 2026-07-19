@@ -69,6 +69,19 @@ def test_groups_endpoint(client):
     assert body == {"groups": ["admins", "data-team", "marketing", "viewers"]}
 
 
+def test_groups_endpoint_filters_by_substring(client):
+    assert client.get("/api/v1/groups?q=team").json()["groups"] == ["data-team"]
+    assert client.get("/api/v1/groups?q=TEAM").json()["groups"] == ["data-team"]
+    assert client.get("/api/v1/groups?q=nope").json()["groups"] == []
+
+
+def test_groups_endpoint_respects_limit(client):
+    assert client.get("/api/v1/groups?limit=2").json()["groups"] == ["admins", "data-team"]
+    # nonsense limits are clamped, not errors
+    assert len(client.get("/api/v1/groups?limit=0").json()["groups"]) == 1
+    assert len(client.get("/api/v1/groups?limit=9999").json()["groups"]) == 4
+
+
 def test_groups_endpoint_requires_login(tmp_path, monkeypatch):
     monkeypatch.setenv("SH_DATABASE_URL", f"sqlite:///{tmp_path}/t.db")
     monkeypatch.setenv("SH_RECONCILER_ENABLED", "false")

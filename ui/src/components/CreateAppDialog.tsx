@@ -5,7 +5,6 @@ import Accordion from "@mui/material/Accordion";
 import AccordionDetails from "@mui/material/AccordionDetails";
 import AccordionSummary from "@mui/material/AccordionSummary";
 import Alert from "@mui/material/Alert";
-import Autocomplete from "@mui/material/Autocomplete";
 import Button from "@mui/material/Button";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
@@ -19,7 +18,8 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { createApp, useGroups, useMe } from "@/lib/api";
+import GroupPicker from "@/components/GroupPicker";
+import { createApp, useMe } from "@/lib/api";
 import { mono } from "@/theme";
 
 const SLUG_RE = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
@@ -34,8 +34,6 @@ export default function CreateAppDialog({
 }) {
   const router = useRouter();
   const { data: me } = useMe();
-  const { data: groupsDir } = useGroups();
-  const knownGroups = groupsDir?.groups ?? [];
   const mayPublish = me?.can_publish ?? true;
   const [slug, setSlug] = useState("");
   const [repoUrl, setRepoUrl] = useState("");
@@ -147,20 +145,11 @@ export default function CreateAppDialog({
             }
           />
           {!(isPublic && mayPublish) && (
-            <Autocomplete
-              multiple
-              freeSolo
-              options={knownGroups}
+            <GroupPicker
               value={groups}
-              onChange={(_, v) => setGroups(v as string[])}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  size="small"
-                  label="Allowed groups"
-                  helperText="pick a group or type one and press Enter — empty means any signed-in user"
-                />
-              )}
+              onChange={setGroups}
+              label="Allowed groups"
+              helperText="type to filter or add a group and press Enter — empty means any signed-in user"
             />
           )}
           <Accordion variant="outlined" disableGutters>

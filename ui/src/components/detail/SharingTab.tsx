@@ -2,22 +2,20 @@
 
 import SaveIcon from "@mui/icons-material/Save";
 import Alert from "@mui/material/Alert";
-import Autocomplete from "@mui/material/Autocomplete";
 import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Stack from "@mui/material/Stack";
 import Switch from "@mui/material/Switch";
-import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { useState } from "react";
-import { patchApp, useGroups, useMe } from "@/lib/api";
+import GroupPicker from "@/components/GroupPicker";
+import { patchApp, useMe } from "@/lib/api";
 import type { AppOut } from "@/lib/types";
 
 function ViewerAccessCard({ app, onSaved }: { app: AppOut; onSaved: () => void }) {
   const { data: me } = useMe();
-  const { data: groupsDir } = useGroups();
   const [isPublic, setIsPublic] = useState(app.public);
   const [groups, setGroups] = useState<string[]>(app.allowed_groups);
   const [error, setError] = useState("");
@@ -67,20 +65,11 @@ function ViewerAccessCard({ app, onSaved }: { app: AppOut; onSaved: () => void }
             }
           />
           {!isPublic && (
-            <Autocomplete
-              multiple
-              freeSolo
-              options={groupsDir?.groups ?? []}
+            <GroupPicker
               value={groups}
-              onChange={(_, v) => setGroups(v as string[])}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  size="small"
-                  label="Allowed viewer groups"
-                  helperText="OIDC groups allowed to open the app — empty means any signed-in user"
-                />
-              )}
+              onChange={setGroups}
+              label="Allowed viewer groups"
+              helperText="type to filter — OIDC groups allowed to open the app; empty means any signed-in user"
             />
           )}
           <Typography variant="body2" color="text.secondary">
@@ -99,15 +88,11 @@ function ViewerAccessCard({ app, onSaved }: { app: AppOut; onSaved: () => void }
 
 function OwnershipCard({ app, onSaved }: { app: AppOut; onSaved: () => void }) {
   const { data: me } = useMe();
-  const { data: groupsDir } = useGroups();
   const [ownerGroups, setOwnerGroups] = useState<string[]>(app.owner_groups);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
   const isAdmin = me?.role === "admin";
-  const options = [
-    ...new Set([...(groupsDir?.groups ?? []), ...(me?.groups ?? []), ...app.owner_groups]),
-  ].sort();
 
   const dirty = JSON.stringify(ownerGroups) !== JSON.stringify(app.owner_groups);
   // non-admins must keep at least one of their own groups (server enforces too)
@@ -135,20 +120,12 @@ function OwnershipCard({ app, onSaved }: { app: AppOut; onSaved: () => void }) {
         </Typography>
         <Stack spacing={2}>
           {error && <Alert severity="error">{error}</Alert>}
-          <Autocomplete
-            multiple
-            freeSolo
-            options={options}
+          <GroupPicker
             value={ownerGroups}
-            onChange={(_, v) => setOwnerGroups(v as string[])}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                size="small"
-                label="Owner groups"
-                helperText="groups whose members can see and manage this app (admins always can)"
-              />
-            )}
+            onChange={setOwnerGroups}
+            label="Owner groups"
+            helperText="type to filter — groups whose members can see and manage this app (admins always can)"
+            extraOptions={[...(me?.groups ?? []), ...app.owner_groups]}
           />
           {lockedOut && (
             <Alert severity="warning">
