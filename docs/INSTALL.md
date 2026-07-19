@@ -17,6 +17,7 @@ development setup on minikube, see the [README](../README.md) instead.
 | OIDC identity provider | Keycloak, Entra ID, Okta, Dex… — required for console RBAC and private apps |
 | Helm ≥ 3.12, Docker | on the machine performing the install |
 | (optional) TLS | cert-manager with a wildcard certificate for the apps domain |
+| (optional) metrics-server | powers the console's per-app CPU/memory Metrics tab (minikube: `addons enable metrics-server`) — without it the tab shows "no metrics" |
 
 **Registry note.** The platform builds one container image per app. Configure:
 

@@ -23,6 +23,7 @@
 /                     Apps overview (home)
 /apps/<id>            App detail
   ├─ tab: Overview    state, URL, repo info, current build, quick actions
+  ├─ tab: Metrics     CPU/memory usage charts vs. limits
   ├─ tab: Logs        live runtime logs
   ├─ tab: Builds      build history + per-build logs
   ├─ tab: Secrets     TOML editor
@@ -71,6 +72,11 @@ Below: MUI `Tabs`.
 - **Overview**: definition list (repo, branch, main file, python, created,
   updated) · current build card (id, commit sha, phase, started/finished,
   link to logs) · error alert when `*_failed` with the stored message.
+- **Metrics**: two single-series area charts (CPU, memory — never dual-axis)
+  with current value and % of the platform limit, crosshair tooltips, and a
+  table view toggle; polls `GET .../metrics` every 10 s (last ~30 min of
+  15 s samples). Info alert when metrics-server is unavailable. Visible to
+  all roles, viewers included.
 - **Logs**: monospace scrollable pane (`tail=500`), auto-refresh 3 s toggle
   ("Follow"), manual refresh, download button. Auto-scroll to bottom when
   following.

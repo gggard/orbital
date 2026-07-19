@@ -15,6 +15,8 @@ if ! minikube -p "$PROFILE" status >/dev/null 2>&1; then
 fi
 minikube -p "$PROFILE" addons enable registry
 minikube -p "$PROFILE" addons enable ingress
+# per-app CPU/memory monitoring in the console
+minikube -p "$PROFILE" addons enable metrics-server
 
 echo ">> building base image (python $PYVER)"
 LOCAL_TAG="localhost:45000/streamlit-base:py${PYVER}"

@@ -191,6 +191,7 @@ def test_viewer_read_only(client):
     as_user(client, VIEWER)
     assert client.get(f"/api/v1/apps/{app_id}").status_code == 200
     assert client.get(f"/api/v1/apps/{app_id}/builds").status_code == 200
+    assert client.get(f"/api/v1/apps/{app_id}/metrics").status_code == 200
     assert client.post(f"/api/v1/apps/{app_id}/deploy").status_code == 403
     assert client.delete(f"/api/v1/apps/{app_id}").status_code == 403
     assert client.get(f"/api/v1/apps/{app_id}/secrets").status_code == 403

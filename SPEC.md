@@ -290,6 +290,7 @@ All endpoints under `/api/v1`, authenticated by dashboard session or personal AP
 | `POST /apps/{id}/reboot` | Restart pods without rebuild |
 | `POST /apps/{id}/rollback` | Redeploy a previous retained image |
 | `GET /apps/{id}/logs?follow=true` | Stream runtime logs (SSE) |
+| `GET /apps/{id}/metrics` | CPU/memory usage series vs. limits (FR-5.6; needs metrics-server) |
 | `GET /apps/{id}/builds` / `GET /builds/{id}/logs` | Build history / build logs |
 | `GET /apps/{id}/secrets` / `PUT /apps/{id}/secrets` | Read / replace secrets TOML |
 | `GET /apps/{id}/viewers` / `PUT /apps/{id}/viewers` | Manage private-app allowlist |

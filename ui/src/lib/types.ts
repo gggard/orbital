@@ -61,6 +61,19 @@ export interface Me {
   can_publish: boolean;
 }
 
+export interface MetricsPoint {
+  t: number; // unix seconds
+  cpu: number; // cores
+  mem: number; // bytes
+}
+
+export interface MetricsOut {
+  available: boolean;
+  limits: { cpu: number; mem: number };
+  current: MetricsPoint | null;
+  series: MetricsPoint[];
+}
+
 export interface AppUpdate {
   branch?: string;
   main_file?: string;

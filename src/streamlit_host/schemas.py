@@ -70,3 +70,21 @@ class AppOut(BaseModel):
 
 class SecretsIn(BaseModel):
     secrets_toml: str
+
+
+class MetricsPoint(BaseModel):
+    t: float  # unix seconds
+    cpu: float  # cores
+    mem: float  # bytes
+
+
+class MetricsLimits(BaseModel):
+    cpu: float  # cores
+    mem: float  # bytes
+
+
+class MetricsOut(BaseModel):
+    available: bool  # false when metrics-server is absent or has no data yet
+    limits: MetricsLimits
+    current: MetricsPoint | None  # latest sample
+    series: list[MetricsPoint]

@@ -1,7 +1,7 @@
 "use client";
 
 import useSWR from "swr";
-import type { AppCreate, AppOut, AppUpdate, BuildOut, Me } from "./types";
+import type { AppCreate, AppOut, AppUpdate, BuildOut, Me, MetricsOut } from "./types";
 
 export class ApiError extends Error {
   status: number;
@@ -82,6 +82,12 @@ export const useBuildLogs = (appId: string, buildId: string | null) =>
     textFetcher,
     { refreshInterval: 4000, keepPreviousData: true },
   );
+
+export const useAppMetrics = (id: string) =>
+  useSWR<MetricsOut>(`/api/v1/apps/${id}/metrics`, jsonFetcher, {
+    refreshInterval: 10000,
+    keepPreviousData: true,
+  });
 
 export const useSecrets = (id: string) =>
   useSWR<string>(`/api/v1/apps/${id}/secrets`, textFetcher, {

@@ -1,0 +1,34 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pkill -f \"[u]vicorn streamlit_host\")",
+      "Bash(nohup .venv/bin/uvicorn streamlit_host.main:app --host 0.0.0.0 --port 8000)",
+      "Bash(curl -s http://localhost:8000/healthz)",
+      "Bash(curl -s \"http://localhost:8000/api/v1/apps\")",
+      "Bash(.venv/bin/python -c \"import sys,json; [print\\(a['id'], a['slug'], a['state']\\) for a in json.load\\(sys.stdin\\)]\")",
+      "Bash(grep -v SECRET .env; ls /tmp/claude-1000/-home-gege-dev-streamlit-hosting/*/scratchpad/ 2>/dev/null | head -30)",
+      "Read(//tmp/claude-1000/-home-gege-dev-streamlit-hosting/**)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" -H \"Host: keycloak.127.0.0.1.nip.io\" http://127.0.0.1:8090/realms/streamlit/.well-known/openid-configuration)",
+      "Bash(git symbolic-ref *)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(git remote *)",
+      "Read(//tmp/claude-1000/bundled-skills/2.1.215/95a6227a4a6104e0b990cf39efe29d35/dataviz/**)",
+      "Bash(find /tmp/claude-1000/bundled-skills/2.1.215/95a6227a4a6104e0b990cf39efe29d35/dataviz/ -type f | head -20)",
+      "Bash(cd /tmp/claude-1000/bundled-skills/2.1.215/95a6227a4a6104e0b990cf39efe29d35/dataviz/references && wc -l *.md && head -60 marks-and-anatomy.md)",
+      "Read(//tmp/claude-1000/bundled-skills/2.1.215/95a6227a4a6104e0b990cf39efe29d35/dataviz/references/**)",
+      "Bash(cat /tmp/claude-1000/bundled-skills/2.1.215/95a6227a4a6104e0b990cf39efe29d35/dataviz/references/interaction.md /tmp/claude-1000/bundled-skills/2.1.215/95a6227a4a6104e0b990cf39efe29d35/dataviz/references/components.md)",
+      "Bash(head -80 /tmp/claude-1000/bundled-skills/2.1.215/95a6227a4a6104e0b990cf39efe29d35/dataviz/references/palette.md)",
+      "Bash(PATH=/home/gege/.local/node/bin:__TRACKED_VAR__ npx tsc --noEmit)",
+      "Bash(npm run *)",
+      "Bash(PATH=/home/gege/.local/node/bin:__TRACKED_VAR__ npm run lint)",
+      "Bash(PATH=/home/gege/.local/node/bin:__TRACKED_VAR__ npm run)",
+      "Bash(PATH=/home/gege/.local/node/bin:__TRACKED_VAR__ npm run build)",
+      "Bash(nohup env PATH=/home/gege/.local/node/bin:__TRACKED_VAR__ npm run start -- --port 3000)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/)",
+      "Bash(helm template *)",
+      "Bash(helm lint *)",
+      "Bash(.venv/bin/python -m pytest tests/ -q)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/apps/91299289e3df)"
+    ]
+  }
+}

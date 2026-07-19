@@ -53,6 +53,11 @@ the private→public transition.
 
 - Console home shows every app (admins see all) with live states. Failure
   states carry the error message; the Builds tab has per-build logs.
+- The **Metrics** tab on each app charts CPU and memory usage against the
+  platform limits (sampled from **metrics-server** every 15 s, last ~30 min
+  kept in memory — history resets when the control plane restarts). If the
+  cluster has no metrics-server, the tab reports "no metrics" and everything
+  else works normally.
 - Cluster level:
   ```bash
   kubectl -n streamlit-apps get deploy,pods       # runtime health

@@ -107,6 +107,11 @@ belong to — transferring an app entirely to another team is done by an admin.
 
 - **Logs** tab: live runtime logs (Follow toggle, download).
 - **Builds** tab: build history; click a row for that build's log.
+- **Metrics** tab: CPU and memory over the last ~30 minutes, with the current
+  value and its share of the app's limit. Memory climbing toward 100% means
+  the app risks an out-of-memory restart — cache less or ask your admin for a
+  higher tier. (Requires the cluster's metrics-server; if it's absent the tab
+  says so.)
 - **Overview**: current state, commit, build times, ownership, visibility.
 
 ## 7. Limits & good practices

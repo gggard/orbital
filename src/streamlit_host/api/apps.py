@@ -7,9 +7,18 @@ from sqlalchemy.orm import Session
 
 from ..config import Settings, get_settings
 from ..db import get_db
-from ..k8s import inspect
+from ..k8s import inspect, metrics
 from ..models import App, AppState, Build, PendingAction
-from ..schemas import AppCreate, AppOut, AppUpdate, BuildOut, SecretsIn
+from ..schemas import (
+    AppCreate,
+    AppOut,
+    AppUpdate,
+    BuildOut,
+    MetricsLimits,
+    MetricsOut,
+    MetricsPoint,
+    SecretsIn,
+)
 from .security import (
     User,
     get_current_user,
@@ -257,6 +266,29 @@ def app_logs(
             media_type="text/plain",
         )
     return PlainTextResponse(inspect.app_log_tail(app_id, settings, tail=tail))
+
+
+@router.get("/apps/{app_id}/metrics", response_model=MetricsOut)
+def app_metrics(
+    app_id: str,
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+    user: User = Depends(get_current_user),
+):
+    _visible(db, app_id, user)
+    series = [
+        MetricsPoint(t=s.ts, cpu=s.cpu, mem=s.mem)
+        for s in metrics.store.series(app_id)
+    ]
+    return MetricsOut(
+        available=bool(series),
+        limits=MetricsLimits(
+            cpu=metrics.parse_quantity(settings.app_cpu_limit),
+            mem=metrics.parse_quantity(settings.app_mem_limit),
+        ),
+        current=series[-1] if series else None,
+        series=series,
+    )
 
 
 @router.get("/apps/{app_id}/secrets", response_class=PlainTextResponse)

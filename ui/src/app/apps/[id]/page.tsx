@@ -24,14 +24,15 @@ import CopyField from "@/components/CopyField";
 import StateChip from "@/components/StateChip";
 import BuildsTab from "@/components/detail/BuildsTab";
 import LogsTab from "@/components/detail/LogsTab";
+import MetricsTab from "@/components/detail/MetricsTab";
 import OverviewTab from "@/components/detail/OverviewTab";
 import SecretsTab from "@/components/detail/SecretsTab";
 import SettingsTab from "@/components/detail/SettingsTab";
 import SharingTab from "@/components/detail/SharingTab";
 import { deployApp, rebootApp, useApp, useMe } from "@/lib/api";
 
-const ALL_TABS = ["Overview", "Logs", "Builds", "Secrets", "Sharing", "Settings"] as const;
-const VIEWER_TABS = ["Overview", "Logs", "Builds"] as const;
+const ALL_TABS = ["Overview", "Metrics", "Logs", "Builds", "Secrets", "Sharing", "Settings"] as const;
+const VIEWER_TABS = ["Overview", "Metrics", "Logs", "Builds"] as const;
 
 export default function AppDetail() {
   const { id } = useParams<{ id: string }>();
@@ -138,6 +139,7 @@ export default function AppDetail() {
       </Tabs>
 
       {tabs[Math.min(tab, tabs.length - 1)] === "Overview" && <OverviewTab app={app} />}
+      {tabs[tab] === "Metrics" && <MetricsTab appId={app.id} />}
       {tabs[tab] === "Logs" && <LogsTab appId={app.id} />}
       {tabs[tab] === "Builds" && <BuildsTab appId={app.id} />}
       {tabs[tab] === "Secrets" && (

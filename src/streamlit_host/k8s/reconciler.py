@@ -15,7 +15,7 @@ from ..config import get_settings
 from ..db import session_scope
 from ..gitutil import GitError, resolve_branch_head
 from ..models import App, AppState, Build, BuildPhase, PendingAction
-from . import builder, client, resources
+from . import builder, client, metrics, resources
 from .inspect import build_log_tail
 
 log = logging.getLogger(__name__)
@@ -48,6 +48,7 @@ class Reconciler:
         self.settings = get_settings()
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
+        self._last_sample = 0.0
 
     # -- lifecycle ---------------------------------------------------------
 
@@ -92,6 +93,23 @@ class Reconciler:
                     self.step(session, app)
                 except Exception:
                     log.exception("reconcile failed for app %s (%s)", app.slug, app.id)
+            self._sample_metrics(apps)
+
+    def _sample_metrics(self, apps: list[App]):
+        now = time.time()
+        if now - self._last_sample < metrics.SAMPLE_INTERVAL:
+            return
+        self._last_sample = now
+        for app in apps:
+            if app.state != AppState.running:
+                continue
+            try:
+                sample = metrics.fetch_app_usage(app.id, self.settings)
+            except Exception:
+                log.exception("metrics sampling failed for app %s", app.slug)
+                continue
+            if sample is not None:
+                metrics.store.add(app.id, sample)
 
     def step(self, session, app: App):
         if app.pending_action == PendingAction.delete:
@@ -345,6 +363,7 @@ class Reconciler:
                 s.builds_namespace,
                 propagation_policy="Background",
             )
+        metrics.store.drop(app.id)
         log.info("deleted app %s (%s)", app.slug, app.id)
         session.delete(app)
 
