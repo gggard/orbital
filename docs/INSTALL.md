@@ -33,7 +33,25 @@ cloud registry both are usually the same host. The chart can also deploy a
 without user-namespace support (some LXC/nested environments) need
 `builds.rootless=false` (privileged build pods).
 
-## 2. Build and push the platform images
+## 2. Get the platform images and Helm chart
+
+Tagged releases (`vX.Y.Z`) are built and published automatically by
+[.github/workflows/release.yml](../.github/workflows/release.yml):
+
+- Images: `ghcr.io/gggard/streamlit-hosting/control-plane:X.Y.Z` and
+  `ghcr.io/gggard/streamlit-hosting/console:X.Y.Z`
+- Helm chart: `oci://ghcr.io/gggard/streamlit-hosting/charts/streamlit-host`,
+  version `X.Y.Z`
+
+```bash
+helm pull oci://ghcr.io/gggard/streamlit-hosting/charts/streamlit-host --version 0.1.0 --untar
+```
+
+This is the recommended path if `ghcr.io/gggard/streamlit-hosting` is
+reachable from your cluster's nodes and you don't need a custom registry.
+
+**Building your own images instead** (custom registry, forked platform code,
+or a registry your cluster nodes can reach but GHCR isn't):
 
 ```bash
 make images IMAGE_PREFIX=registry.example.com/streamlit-host TAG=0.1.0
@@ -41,7 +59,8 @@ make push-images IMAGE_PREFIX=registry.example.com/streamlit-host TAG=0.1.0
 ```
 
 This produces `control-plane` (FastAPI + reconciler) and `console`
-(Next.js UI) images.
+(Next.js UI) images. Use your own checkout of
+`deploy/chart/streamlit-host` in the steps below instead of the pulled chart.
 
 ## 3. Configure values
 
@@ -118,6 +137,9 @@ helm install streamlit-host deploy/chart/streamlit-host \
   -n streamlit-platform --create-namespace \
   -f my-values.yaml
 ```
+
+(use `streamlit-host` instead of `deploy/chart/streamlit-host` if you pulled
+the chart per step 2 rather than working from a checkout of this repo)
 
 The chart creates the `streamlit-apps` and `streamlit-builds` namespaces,
 RBAC (the control plane can only touch those two namespaces), the control
