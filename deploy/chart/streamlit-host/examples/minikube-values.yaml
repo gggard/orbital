@@ -1,5 +1,5 @@
 # Example values: minikube with the registry + ingress addons and the
-# VS Code / SSH tunnel workflow from the README (apps on port 8090).
+# VS Code / SSH tunnel workflow from docs/DEVELOPMENT.md (apps on port 8090).
 # helm install streamlit-host deploy/chart/streamlit-host \
 #   -n streamlit-platform --create-namespace -f this-file.yaml
 image:

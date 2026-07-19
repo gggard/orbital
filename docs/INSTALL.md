@@ -4,7 +4,7 @@ streamlit-host is a self-hosted platform for deploying Streamlit apps from git
 repositories onto a Kubernetes cluster ([SPEC.md](../SPEC.md)). This guide
 covers a production-style installation with the Helm chart in
 [deploy/chart/streamlit-host](../deploy/chart/streamlit-host). For a local
-development setup on minikube, see the [README](../README.md) instead.
+development setup on minikube, see [DEVELOPMENT.md](DEVELOPMENT.md) instead.
 
 ## 1. Prerequisites
 
