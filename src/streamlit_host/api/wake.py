@@ -19,7 +19,7 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .. import activity
+from .. import activity, analytics
 from ..config import Settings, get_settings
 from ..db import get_db, session_scope
 from ..models import App, AppState
@@ -56,10 +56,13 @@ INTERSTITIAL = """<!doctype html>
 
 @router.get("/activity/{app_id}")
 @router.post("/activity/{app_id}")
-def activity_ping(app_id: str, db: Session = Depends(get_db)):
+def activity_ping(app_id: str, request: Request, db: Session = Depends(get_db)):
     app = db.get(App, app_id)
     if app is not None:
         activity.touch(app)
+        # public apps only reach this beacon (private apps are counted in
+        # authz below); no identity to record, just an anonymous view (FR-7.2)
+        analytics.record_view(db, app, viewer=None, viewer_key=analytics.client_key(request))
     # always 200: this is a non-blocking auth_request beacon, never a gate
     return Response(status_code=200)
 

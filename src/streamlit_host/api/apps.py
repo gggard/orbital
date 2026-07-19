@@ -6,11 +6,13 @@ from fastapi.responses import PlainTextResponse, StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from .. import analytics
 from ..config import Settings, get_settings
 from ..db import get_db
 from ..k8s import inspect, metrics
 from ..models import App, AppState, Build, PendingAction
 from ..schemas import (
+    AnalyticsOut,
     AppCreate,
     AppOut,
     AppUpdate,
@@ -313,6 +315,18 @@ def app_metrics(
         current=series[-1] if series else None,
         series=series,
     )
+
+
+@router.get("/apps/{app_id}/analytics", response_model=AnalyticsOut)
+def app_analytics(
+    app_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    # same visibility as Metrics/Logs (SPEC FR-7.3: owner(s) and Admins - only
+    # owning groups and admins can see the app at all, see security.can_see)
+    app = _visible(db, app_id, user)
+    return analytics.summary(db, app)
 
 
 @router.get("/apps/{app_id}/secrets", response_class=PlainTextResponse)

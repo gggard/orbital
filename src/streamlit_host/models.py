@@ -97,6 +97,9 @@ class App(Base):
     builds: Mapped[list["Build"]] = relationship(
         back_populates="app", cascade="all, delete-orphan", order_by="Build.created_at"
     )
+    views: Mapped[list["ViewEvent"]] = relationship(
+        back_populates="app", cascade="all, delete-orphan"
+    )
 
 
 class Build(Base):
@@ -114,3 +117,23 @@ class Build(Base):
     )
 
     app: Mapped[App] = relationship(back_populates="builds")
+
+
+class ViewEvent(Base):
+    """A recorded view of a running app (SPEC §4.7). One row per deduped visit."""
+
+    __tablename__ = "view_events"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    app_id: Mapped[str] = mapped_column(ForeignKey("apps.id"), index=True)
+    # authenticated viewer email for private apps; None for anonymous public
+    # views (SPEC FR-7.2 - public viewers are counted, not identified)
+    viewer: Mapped[str | None] = mapped_column(String(255), default=None)
+    # dedup/uniqueness key: the viewer's email if known, else a client IP -
+    # never returned by the API, only used to bucket "unique viewers"
+    viewer_key: Mapped[str] = mapped_column(String(255), index=True)
+    viewed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_now, index=True
+    )
+
+    app: Mapped[App] = relationship(back_populates="views")
