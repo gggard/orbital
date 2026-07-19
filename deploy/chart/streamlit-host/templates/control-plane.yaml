@@ -83,6 +83,8 @@ spec:
               value: {{ .Values.hibernation.enabled | quote }}
             - name: SH_HIBERNATION_TIMEOUT_SECONDS
               value: {{ mul .Values.hibernation.timeoutHours 3600 | quote }}
+            - name: SH_GIT_POLL_DEFAULT_INTERVAL_SECONDS
+              value: {{ mul .Values.gitPoll.defaultIntervalMinutes 60 | quote }}
             - name: SH_CONTROL_PLANE_SERVICE_HOST
               value: "{{ include "sh.controlPlaneName" . }}.{{ .Release.Namespace }}.svc.cluster.local"
             - name: SH_CONTROL_PLANE_SERVICE_PORT

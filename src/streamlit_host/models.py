@@ -98,6 +98,17 @@ class App(Base):
         DateTime(timezone=True), default=None
     )
 
+    # Git polling fallback (SPEC §4.2/FR-2.2): opt-in, for git hosts that
+    # can't reach the cluster with a push webhook. None interval means "use
+    # the platform default" (Settings.git_poll_default_interval_seconds).
+    poll_enabled: Mapped[bool] = mapped_column(default=False)
+    poll_interval_seconds: Mapped[int | None] = mapped_column(default=None)
+    # bumped every time the reconciler checks the remote branch head, so it
+    # only calls `git ls-remote` once per interval rather than every tick
+    last_polled_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), default=None
+    )
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_now, onupdate=_now

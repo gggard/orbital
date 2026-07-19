@@ -82,6 +82,11 @@ class Settings(BaseSettings):
     reconciler_enabled: bool = True
     reconcile_interval: float = 3.0
 
+    # Git polling fallback (SPEC §4.2/FR-2.2): per-app opt-in, for git hosts
+    # that can't deliver a push webhook into the cluster. Per-app override
+    # lives on App.poll_interval_seconds.
+    git_poll_default_interval_seconds: int = 600  # 10 min
+
     # Hibernation (SPEC §4.8/§5.6): platform default idle timeout before an
     # app is scaled to zero; per-app override lives on App.hibernate_after_seconds.
     hibernation_enabled: bool = True

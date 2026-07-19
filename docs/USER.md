@@ -60,6 +60,10 @@ Notes:
 - **On push**: in Settings → *Deploy webhook*, copy the webhook URL into your
   git host (GitHub/GitLab/Gitea → Webhooks, trigger on push). Every push to
   the tracked branch redeploys automatically.
+- **By polling**: if your git host can't reach this cluster to deliver a
+  webhook, enable *Poll for updates* in Settings instead — the platform
+  periodically checks the tracked branch for new commits (default interval
+  set by your admin) and redeploys when it has moved.
 - **Manually**: the **Redeploy** button rebuilds from the branch head.
 - **Reboot** restarts the app without rebuilding (clears memory and
   `st.cache_*`).

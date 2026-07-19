@@ -20,6 +20,8 @@ class AppCreate(BaseModel):
     secrets_toml: str | None = None
     hibernate_enabled: bool = True
     hibernate_after_seconds: int | None = Field(default=None, gt=0)
+    poll_enabled: bool = False
+    poll_interval_seconds: int | None = Field(default=None, gt=0)
 
     @field_validator("slug")
     @classmethod
@@ -38,6 +40,8 @@ class AppUpdate(BaseModel):
     owner_groups: list[str] | None = None
     hibernate_enabled: bool | None = None
     hibernate_after_seconds: int | None = Field(default=None, gt=0)
+    poll_enabled: bool | None = None
+    poll_interval_seconds: int | None = Field(default=None, gt=0)
 
 
 class BuildOut(BaseModel):
@@ -70,6 +74,9 @@ class AppOut(BaseModel):
     webhook_path: str
     hibernate_enabled: bool
     hibernate_after_seconds: int | None
+    poll_enabled: bool
+    poll_interval_seconds: int | None
+    last_polled_at: datetime | None
     last_active_at: datetime
     created_at: datetime
     updated_at: datetime
