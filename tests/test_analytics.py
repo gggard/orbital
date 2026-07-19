@@ -19,6 +19,8 @@ OUTSIDER = User(email="bob@example.com", groups=["other-team"], role="creator")
 def client(tmp_path, monkeypatch):
     monkeypatch.setenv("SH_DATABASE_URL", f"sqlite:///{tmp_path}/test.db")
     monkeypatch.setenv("SH_RECONCILER_ENABLED", "false")
+    monkeypatch.setenv("SH_AUTH_ENABLED", "true")
+    monkeypatch.setenv("SH_OAUTH2_PROXY_AUTH_URL", "http://oauth2-proxy.test/oauth2/auth")
     monkeypatch.setenv("SH_UI_AUTH_ENABLED", "false")
     monkeypatch.setenv("SH_APPS_DOMAIN", "apps.local")
     get_settings.cache_clear()
