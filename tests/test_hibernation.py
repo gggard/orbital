@@ -71,6 +71,23 @@ def test_public_app_gets_activity_beacon(settings):
     assert "nginx.ingress.kubernetes.io/auth-signin" not in ann
 
 
+def test_public_app_activity_beacon_uses_authz_base_url_override():
+    # dev setups where the control plane isn't an in-cluster Service (see
+    # SH_AUTHZ_BASE_URL in docs/DEVELOPMENT.md) need this for public apps
+    # too - not just the private-app /authz annotation.
+    s = Settings(
+        apps_domain="apps.example.com",
+        control_plane_service_host="cp.streamlit-platform.svc.cluster.local",
+        authz_base_url="http://192.168.58.1:8000",
+        _env_file=None,
+    )
+    app = make_app(public=True, state=AppState.running)
+    ann = resources.ingress(app, s)["metadata"]["annotations"]
+    assert ann["nginx.ingress.kubernetes.io/auth-url"] == (
+        f"http://192.168.58.1:8000/activity/{app.id}"
+    )
+
+
 def test_sleeping_app_has_no_activity_beacon(settings):
     app = make_app(public=True, state=AppState.sleeping)
     ann = resources.ingress(app, settings)["metadata"]["annotations"]
@@ -170,6 +187,38 @@ def test_maybe_hibernate_respects_per_app_override(reconciler, monkeypatch):
     app.last_active_at = datetime.now(UTC) - timedelta(minutes=90)
     reconciler._maybe_hibernate(app)
     assert app.state == AppState.sleeping
+
+
+def test_maybe_hibernate_survives_naive_last_active_at_after_db_roundtrip(tmp_path, monkeypatch):
+    """Regression: sqlite drops the UTC offset on a DateTime(timezone=True)
+    round-trip, so an app fetched fresh from the DB (as the reconciler does
+    every tick, not the in-memory objects the other tests above use) can
+    have a naive last_active_at. _maybe_hibernate must not crash comparing
+    it against an aware `datetime.now(UTC)`.
+    """
+    monkeypatch.setenv("SH_DATABASE_URL", f"sqlite:///{tmp_path}/test.db")
+    get_settings.cache_clear()
+    _mock_k8s(monkeypatch)
+
+    from streamlit_host import db as db_mod
+    from streamlit_host.k8s.reconciler import Reconciler
+
+    db_mod.init_engine(f"sqlite:///{tmp_path}/test.db")
+    reconciler = Reconciler()
+
+    with db_mod.session_scope() as session:
+        app = make_app(state=AppState.running)
+        app.last_active_at = datetime.now(UTC) - timedelta(hours=13)
+        session.add(app)
+
+    with db_mod.session_scope() as session:
+        reloaded = session.get(App, "abc123def456")
+        assert reloaded.last_active_at.tzinfo is None  # confirms the round-trip stripped it
+
+        reconciler._maybe_hibernate(reloaded)  # must not raise
+        assert reloaded.state == AppState.sleeping
+
+    get_settings.cache_clear()
 
 
 def test_maybe_wake_scales_to_one_on_request(reconciler, monkeypatch):

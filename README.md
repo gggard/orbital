@@ -63,8 +63,7 @@ See [SPEC.md](SPEC.md) for the full functional specification and architecture.
 **Current milestone**: core deploy pipeline — create an app from a git URL via
 API/dashboard, in-cluster BuildKit image build (Python packages only, no apt
 packages), deploy behind ingress, logs, redeploy webhook, secrets, reboot,
-delete. Not yet implemented: OIDC auth, hibernation, analytics (see
-SPEC §4.6–4.8).
+delete, OIDC auth, hibernation, analytics (see SPEC §4.6–4.8).
 
 ## Contributing
 

@@ -79,6 +79,28 @@ export interface MetricsOut {
   series: MetricsPoint[];
 }
 
+export interface AnalyticsDailyPoint {
+  date: string; // YYYY-MM-DD (UTC)
+  views: number;
+  unique_viewers: number;
+}
+
+export interface AnalyticsViewer {
+  viewer: string;
+  views: number;
+  last_seen: string;
+}
+
+export interface AnalyticsOut {
+  total_views: number;
+  unique_viewers_1d: number;
+  unique_viewers_7d: number;
+  unique_viewers_30d: number;
+  last_viewed_at: string | null;
+  daily: AnalyticsDailyPoint[];
+  viewers: AnalyticsViewer[];
+}
+
 export interface AppUpdate {
   branch?: string;
   main_file?: string;

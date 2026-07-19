@@ -14,7 +14,7 @@ from sqlalchemy import select
 from ..config import get_settings
 from ..db import session_scope
 from ..gitutil import GitError, resolve_branch_head
-from ..models import App, AppState, Build, BuildPhase, PendingAction
+from ..models import App, AppState, Build, BuildPhase, PendingAction, ensure_aware
 from . import builder, client, metrics, resources
 from .inspect import build_log_tail
 
@@ -337,7 +337,7 @@ class Reconciler:
         timeout = app.hibernate_after_seconds or s.hibernation_timeout_seconds
         if timeout <= 0:
             return
-        idle_for = (datetime.now(UTC) - app.last_active_at).total_seconds()
+        idle_for = (datetime.now(UTC) - ensure_aware(app.last_active_at)).total_seconds()
         if idle_for < timeout:
             return
         self._scale(app, replicas=0)

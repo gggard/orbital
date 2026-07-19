@@ -95,3 +95,25 @@ class MetricsOut(BaseModel):
     limits: MetricsLimits
     current: MetricsPoint | None  # latest sample
     series: list[MetricsPoint]
+
+
+class AnalyticsDailyPoint(BaseModel):
+    date: str  # YYYY-MM-DD (UTC)
+    views: int
+    unique_viewers: int
+
+
+class AnalyticsViewer(BaseModel):
+    viewer: str  # authenticated identity (private apps only, FR-7.2)
+    views: int
+    last_seen: datetime
+
+
+class AnalyticsOut(BaseModel):
+    total_views: int
+    unique_viewers_1d: int
+    unique_viewers_7d: int
+    unique_viewers_30d: int
+    last_viewed_at: datetime | None
+    daily: list[AnalyticsDailyPoint]  # last 30 days
+    viewers: list[AnalyticsViewer]  # named viewers, most recently seen first

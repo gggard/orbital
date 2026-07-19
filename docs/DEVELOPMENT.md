@@ -10,8 +10,8 @@ This guide covers local development on minikube.
 **Current milestone**: core deploy pipeline — create an app from a git URL via
 API/dashboard, in-cluster BuildKit image build (Python packages only, no apt
 packages), deploy behind ingress at `<slug>.<apps-domain>`, logs, redeploy
-webhook, secrets, reboot, delete. Not yet implemented: OIDC auth, hibernation,
-analytics (see SPEC §4.6–4.8).
+webhook, secrets, reboot, delete, OIDC auth, hibernation, analytics (see
+SPEC §4.6–4.8).
 
 ## Local development (minikube)
 

@@ -14,7 +14,7 @@ import httpx
 from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy.orm import Session
 
-from .. import activity
+from .. import activity, analytics
 from ..config import Settings, get_settings
 from ..db import get_db
 from ..models import App
@@ -53,6 +53,9 @@ def authz(
         return Response(status_code=404)
     activity.touch(app)
     if app.public:
+        # public apps set no cookies to identify viewers by (FR-7.2); an
+        # anonymous, IP-deduped view is all we can record here
+        analytics.record_view(db, app, viewer=None, viewer_key=analytics.client_key(request))
         return Response(status_code=200)
     if not settings.oauth2_proxy_auth_url:
         log.error("private app %s requested but oauth2_proxy_auth_url not configured", app.slug)
@@ -66,6 +69,8 @@ def authz(
 
     allowed = app.allowed_groups or []
     if not allowed or set(groups) & set(allowed):
+        # private-app viewers are identified (FR-7.2)
+        analytics.record_view(db, app, viewer=email, viewer_key=email)
         return Response(status_code=200)
     log.info("denied %s for %s (groups=%s, allowed=%s)", app.slug, email, groups, allowed)
     return Response(status_code=403)
