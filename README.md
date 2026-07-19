@@ -9,6 +9,10 @@ Point it at a git repository and the app is live on its own subdomain minutes
 later, with secrets management, logs, automatic redeploys on push, and
 hibernation of idle apps.
 
+<p align="center">
+  <img src="docs/images/console-apps.png" width="720" alt="streamlit-host console: apps list showing three running apps">
+</p>
+
 ## Capabilities
 
 - **Deploy from git** — give a repo URL, branch and main file; the platform
@@ -36,6 +40,10 @@ hibernation of idle apps.
 - **Safe multi-tenancy** — every app is an isolated, hardened Deployment
   (non-root, read-only rootfs, no service-account token); builds run in a
   separate namespace via rootless BuildKit.
+
+<p align="center">
+  <img src="docs/images/deploy-demo.gif" width="720" alt="Deploying an app: fill in the repo, watch the in-cluster BuildKit build stream live, then the app goes live behind ingress">
+</p>
 
 See [SPEC.md](SPEC.md) for the full functional specification and architecture.
 

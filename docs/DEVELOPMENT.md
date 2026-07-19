@@ -93,6 +93,10 @@ intersection with `allowed_groups` (empty list = any signed-in user).
 Unauthenticated users are redirected to Keycloak; authenticated users outside
 the allowed groups get 403.
 
+<p align="center">
+  <img src="images/console-sharing.png" width="600" alt="App Sharing tab: toggling an app private and restricting it to OIDC groups">
+</p>
+
 ## Console RBAC (group-based)
 
 The management console itself is behind OIDC login. Roles come from group
