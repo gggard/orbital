@@ -16,7 +16,10 @@ jobs:
         uses: astral-sh/setup-uv@v3
         with:
           enable-cache: true
-          python-version: "3.12"
+          cache-dependency-glob: "pyproject.toml"
+
+      - name: Install Python
+        run: uv python install 3.12
 
       - name: Install dependencies
         run: make install
