@@ -137,13 +137,20 @@ def me(
 
 @router.get("/api/v1/groups")
 def groups(
+    q: str = "",
+    limit: int = 100,
     user: User = Depends(get_current_user),
     settings: Settings = Depends(get_settings),
 ):
     """Known groups for the console's pickers (viewer access, ownership).
 
     Merged from the role config, SH_KNOWN_GROUPS, and (when enabled) the
-    Keycloak realm's group list. Advisory only — free-typed group names are
-    still accepted everywhere.
+    Keycloak realm's group list. ``q`` filters by case-insensitive substring;
+    ``limit`` caps the response so huge directories stay usable. Advisory
+    only — free-typed group names are still accepted everywhere.
     """
-    return {"groups": known_groups(settings)}
+    names = known_groups(settings)
+    if q:
+        needle = q.lower()
+        names = [n for n in names if needle in n.lower()]
+    return {"groups": names[: max(1, min(limit, 1000))]}
