@@ -1,0 +1,499 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Orbital — self-hosted Streamlit platform</title>
+<meta name="description" content="Self-hosted platform for deploying, running, and managing Streamlit apps on Kubernetes. Point it at a git repo and the app is live minutes later.">
+<meta property="og:title" content="Orbital — self-hosted Streamlit platform">
+<meta property="og:description" content="Point Orbital at a git repo and your Streamlit app is live on its own subdomain minutes later — secrets, logs, automatic redeploys, and hibernation, on your own Kubernetes cluster.">
+<meta property="og:image" content="https://gggard.github.io/orbital/images/console-apps.png">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="images/favicon.svg" type="image/svg+xml">
+<style>
+  :root{
+    --accent:#d93b2b;
+    --accent-2:#ff7060;
+    --bg:#fafafa;
+    --paper:#ffffff;
+    --text:#16191c;
+    --text-muted:#5b6368;
+    --border:#e3e5e7;
+    --border-strong:#cfd3d6;
+    --code-bg:#f1f2f3;
+    --shadow: 0 1px 2px rgba(20,20,20,.04), 0 8px 24px rgba(20,20,20,.05);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --accent:#ff6b5e;
+      --accent-2:#ff8a75;
+      --bg:#0f1214;
+      --paper:#16191c;
+      --text:#eef0f1;
+      --text-muted:#9aa3a8;
+      --border:#262b2e;
+      --border-strong:#33393c;
+      --code-bg:#1c2124;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    line-height:1.5;
+  }
+  .mono{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
+  a{color:inherit}
+  img{max-width:100%;display:block}
+  .wrap{max-width:1120px;margin:0 auto;padding:0 24px}
+
+  /* nav */
+  header.nav{
+    position:sticky;top:0;z-index:20;
+    background:color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--border);
+  }
+  .nav-row{display:flex;align-items:center;justify-content:space-between;height:64px}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:1.05rem;text-decoration:none;color:var(--text)}
+  .brand svg{display:block}
+  .nav-links{display:flex;align-items:center;gap:28px;font-size:.92rem}
+  .nav-links a{text-decoration:none;color:var(--text-muted);font-weight:500}
+  .nav-links a:hover{color:var(--text)}
+  .btn{
+    display:inline-flex;align-items:center;gap:8px;
+    padding:9px 16px;border-radius:10px;font-weight:600;font-size:.92rem;
+    text-decoration:none;border:1px solid transparent;cursor:pointer;
+    transition:filter .15s, background .15s, border-color .15s;
+  }
+  .btn-primary{background:var(--accent);color:#fff}
+  .btn-primary:hover{filter:brightness(1.06)}
+  .btn-ghost{border-color:var(--border-strong);color:var(--text)}
+  .btn-ghost:hover{border-color:var(--accent)}
+  .btn-sm{padding:6px 12px;font-size:.82rem;border-radius:8px}
+
+  /* hero */
+  .hero{padding:88px 0 56px;text-align:center}
+  .eyebrow{
+    display:inline-flex;align-items:center;gap:8px;
+    font-size:.78rem;font-weight:700;letter-spacing:.02em;text-transform:uppercase;
+    color:var(--accent);background:color-mix(in srgb, var(--accent) 12%, transparent);
+    padding:6px 12px;border-radius:999px;margin-bottom:22px;
+  }
+  h1{font-size:clamp(2.1rem,5vw,3.4rem);line-height:1.08;letter-spacing:-.02em;margin:0 0 20px;font-weight:750}
+  h1 .accent{color:var(--accent)}
+  .lede{font-size:1.15rem;color:var(--text-muted);max-width:640px;margin:0 auto 34px}
+  .cta-row{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-bottom:20px}
+  .install-hint{font-size:.85rem;color:var(--text-muted);margin-bottom:56px}
+  .install-hint code{background:var(--code-bg);padding:2px 8px;border-radius:6px;border:1px solid var(--border)}
+
+  .frame{
+    border:1px solid var(--border);border-radius:16px;overflow:hidden;
+    box-shadow:var(--shadow);background:var(--paper);
+  }
+  .frame .bar{
+    display:flex;align-items:center;gap:6px;padding:10px 14px;border-bottom:1px solid var(--border);
+  }
+  .frame .dot{width:10px;height:10px;border-radius:50%;background:var(--border-strong)}
+  .frame img{width:100%}
+
+  section{padding:64px 0}
+  .section-head{max-width:640px;margin:0 auto 44px;text-align:center}
+  .section-head h2{font-size:clamp(1.6rem,3vw,2.1rem);letter-spacing:-.01em;margin:0 0 12px;font-weight:700}
+  .section-head p{color:var(--text-muted);margin:0;font-size:1.02rem}
+  .kicker{font-size:.78rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);margin-bottom:10px;display:block}
+
+  /* steps */
+  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
+  .step{
+    background:var(--paper);border:1px solid var(--border);border-radius:14px;padding:26px;position:relative;
+  }
+  .step .num{
+    width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;
+    background:color-mix(in srgb, var(--accent) 14%, transparent);color:var(--accent);font-weight:700;margin-bottom:16px;
+  }
+  .step h3{margin:0 0 8px;font-size:1.05rem}
+  .step p{margin:0;color:var(--text-muted);font-size:.92rem}
+  .step code{font-size:.82em;background:var(--code-bg);padding:1px 6px;border-radius:5px;border:1px solid var(--border)}
+
+  /* features */
+  .features{display:grid;grid-template-columns:repeat(4,1fr);gap:20px}
+  .feature{
+    background:var(--paper);border:1px solid var(--border);border-radius:14px;padding:22px;
+    transition:border-color .15s, transform .15s;
+  }
+  .feature:hover{border-color:var(--border-strong)}
+  .feature .icon{
+    width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;
+    background:color-mix(in srgb, var(--accent) 12%, transparent);color:var(--accent);margin-bottom:14px;
+  }
+  .feature h3{margin:0 0 6px;font-size:.98rem}
+  .feature p{margin:0;color:var(--text-muted);font-size:.86rem;line-height:1.5}
+
+  /* showcase */
+  .showcase{display:flex;flex-direction:column;gap:64px}
+  .show-row{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center}
+  .show-row.reverse .show-copy{order:2}
+  .show-row.reverse .show-media{order:1}
+  .show-copy h3{font-size:1.35rem;margin:0 0 12px;letter-spacing:-.01em}
+  .show-copy p{color:var(--text-muted);margin:0 0 16px;font-size:.98rem}
+  .show-copy ul{margin:0;padding-left:18px;color:var(--text-muted);font-size:.92rem}
+  .show-copy li{margin-bottom:6px}
+
+  /* architecture */
+  .arch-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:48px;align-items:center}
+  .arch-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:18px}
+  .arch-list li{display:flex;gap:14px}
+  .arch-list .dot2{
+    width:8px;height:8px;border-radius:50%;background:var(--accent);margin-top:8px;flex:none;
+  }
+  .arch-list b{display:block;margin-bottom:2px;font-size:.96rem}
+  .arch-list span{color:var(--text-muted);font-size:.9rem}
+
+  /* docs */
+  .docs-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  .doc-card{
+    display:block;text-decoration:none;background:var(--paper);border:1px solid var(--border);
+    border-radius:12px;padding:18px 20px;transition:border-color .15s;
+  }
+  .doc-card:hover{border-color:var(--accent)}
+  .doc-card b{display:block;font-size:.95rem;margin-bottom:4px}
+  .doc-card span{color:var(--text-muted);font-size:.84rem}
+
+  /* footer */
+  footer{border-top:1px solid var(--border);padding:36px 0;margin-top:24px}
+  .footer-row{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+  .footer-row .brand{font-size:.92rem}
+  .footer-links{display:flex;gap:22px;font-size:.86rem}
+  .footer-links a{color:var(--text-muted);text-decoration:none}
+  .footer-links a:hover{color:var(--text)}
+  .footer-note{color:var(--text-muted);font-size:.8rem;margin-top:18px}
+
+  @media (max-width: 900px){
+    .features{grid-template-columns:repeat(2,1fr)}
+    .steps{grid-template-columns:1fr}
+    .show-row, .show-row.reverse{grid-template-columns:1fr}
+    .show-row.reverse .show-copy, .show-row.reverse .show-media{order:0}
+    .arch-grid{grid-template-columns:1fr}
+    .docs-grid{grid-template-columns:1fr 1fr}
+    .nav-links{display:none}
+  }
+  @media (max-width: 520px){
+    .features{grid-template-columns:1fr}
+    .docs-grid{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+
+<header class="nav">
+  <div class="wrap nav-row">
+    <a class="brand" href="#top">
+      <svg width="26" height="26" viewBox="0 0 64 64" role="img" aria-label="Orbital">
+        <defs>
+          <linearGradient id="navGrad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#ff7060"/>
+            <stop offset="1" stop-color="#c22718"/>
+          </linearGradient>
+        </defs>
+        <rect width="64" height="64" rx="14" fill="url(#navGrad)"/>
+        <circle cx="32" cy="31" r="7" fill="#fff" opacity="0.96"/>
+        <ellipse cx="32" cy="31" rx="24" ry="10" transform="rotate(-18 32 31)" fill="none" stroke="#fff" stroke-width="3" opacity="0.85"/>
+        <circle cx="56" cy="31" r="4.5" transform="rotate(-18 32 31)" fill="#fff"/>
+      </svg>
+      Orbital
+    </a>
+    <nav class="nav-links">
+      <a href="#how-it-works">How it works</a>
+      <a href="#features">Features</a>
+      <a href="#console">Console</a>
+      <a href="#docs">Docs</a>
+    </nav>
+    <a class="btn btn-ghost btn-sm" href="https://github.com/gggard/orbital" target="_blank" rel="noopener">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+      GitHub
+    </a>
+  </div>
+</header>
+
+<main id="top">
+
+  <section class="hero">
+    <div class="wrap">
+      <span class="eyebrow">GPL-3.0 · self-hosted · Kubernetes-native</span>
+      <h1>Streamlit hosting,<br>on <span class="accent">your</span> cluster.</h1>
+      <p class="lede">
+        Point Orbital at a git repo and the app is live on its own subdomain
+        minutes later — with secrets, logs, automatic redeploys, and
+        hibernation, all running on infrastructure you control.
+      </p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="https://github.com/gggard/orbital" target="_blank" rel="noopener">Star on GitHub</a>
+        <a class="btn btn-ghost" href="https://github.com/gggard/orbital/blob/main/docs/INSTALL.md" target="_blank" rel="noopener">Install guide →</a>
+      </div>
+      <p class="install-hint">Helm chart · runs on any Kubernetes cluster · <code>make setup-minikube</code> for local dev</p>
+
+      <div class="frame">
+        <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+        <img src="images/deploy-demo.gif" alt="Deploying an app in Orbital: fill in the repo, watch the build stream live, then the app goes live.">
+      </div>
+    </div>
+  </section>
+
+  <section id="how-it-works">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="kicker">How it works</span>
+        <h2>From git repo to live app, no infra work</h2>
+        <p>Three steps, entirely self-hosted — no dependency on external SaaS beyond the git host and your identity provider.</p>
+      </div>
+      <div class="steps">
+        <div class="step">
+          <div class="num">1</div>
+          <h3>Point at a repo</h3>
+          <p>Give a git URL, branch, and main file. Orbital resolves dependencies from <code>uv.lock</code>, <code>requirements.txt</code>, or <code>pyproject.toml</code> — whichever the repo has.</p>
+        </div>
+        <div class="step">
+          <div class="num">2</div>
+          <h3>Build &amp; deploy</h3>
+          <p>An immutable image is built in-cluster with BuildKit and deployed behind ingress at <code>https://&lt;slug&gt;.&lt;domain&gt;</code>. Status and logs stream live to the dashboard.</p>
+        </div>
+        <div class="step">
+          <div class="num">3</div>
+          <h3>Push to redeploy</h3>
+          <p>A per-app webhook (GitHub, GitLab, Gitea, generic) triggers a rebuild on push. Unchanged dependencies reuse the cached layer for fast rebuilds.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="features">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="kicker">Capabilities</span>
+        <h2>Everything a team needs to run Streamlit apps</h2>
+        <p>Not just a deploy button — day-two operations are built in.</p>
+      </div>
+      <div class="features">
+
+        <div class="feature">
+          <div class="icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
+          </div>
+          <h3>Deploy from git</h3>
+          <p>Clones the repo, resolves dependencies, builds an immutable container image, and deploys it behind its own subdomain.</p>
+        </div>
+
+        <div class="feature">
+          <div class="icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          </div>
+          <h3>Automatic redeploys</h3>
+          <p>Webhooks from GitHub, GitLab, Gitea, or a generic push trigger a rebuild — cached dependency layers keep it fast.</p>
+        </div>
+
+        <div class="feature">
+          <div class="icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          </div>
+          <h3>Secrets management</h3>
+          <p>TOML secrets edited in the dashboard, mounted at <code>.streamlit/secrets.toml</code> so <code>st.secrets</code> works exactly as it does locally.</p>
+        </div>
+
+        <div class="feature">
+          <div class="icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </div>
+          <h3>Sharing &amp; access control</h3>
+          <p>Apps are public or private behind OIDC login with per-app viewer allowlists; the console has group-based admin/creator/viewer roles.</p>
+        </div>
+
+        <div class="feature">
+          <div class="icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+          </div>
+          <h3>App management</h3>
+          <p>Live log streaming, reboot, rollback to a previous build, per-app CPU/memory indicators, and delete.</p>
+        </div>
+
+        <div class="feature">
+          <div class="icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          </div>
+          <h3>Hibernation</h3>
+          <p>Idle apps scale to zero and wake automatically on the next request — no wasted cluster resources.</p>
+        </div>
+
+        <div class="feature">
+          <div class="icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+          </div>
+          <h3>Analytics</h3>
+          <p>Per-app view counts and unique-viewer trends, visible to owners and admins.</p>
+        </div>
+
+        <div class="feature">
+          <div class="icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </div>
+          <h3>Safe multi-tenancy</h3>
+          <p>Every app runs as an isolated, hardened Deployment — non-root, read-only rootfs, no service-account token. Builds run in a separate namespace.</p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <section id="console">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="kicker">The console</span>
+        <h2>A dashboard for everything the platform does</h2>
+        <p>Deploy, observe, configure, share, and delete — nothing requires <code class="mono">kubectl</code>.</p>
+      </div>
+
+      <div class="showcase">
+        <div class="show-row">
+          <div class="show-copy">
+            <h3>One view of every app</h3>
+            <p>Apps are cards with live state — running, building, sleeping, or failed — refreshing automatically. Deploy a new one without leaving the page.</p>
+            <ul>
+              <li>Redeploy, reboot, or delete from the overflow menu</li>
+              <li>Private apps show a lock icon; state updates every few seconds</li>
+              <li>Click through to full detail: logs, builds, metrics, sharing</li>
+            </ul>
+          </div>
+          <div class="show-media frame">
+            <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+            <img src="images/console-apps.png" alt="Orbital console: apps overview grid">
+          </div>
+        </div>
+
+        <div class="show-row reverse">
+          <div class="show-copy">
+            <h3>Resource usage, without leaving the dashboard</h3>
+            <p>CPU and memory charts per app, sampled every 15 seconds from the cluster's metrics-server, next to the platform limit each app is running against.</p>
+            <ul>
+              <li>Definition, current build phase, and commit at a glance on Overview</li>
+              <li>Tabs for metrics, logs, build history, secrets, sharing, and settings</li>
+              <li>Redeploy or roll back to any previous build in one click</li>
+            </ul>
+          </div>
+          <div class="show-media frame">
+            <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+            <img src="images/console-metrics.png" alt="Orbital console: CPU and memory metrics for a running app">
+          </div>
+        </div>
+
+        <div class="show-row">
+          <div class="show-copy">
+            <h3>Share with exactly who should see it</h3>
+            <p>Flip an app private and it sits behind OIDC login with a per-app viewer allowlist — any provider with a groups claim works.</p>
+            <ul>
+              <li>Public or private, changed live with no rebuild</li>
+              <li>Allowlist by group; empty means any signed-in user</li>
+              <li>Console roles (admin / creator / viewer) are group-based too</li>
+            </ul>
+          </div>
+          <div class="show-media frame">
+            <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+            <img src="images/console-sharing.png" alt="Orbital console: sharing settings for a private app">
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="architecture">
+    <div class="wrap arch-grid">
+      <div>
+        <span class="kicker">Under the hood</span>
+        <h2 style="font-size:1.9rem;letter-spacing:-.01em;margin:0 0 16px">Built to run entirely on your cluster</h2>
+        <p style="color:var(--text-muted);margin:0 0 28px">
+          No external SaaS in the loop beyond the git hosts you deploy from and
+          your organization's OIDC identity provider. Every piece — control
+          plane, builds, apps, ingress — runs as Kubernetes objects you can
+          inspect with <code class="mono">kubectl</code>.
+        </p>
+        <ul class="arch-list">
+          <li><span class="dot2"></span><div><b>FastAPI control plane</b><span>Reconciles desired state (in the database) against the cluster — the single brain that owns every Kubernetes write.</span></div></li>
+          <li><span class="dot2"></span><div><b>BuildKit in a Job</b><span>Each build runs isolated in the <code class="mono">streamlit-builds</code> namespace, non-root, with cache-mount speedups for pip/uv.</span></div></li>
+          <li><span class="dot2"></span><div><b>Hardened app Deployments</b><span>One namespace for all apps, per-pod isolation: non-root, read-only rootfs, no service-account token.</span></div></li>
+          <li><span class="dot2"></span><div><b>oauth2-proxy + your IdP</b><span>Private apps and the console itself sit behind OIDC login; roles and allowlists resolve from group claims.</span></div></li>
+        </ul>
+      </div>
+      <div class="frame">
+        <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+        <img src="images/app-detail.png" alt="Orbital app detail: definition and current build">
+      </div>
+    </div>
+  </section>
+
+  <section id="docs">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="kicker">Documentation</span>
+        <h2>Guides for every audience</h2>
+      </div>
+      <div class="docs-grid">
+        <a class="doc-card" href="https://github.com/gggard/orbital/blob/main/docs/INSTALL.md" target="_blank" rel="noopener">
+          <b>Install</b><span>Deploy the Helm chart on a real cluster</span>
+        </a>
+        <a class="doc-card" href="https://github.com/gggard/orbital/blob/main/docs/ADMIN.md" target="_blank" rel="noopener">
+          <b>Admin</b><span>Operate the platform — roles, RBAC, upgrades</span>
+        </a>
+        <a class="doc-card" href="https://github.com/gggard/orbital/blob/main/docs/USER.md" target="_blank" rel="noopener">
+          <b>User guide</b><span>Deploy and manage your own apps</span>
+        </a>
+        <a class="doc-card" href="https://github.com/gggard/orbital/blob/main/docs/DEVELOPMENT.md" target="_blank" rel="noopener">
+          <b>Development</b><span>Contribute to Orbital — local dev on minikube</span>
+        </a>
+        <a class="doc-card" href="https://github.com/gggard/orbital/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener">
+          <b>Contributing</b><span>PR and issue workflow</span>
+        </a>
+        <a class="doc-card" href="https://github.com/gggard/orbital/blob/main/SPEC.md" target="_blank" rel="noopener">
+          <b>Specification</b><span>Full functional spec and architecture</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="footer-row">
+      <a class="brand" href="#top">
+        <svg width="20" height="20" viewBox="0 0 64 64" role="img" aria-label="Orbital">
+          <defs>
+            <linearGradient id="footGrad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#ff7060"/>
+              <stop offset="1" stop-color="#c22718"/>
+            </linearGradient>
+          </defs>
+          <rect width="64" height="64" rx="14" fill="url(#footGrad)"/>
+          <circle cx="32" cy="31" r="7" fill="#fff" opacity="0.96"/>
+          <ellipse cx="32" cy="31" rx="24" ry="10" transform="rotate(-18 32 31)" fill="none" stroke="#fff" stroke-width="3" opacity="0.85"/>
+          <circle cx="56" cy="31" r="4.5" transform="rotate(-18 32 31)" fill="#fff"/>
+        </svg>
+        Orbital
+      </a>
+      <div class="footer-links">
+        <a href="https://github.com/gggard/orbital" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/gggard/orbital/blob/main/SPEC.md" target="_blank" rel="noopener">Spec</a>
+        <a href="https://github.com/gggard/orbital/blob/main/LICENSE" target="_blank" rel="noopener">License</a>
+        <a href="https://github.com/gggard/orbital/issues" target="_blank" rel="noopener">Issues</a>
+      </div>
+    </div>
+    <p class="footer-note">Self-hosted platform for Streamlit apps on Kubernetes. Licensed under GPL-3.0.</p>
+  </div>
+</footer>
+
+</body>
+</html>

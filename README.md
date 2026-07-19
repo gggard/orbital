@@ -7,8 +7,10 @@ apps on Kubernetes. Point it at a git repository and the app is live on its
 own subdomain minutes later, with secrets management, logs, automatic
 redeploys on push, and hibernation of idle apps.
 
+**[orbital project site →](https://gggard.github.io/orbital/)**
+
 <p align="center">
-  <img src="docs/images/console-apps.png" width="720" alt="Orbital console: apps list showing three running apps">
+  <img src="docs/images/console-apps.png" width="720" alt="Orbital console: apps list showing a running and a building app">
 </p>
 
 ## Capabilities
