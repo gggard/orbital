@@ -56,6 +56,14 @@ export const loginUrl = (next: string) =>
 // the Keycloak SSO cookie is cleared too, not just our session
 export const logout = () => window.location.assign("/api/auth/logout");
 
+// known group directory for group pickers (role config + SH_KNOWN_GROUPS
+// + optional live Keycloak lookup); advisory — free text is still allowed
+export const useGroups = () =>
+  useSWR<{ groups: string[] }>("/api/v1/groups", jsonFetcher, {
+    revalidateOnFocus: false,
+    dedupingInterval: 60000,
+  });
+
 export const useApps = () =>
   useSWR<AppOut[]>("/api/v1/apps", jsonFetcher, { refreshInterval: 4000 });
 

@@ -104,6 +104,10 @@ spec:
               value: {{ .Values.auth.console.viewerGroups | toJson | quote }}
             - name: SH_PUBLIC_SHARING_GROUPS
               value: {{ .Values.auth.console.publicSharingGroups | toJson | quote }}
+            - name: SH_KNOWN_GROUPS
+              value: {{ .Values.auth.console.knownGroups | toJson | quote }}
+            - name: SH_GROUPS_FROM_KEYCLOAK
+              value: {{ .Values.auth.console.groupsFromKeycloak | quote }}
             {{- end }}
             {{- if .Values.auth.viewer.enabled }}
             - name: SH_AUTH_ENABLED

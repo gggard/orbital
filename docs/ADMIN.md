@@ -39,6 +39,23 @@ admin-only apps are admin actions** (console: app → Sharing → Ownership).
 to the internet; private apps require OIDC login through oauth2-proxy and a
 match against the app's `allowed_groups`.
 
+**Group directory (picker suggestions).** The group pickers in the console
+(viewer access, ownership, new-app dialog) suggest a directory of known
+groups. It always contains the role-config groups above; extend it with:
+
+- `auth.console.knownGroups` (`SH_KNOWN_GROUPS`) — a static list, works with
+  any IdP;
+- `auth.console.groupsFromKeycloak` (`SH_GROUPS_FROM_KEYCLOAK`) — list the
+  Keycloak realm's groups live (cached 60 s, subgroups flattened). The OIDC
+  client must have **service accounts enabled** and its service account
+  granted the `query-groups` and `view-users` roles of the realm's
+  `realm-management` client. If the lookup fails, the console silently falls
+  back to the configured lists. The demo realm in `deploy/auth/` ships with
+  this pre-configured.
+
+The directory is advisory: pickers still accept free-typed group names, and
+authorization always evaluates the OIDC `groups` claim at request time.
+
 **Restricting public sharing.** By default anyone who can manage an app may
 make it public. Set `auth.console.publicSharingGroups`
 (`SH_PUBLIC_SHARING_GROUPS`) to limit that right to specific groups — other

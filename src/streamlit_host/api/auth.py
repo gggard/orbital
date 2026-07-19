@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
 from ..config import Settings, get_settings
+from ..groups import known_groups
 from .security import User, can_publish, get_current_user, resolve_role
 
 log = logging.getLogger(__name__)
@@ -132,3 +133,17 @@ def me(
         "can_create": user.role in ("admin", "creator"),
         "can_publish": can_publish(user, settings),
     }
+
+
+@router.get("/api/v1/groups")
+def groups(
+    user: User = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
+):
+    """Known groups for the console's pickers (viewer access, ownership).
+
+    Merged from the role config, SH_KNOWN_GROUPS, and (when enabled) the
+    Keycloak realm's group list. Advisory only — free-typed group names are
+    still accepted everywhere.
+    """
+    return {"groups": known_groups(settings)}

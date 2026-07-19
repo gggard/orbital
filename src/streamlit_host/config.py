@@ -50,6 +50,12 @@ class Settings(BaseSettings):
     # user who can manage the app; non-empty = only members of these groups
     # (admins always may).
     public_sharing_groups: list[str] = []
+    # Group directory offered by the console's group pickers (viewer access,
+    # ownership). Always includes the role-config groups above; extend with a
+    # static list and/or a live lookup of the Keycloak realm's groups (admin
+    # REST API via the OIDC client's service account — see docs/ADMIN.md).
+    known_groups: list[str] = []
+    groups_from_keycloak: bool = False
     oidc_issuer_url: str = ""  # e.g. http://keycloak.<domain>:<port>/realms/streamlit
     oidc_client_id: str = "streamlit-host"
     oidc_client_secret: str = ""

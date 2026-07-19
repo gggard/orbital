@@ -12,11 +12,12 @@ import Switch from "@mui/material/Switch";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { useState } from "react";
-import { patchApp, useMe } from "@/lib/api";
+import { patchApp, useGroups, useMe } from "@/lib/api";
 import type { AppOut } from "@/lib/types";
 
 function ViewerAccessCard({ app, onSaved }: { app: AppOut; onSaved: () => void }) {
   const { data: me } = useMe();
+  const { data: groupsDir } = useGroups();
   const [isPublic, setIsPublic] = useState(app.public);
   const [groups, setGroups] = useState<string[]>(app.allowed_groups);
   const [error, setError] = useState("");
@@ -69,7 +70,7 @@ function ViewerAccessCard({ app, onSaved }: { app: AppOut; onSaved: () => void }
             <Autocomplete
               multiple
               freeSolo
-              options={["data-team", "viewers"]}
+              options={groupsDir?.groups ?? []}
               value={groups}
               onChange={(_, v) => setGroups(v as string[])}
               renderInput={(params) => (
@@ -98,12 +99,15 @@ function ViewerAccessCard({ app, onSaved }: { app: AppOut; onSaved: () => void }
 
 function OwnershipCard({ app, onSaved }: { app: AppOut; onSaved: () => void }) {
   const { data: me } = useMe();
+  const { data: groupsDir } = useGroups();
   const [ownerGroups, setOwnerGroups] = useState<string[]>(app.owner_groups);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
   const isAdmin = me?.role === "admin";
-  const options = [...new Set([...(me?.groups ?? []), ...app.owner_groups, "data-team", "viewers"])];
+  const options = [
+    ...new Set([...(groupsDir?.groups ?? []), ...(me?.groups ?? []), ...app.owner_groups]),
+  ].sort();
 
   const dirty = JSON.stringify(ownerGroups) !== JSON.stringify(app.owner_groups);
   // non-admins must keep at least one of their own groups (server enforces too)

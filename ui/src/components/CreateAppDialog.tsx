@@ -19,7 +19,7 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { createApp, useMe } from "@/lib/api";
+import { createApp, useGroups, useMe } from "@/lib/api";
 import { mono } from "@/theme";
 
 const SLUG_RE = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
@@ -34,6 +34,8 @@ export default function CreateAppDialog({
 }) {
   const router = useRouter();
   const { data: me } = useMe();
+  const { data: groupsDir } = useGroups();
+  const knownGroups = groupsDir?.groups ?? [];
   const mayPublish = me?.can_publish ?? true;
   const [slug, setSlug] = useState("");
   const [repoUrl, setRepoUrl] = useState("");
@@ -148,7 +150,7 @@ export default function CreateAppDialog({
             <Autocomplete
               multiple
               freeSolo
-              options={[]}
+              options={knownGroups}
               value={groups}
               onChange={(_, v) => setGroups(v as string[])}
               renderInput={(params) => (
@@ -156,7 +158,7 @@ export default function CreateAppDialog({
                   {...params}
                   size="small"
                   label="Allowed groups"
-                  helperText="press Enter after each group — empty means any signed-in user"
+                  helperText="pick a group or type one and press Enter — empty means any signed-in user"
                 />
               )}
             />

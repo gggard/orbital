@@ -51,6 +51,12 @@ data:
           "lastName": "Admin",
           "credentials": [{"type": "password", "value": "carol123", "temporary": false}],
           "groups": ["/admins"]
+        },
+        {
+          "username": "service-account-streamlit-host",
+          "enabled": true,
+          "serviceAccountClientId": "streamlit-host",
+          "clientRoles": {"realm-management": ["query-groups", "view-users"]}
         }
       ],
       "clients": [
@@ -62,6 +68,7 @@ data:
           "secret": "@CLIENT_SECRET@",
           "standardFlowEnabled": true,
           "directAccessGrantsEnabled": false,
+          "serviceAccountsEnabled": true,
           "redirectUris": [
             "http://auth.@DOMAIN@@PORT_SUFFIX@/oauth2/callback",
             "http://localhost:3000/*",

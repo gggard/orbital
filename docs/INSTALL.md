@@ -97,6 +97,11 @@ Register a confidential client at your IdP with:
 - Post-logout redirect URI: `https://<consoleHost>/` (RP-initiated logout).
 - A **groups claim** in the ID token (e.g. Keycloak "Group Membership" mapper,
   claim name `groups`, full path off). RBAC is entirely group-based.
+- (optional, Keycloak) to let the console's group pickers list the realm's
+  groups (`auth.console.groupsFromKeycloak=true`): enable **service accounts**
+  on the client and grant its service account the `query-groups` and
+  `view-users` roles of the realm's `realm-management` client. Otherwise
+  provide suggestions statically via `auth.console.knownGroups`.
 
 ### Private apps (viewer auth)
 

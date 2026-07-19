@@ -93,6 +93,14 @@ auth:
     # Empty = anyone who can manage the app; non-empty = only these groups
     # (admins always may).
     publicSharingGroups: []
+    # Group directory offered by the console's group pickers. The role
+    # groups above are always included; add more here, and/or set
+    # groupsFromKeycloak to list the realm's groups live via the Keycloak
+    # admin API (the OIDC client needs a service account with the
+    # realm-management roles query-groups + view-users). Free-typed group
+    # names remain accepted either way.
+    knownGroups: []
+    groupsFromKeycloak: false
   # Private-app viewer auth (oauth2-proxy in front of app ingresses).
   # Deploy your own oauth2-proxy (or use deploy/auth for a demo) and point
   # these at it; leave disabled to make all apps public-only.
