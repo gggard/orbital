@@ -1,0 +1,114 @@
+from functools import lru_cache
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    """Platform configuration. All values overridable via SH_* env vars."""
+
+    model_config = SettingsConfigDict(env_prefix="SH_", env_file=".env")
+
+    database_url: str = "sqlite:///./streamlit_host.db"
+
+    # Kubernetes
+    kube_context: str | None = None  # None -> default context / in-cluster
+    apps_namespace: str = "streamlit-apps"
+    builds_namespace: str = "streamlit-builds"
+
+    # Registry: builds push to push_url (in-cluster DNS), nodes pull via pull_prefix.
+    # Defaults match the minikube "registry" addon.
+    registry_push_url: str = "registry.kube-system.svc.cluster.local:80"
+    registry_pull_prefix: str = "localhost:5000"
+
+    # Base images per supported Python version, as repo:tag inside the registry.
+    python_versions: dict[str, str] = {"3.12": "streamlit-base:py3.12"}
+    default_python_version: str = "3.12"
+
+    # Routing
+    # "subdomain": apps at <slug>.<apps_domain> (needs wildcard DNS)
+    # "path":      apps at <apps_domain><apps_path_prefix>/<slug> (single host)
+    routing_mode: str = "subdomain"
+    apps_domain: str = "apps.local"
+    apps_path_prefix: str = "/app"  # only used in path mode
+    apps_url_port: int = 80  # port shown in app URLs (e.g. a forwarded tunnel port)
+    ingress_class: str = "nginx"
+
+    # Auth (SPEC §4.6/§5.5): oauth2-proxy + OIDC IdP fronting private apps.
+    auth_enabled: bool = False
+    # /oauth2/auth endpoint of oauth2-proxy, reachable from the control plane
+    oauth2_proxy_auth_url: str = ""
+    # base URL of this control plane, reachable from the ingress controller
+    authz_base_url: str = ""
+
+    # Management RBAC (group-based). Roles resolved from OIDC group claims:
+    # admin > creator > viewer; users in none of these groups cannot log in.
+    ui_auth_enabled: bool = False
+    admin_groups: list[str] = ["admins"]
+    creator_groups: list[str] = []
+    viewer_groups: list[str] = []
+    # Restrict who may make apps PUBLIC (anyone-with-the-URL). Empty = any
+    # user who can manage the app; non-empty = only members of these groups
+    # (admins always may).
+    public_sharing_groups: list[str] = []
+    oidc_issuer_url: str = ""  # e.g. http://keycloak.<domain>:<port>/realms/streamlit
+    oidc_client_id: str = "streamlit-host"
+    oidc_client_secret: str = ""
+    ui_base_url: str = "http://localhost:3000"  # browser-facing console URL
+    session_secret: str = "dev-session-secret-change-me"
+
+    # Build
+    # Rootless BuildKit is the default (SPEC §5.2); some environments (nested
+    # containers/LXC without user-namespace support) need privileged builds.
+    buildkit_rootless: bool = True
+    buildkit_image: str = ""  # empty -> auto based on buildkit_rootless
+    git_image: str = "alpine/git:latest"
+    build_ttl_seconds: int = 3600
+    build_timeout_seconds: int = 900
+
+    # App runtime defaults
+    app_cpu_request: str = "250m"
+    app_cpu_limit: str = "1"
+    app_mem_request: str = "512Mi"
+    app_mem_limit: str = "2Gi"
+    app_port: int = 8501
+
+    # Reconciler
+    reconciler_enabled: bool = True
+    reconcile_interval: float = 3.0
+
+    def resolved_buildkit_image(self) -> str:
+        if self.buildkit_image:
+            return self.buildkit_image
+        return "moby/buildkit:rootless" if self.buildkit_rootless else "moby/buildkit:latest"
+
+    def base_image_for(self, python_version: str) -> str:
+        """Base image reference as resolvable from inside the cluster (push URL)."""
+        return f"{self.registry_push_url}/{self.python_versions[python_version]}"
+
+    def app_image(self, app_id: str, build_id: str, *, pull: bool) -> str:
+        prefix = self.registry_pull_prefix if pull else self.registry_push_url
+        return f"{prefix}/apps/{app_id}:{build_id}"
+
+    def url_port_suffix(self) -> str:
+        return "" if self.apps_url_port == 80 else f":{self.apps_url_port}"
+
+    def base_url_path(self, slug: str) -> str:
+        """Streamlit server.baseUrlPath for an app ("" in subdomain mode)."""
+        if self.routing_mode != "path":
+            return ""
+        return f"{self.apps_path_prefix.rstrip('/')}/{slug}"
+
+    def app_url(self, slug: str) -> str:
+        port = self.url_port_suffix()
+        if self.routing_mode == "path":
+            return f"http://{self.apps_domain}{port}{self.base_url_path(slug)}/"
+        return f"http://{slug}.{self.apps_domain}{port}"
+
+    def auth_signin_url(self) -> str:
+        """Browser-facing oauth2-proxy sign-in URL (auth.<apps_domain>)."""
+        return f"http://auth.{self.apps_domain}{self.url_port_suffix()}/oauth2/start"
+
+
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()

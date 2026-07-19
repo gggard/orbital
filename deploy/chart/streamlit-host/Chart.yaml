@@ -1,0 +1,6 @@
+apiVersion: v2
+name: streamlit-host
+description: Self-hosted Streamlit application platform (control plane, console, build system)
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

@@ -1,0 +1,20 @@
+streamlit-host {{ .Chart.AppVersion }} installed.
+
+Console:      http{{ if .Values.ingress.tls.enabled }}s{{ end }}://{{ .Values.ingress.consoleHost }}
+Hosted apps:  http://<slug>.{{ .Values.apps.domain }}{{ if ne (int .Values.apps.urlPort) 80 }}:{{ .Values.apps.urlPort }}{{ end }}
+
+Next steps:
+1. Make sure wildcard DNS *.{{ .Values.apps.domain }} and {{ .Values.ingress.consoleHost }}
+   point at your ingress controller.
+{{- if .Values.baseImages.build }}
+2. Base images are being built by post-install jobs in namespace
+   {{ .Values.builds.namespace }} (kubectl get jobs -n {{ .Values.builds.namespace }}).
+{{- else }}
+2. Build and push the app base images yourself (see docs/ADMIN.md).
+{{- end }}
+{{- if not .Values.auth.console.enabled }}
+3. Console auth is DISABLED - anyone reaching the console has admin rights.
+   Enable auth.console for production (see docs/INSTALL.md).
+{{- end }}
+
+Docs: docs/INSTALL.md (install), docs/ADMIN.md (operations), docs/USER.md (users).

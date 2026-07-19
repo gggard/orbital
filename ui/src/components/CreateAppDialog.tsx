@@ -1,0 +1,193 @@
+"use client";
+
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import Accordion from "@mui/material/Accordion";
+import AccordionDetails from "@mui/material/AccordionDetails";
+import AccordionSummary from "@mui/material/AccordionSummary";
+import Alert from "@mui/material/Alert";
+import Autocomplete from "@mui/material/Autocomplete";
+import Button from "@mui/material/Button";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogTitle from "@mui/material/DialogTitle";
+import FormControlLabel from "@mui/material/FormControlLabel";
+import MenuItem from "@mui/material/MenuItem";
+import Stack from "@mui/material/Stack";
+import Switch from "@mui/material/Switch";
+import TextField from "@mui/material/TextField";
+import Typography from "@mui/material/Typography";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { createApp, useMe } from "@/lib/api";
+import { mono } from "@/theme";
+
+const SLUG_RE = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
+const PYTHON_VERSIONS = ["3.12"];
+
+export default function CreateAppDialog({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
+  const router = useRouter();
+  const { data: me } = useMe();
+  const mayPublish = me?.can_publish ?? true;
+  const [slug, setSlug] = useState("");
+  const [repoUrl, setRepoUrl] = useState("");
+  const [branch, setBranch] = useState("main");
+  const [mainFile, setMainFile] = useState("streamlit_app.py");
+  const [python, setPython] = useState(PYTHON_VERSIONS[0]);
+  const [isPublic, setIsPublic] = useState(true);
+  const [groups, setGroups] = useState<string[]>([]);
+  const [secrets, setSecrets] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const slugOk = SLUG_RE.test(slug);
+  const canSubmit = slugOk && repoUrl.trim() !== "" && !busy;
+
+  const submit = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      const effectivePublic = isPublic && mayPublish;
+      const app = await createApp({
+        slug,
+        repo_url: repoUrl.trim(),
+        branch: branch.trim() || "main",
+        main_file: mainFile.trim() || "streamlit_app.py",
+        python_version: python,
+        public: effectivePublic,
+        allowed_groups: effectivePublic ? [] : groups,
+        secrets_toml: secrets.trim() || undefined,
+      });
+      onClose();
+      router.push(`/apps/${app.id}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle>Deploy a new app</DialogTitle>
+      <DialogContent>
+        <Stack spacing={2} sx={{ mt: 1 }}>
+          {error && <Alert severity="error">{error}</Alert>}
+          <TextField
+            label="Slug"
+            required
+            size="small"
+            value={slug}
+            onChange={(e) => setSlug(e.target.value.toLowerCase())}
+            error={slug !== "" && !slugOk}
+            helperText={`the app URL becomes <slug>.<apps-domain>${
+              slug && !slugOk ? " — lowercase letters, digits and dashes only" : ""
+            }`}
+          />
+          <TextField
+            label="Git repository URL"
+            required
+            size="small"
+            placeholder="https://github.com/org/repo"
+            value={repoUrl}
+            onChange={(e) => setRepoUrl(e.target.value)}
+          />
+          <Stack direction="row" spacing={2}>
+            <TextField
+              label="Branch"
+              size="small"
+              fullWidth
+              value={branch}
+              onChange={(e) => setBranch(e.target.value)}
+            />
+            <TextField
+              label="Main file"
+              size="small"
+              fullWidth
+              value={mainFile}
+              onChange={(e) => setMainFile(e.target.value)}
+            />
+            <TextField
+              label="Python"
+              size="small"
+              select
+              sx={{ minWidth: 100 }}
+              value={python}
+              onChange={(e) => setPython(e.target.value)}
+            >
+              {PYTHON_VERSIONS.map((v) => (
+                <MenuItem key={v} value={v}>
+                  {v}
+                </MenuItem>
+              ))}
+            </TextField>
+          </Stack>
+          <FormControlLabel
+            control={
+              <Switch
+                checked={isPublic && mayPublish}
+                disabled={!mayPublish}
+                onChange={(e) => setIsPublic(e.target.checked)}
+              />
+            }
+            label={
+              <Typography variant="body2">
+                {mayPublish
+                  ? "Public — anyone with the URL can open the app"
+                  : "Public sharing is restricted to specific groups on this platform"}
+              </Typography>
+            }
+          />
+          {!(isPublic && mayPublish) && (
+            <Autocomplete
+              multiple
+              freeSolo
+              options={[]}
+              value={groups}
+              onChange={(_, v) => setGroups(v as string[])}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  size="small"
+                  label="Allowed groups"
+                  helperText="press Enter after each group — empty means any signed-in user"
+                />
+              )}
+            />
+          )}
+          <Accordion variant="outlined" disableGutters>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+              <Typography variant="body2">Secrets (optional)</Typography>
+            </AccordionSummary>
+            <AccordionDetails>
+              <TextField
+                fullWidth
+                multiline
+                minRows={5}
+                placeholder={'api_key = "..."\n\n[db]\nhost = "..."'}
+                value={secrets}
+                onChange={(e) => setSecrets(e.target.value)}
+                slotProps={{
+                  input: { sx: { fontFamily: mono, fontSize: "0.8rem" } },
+                }}
+                helperText="TOML, exposed to the app via st.secrets"
+              />
+            </AccordionDetails>
+          </Accordion>
+        </Stack>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>Cancel</Button>
+        <Button variant="contained" loading={busy} disabled={!canSubmit} onClick={submit}>
+          Deploy
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}

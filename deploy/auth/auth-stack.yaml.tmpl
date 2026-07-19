@@ -1,0 +1,247 @@
+# Auth stack (SPEC §5.5): Keycloak (demo IdP, dev mode) + oauth2-proxy.
+# Placeholders (@VAR@) are substituted by setup-auth.sh.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: streamlit-platform
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: keycloak-realm
+  namespace: streamlit-platform
+data:
+  streamlit-realm.json: |
+    {
+      "realm": "streamlit",
+      "enabled": true,
+      "registrationAllowed": false,
+      "groups": [
+        {"name": "admins"},
+        {"name": "data-team"},
+        {"name": "viewers"}
+      ],
+      "users": [
+        {
+          "username": "alice",
+          "enabled": true,
+          "email": "alice@example.com",
+          "emailVerified": true,
+          "firstName": "Alice",
+          "lastName": "Datateam",
+          "credentials": [{"type": "password", "value": "alice123", "temporary": false}],
+          "groups": ["/data-team"]
+        },
+        {
+          "username": "bob",
+          "enabled": true,
+          "email": "bob@example.com",
+          "emailVerified": true,
+          "firstName": "Bob",
+          "lastName": "Viewer",
+          "credentials": [{"type": "password", "value": "bob123", "temporary": false}],
+          "groups": ["/viewers"]
+        },
+        {
+          "username": "carol",
+          "enabled": true,
+          "email": "carol@example.com",
+          "emailVerified": true,
+          "firstName": "Carol",
+          "lastName": "Admin",
+          "credentials": [{"type": "password", "value": "carol123", "temporary": false}],
+          "groups": ["/admins"]
+        }
+      ],
+      "clients": [
+        {
+          "clientId": "streamlit-host",
+          "enabled": true,
+          "protocol": "openid-connect",
+          "publicClient": false,
+          "secret": "@CLIENT_SECRET@",
+          "standardFlowEnabled": true,
+          "directAccessGrantsEnabled": false,
+          "redirectUris": [
+            "http://auth.@DOMAIN@@PORT_SUFFIX@/oauth2/callback",
+            "http://localhost:3000/*",
+            "http://localhost:8000/*"
+          ],
+          "webOrigins": ["+"],
+          "attributes": {"post.logout.redirect.uris": "+"},
+          "protocolMappers": [
+            {
+              "name": "groups",
+              "protocol": "openid-connect",
+              "protocolMapper": "oidc-group-membership-mapper",
+              "consentRequired": false,
+              "config": {
+                "claim.name": "groups",
+                "full.path": "false",
+                "id.token.claim": "true",
+                "access.token.claim": "true",
+                "userinfo.token.claim": "true"
+              }
+            }
+          ]
+        }
+      ]
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keycloak
+  namespace: streamlit-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: keycloak}
+  template:
+    metadata:
+      labels: {app: keycloak}
+    spec:
+      containers:
+        - name: keycloak
+          image: quay.io/keycloak/keycloak:26.0
+          args: ["start-dev", "--import-realm"]
+          env:
+            - {name: KC_BOOTSTRAP_ADMIN_USERNAME, value: admin}
+            - {name: KC_BOOTSTRAP_ADMIN_PASSWORD, value: admin}
+            - {name: KEYCLOAK_ADMIN, value: admin}
+            - {name: KEYCLOAK_ADMIN_PASSWORD, value: admin}
+            - {name: KC_HOSTNAME, value: "http://keycloak.@DOMAIN@@PORT_SUFFIX@"}
+            - {name: KC_HTTP_ENABLED, value: "true"}
+            - {name: KC_PROXY_HEADERS, value: xforwarded}
+          ports:
+            - containerPort: 8080
+          volumeMounts:
+            - {name: realm, mountPath: /opt/keycloak/data/import, readOnly: true}
+          readinessProbe:
+            httpGet: {path: /realms/streamlit, port: 8080}
+            initialDelaySeconds: 30
+            periodSeconds: 5
+            failureThreshold: 60
+          resources:
+            requests: {cpu: 250m, memory: 1Gi}
+            limits: {cpu: "1", memory: 2Gi}
+      volumes:
+        - name: realm
+          configMap: {name: keycloak-realm}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: keycloak
+  namespace: streamlit-platform
+spec:
+  selector: {app: keycloak}
+  ports:
+    - {port: 8080, targetPort: 8080}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: keycloak
+  namespace: streamlit-platform
+spec:
+  ingressClassName: "@INGRESS_CLASS@"
+  rules:
+    - host: keycloak.@DOMAIN@
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service: {name: keycloak, port: {number: 8080}}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: oauth2-proxy
+  namespace: streamlit-platform
+stringData:
+  cookie-secret: "@COOKIE_SECRET@"
+  client-secret: "@CLIENT_SECRET@"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oauth2-proxy
+  namespace: streamlit-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: oauth2-proxy}
+  template:
+    metadata:
+      labels: {app: oauth2-proxy}
+    spec:
+      containers:
+        - name: oauth2-proxy
+          image: quay.io/oauth2-proxy/oauth2-proxy:v7.7.1
+          args:
+            - --http-address=0.0.0.0:4180
+            - --provider=oidc
+            - --skip-oidc-discovery
+            # browser-facing issuer/login (through the ingress + dev tunnel) ...
+            - --oidc-issuer-url=http://keycloak.@DOMAIN@@PORT_SUFFIX@/realms/streamlit
+            - --login-url=http://keycloak.@DOMAIN@@PORT_SUFFIX@/realms/streamlit/protocol/openid-connect/auth
+            # ... but token redemption and JWKS fetch go cluster-internal
+            - --redeem-url=http://keycloak.streamlit-platform.svc.cluster.local:8080/realms/streamlit/protocol/openid-connect/token
+            - --oidc-jwks-url=http://keycloak.streamlit-platform.svc.cluster.local:8080/realms/streamlit/protocol/openid-connect/certs
+            - --validate-url=http://keycloak.streamlit-platform.svc.cluster.local:8080/realms/streamlit/protocol/openid-connect/userinfo
+            - --client-id=streamlit-host
+            - --email-domain=*
+            - --scope=openid email profile
+            - --cookie-domain=.@DOMAIN@
+            - --cookie-secure=false
+            - --cookie-expire=12h
+            - --whitelist-domain=.@DOMAIN@
+            - --whitelist-domain=.@DOMAIN@@PORT_SUFFIX@
+            - --set-xauthrequest
+            - --skip-provider-button
+            - --reverse-proxy
+            - --upstream=static://202
+          env:
+            - name: OAUTH2_PROXY_COOKIE_SECRET
+              valueFrom: {secretKeyRef: {name: oauth2-proxy, key: cookie-secret}}
+            - name: OAUTH2_PROXY_CLIENT_SECRET
+              valueFrom: {secretKeyRef: {name: oauth2-proxy, key: client-secret}}
+          ports:
+            - containerPort: 4180
+          readinessProbe:
+            httpGet: {path: /ping, port: 4180}
+            initialDelaySeconds: 3
+          resources:
+            requests: {cpu: 50m, memory: 64Mi}
+            limits: {cpu: 500m, memory: 256Mi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: oauth2-proxy
+  namespace: streamlit-platform
+spec:
+  # NodePort so the control plane (running outside the cluster in local dev)
+  # can validate sessions at <node-ip>:30480/oauth2/auth
+  type: NodePort
+  selector: {app: oauth2-proxy}
+  ports:
+    - {port: 80, targetPort: 4180, nodePort: 30480}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: oauth2-proxy
+  namespace: streamlit-platform
+spec:
+  ingressClassName: "@INGRESS_CLASS@"
+  rules:
+    - host: auth.@DOMAIN@
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service: {name: oauth2-proxy, port: {number: 80}}

@@ -1,0 +1,80 @@
+{{- if .Values.baseImages.build }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "sh.fullname" . }}-base-image-build
+  namespace: {{ .Values.builds.namespace }}
+  labels: {{- include "sh.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-weight: "-1"
+    helm.sh/hook-delete-policy: before-hook-creation
+data:
+  Dockerfile: |
+{{ .Files.Get "files/base-image.Dockerfile" | indent 4 }}
+  buildkitd.toml: |
+    [registry."{{ .Values.registry.pushUrl }}"]
+      http = true
+{{- range .Values.baseImages.pythonVersions }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "sh.fullname" $ }}-base-py{{ . | replace "." "" }}-r{{ $.Release.Revision }}
+  namespace: {{ $.Values.builds.namespace }}
+  labels: {{- include "sh.labels" $ | nindent 4 }}
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  backoffLimit: 1
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels: {{- include "sh.labels" $ | nindent 8 }}
+      {{- if $.Values.builds.rootless }}
+      annotations:
+        container.apparmor.security.beta.kubernetes.io/buildkit: unconfined
+      {{- end }}
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      containers:
+        - name: buildkit
+          image: {{ if $.Values.builds.rootless }}moby/buildkit:rootless{{ else }}moby/buildkit:latest{{ end }}
+          command:
+            - sh
+            - -c
+            - |
+              buildctl-daemonless.sh build \
+                --frontend dockerfile.v0 \
+                --local context=/ctx --local dockerfile=/ctx \
+                --opt build-arg:PYTHON_VERSION={{ . }} \
+                --output type=image,name={{ $.Values.registry.pushUrl }}/streamlit-base:py{{ . }},push=true,registry.insecure=true
+          env:
+            - name: BUILDKITD_FLAGS
+              value: {{ if $.Values.builds.rootless }}--oci-worker-no-process-sandbox{{ else }}""{{ end }}
+          securityContext:
+            {{- if $.Values.builds.rootless }}
+            seccompProfile: {type: Unconfined}
+            runAsUser: 1000
+            runAsGroup: 1000
+            {{- else }}
+            privileged: true
+            {{- end }}
+          volumeMounts:
+            - name: ctx
+              mountPath: /ctx
+            - name: buildkitd-config
+              mountPath: {{ if $.Values.builds.rootless }}/home/user/.config/buildkit/buildkitd.toml{{ else }}/etc/buildkit/buildkitd.toml{{ end }}
+              subPath: buildkitd.toml
+      volumes:
+        - name: ctx
+          configMap:
+            name: {{ include "sh.fullname" $ }}-base-image-build
+            items: [{key: Dockerfile, path: Dockerfile}]
+        - name: buildkitd-config
+          configMap:
+            name: {{ include "sh.fullname" $ }}-base-image-build
+{{- end }}
+{{- end }}

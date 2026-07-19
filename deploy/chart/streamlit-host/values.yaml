@@ -1,0 +1,109 @@
+# streamlit-host Helm chart values.
+# See docs/INSTALL.md for a guided walkthrough.
+
+image:
+  controlPlane:
+    repository: localhost:5000/streamlit-host/control-plane
+    tag: 0.1.0
+    pullPolicy: IfNotPresent
+  console:
+    repository: localhost:5000/streamlit-host/console
+    tag: 0.1.0
+    pullPolicy: IfNotPresent
+
+# Hosted Streamlit apps
+apps:
+  # routing: "subdomain" -> apps at <slug>.<domain> (needs wildcard DNS)
+  #          "path"      -> apps at <domain><pathPrefix>/<slug> (single host, no wildcard DNS)
+  routing: subdomain
+  pathPrefix: /app
+  # subdomain mode: wildcard DNS *.<domain> must resolve to your ingress
+  # path mode: only <domain> itself must resolve
+  domain: apps.example.com
+  # port shown in app URLs (80 for a normal ingress; a tunnel port for local dev)
+  urlPort: 80
+  namespace: streamlit-apps
+  createNamespace: true
+  resources:
+    cpuRequest: 250m
+    cpuLimit: "1"
+    memRequest: 512Mi
+    memLimit: 2Gi
+
+builds:
+  namespace: streamlit-builds
+  createNamespace: true
+  # rootless BuildKit (recommended); set false on clusters without
+  # user-namespace support (builds then run privileged)
+  rootless: true
+  timeoutSeconds: 900
+
+# Container registry used for app images.
+# pushUrl:    registry endpoint reachable from build pods (in-cluster DNS ok)
+# pullPrefix: image prefix as pullable by the cluster's nodes
+registry:
+  pushUrl: registry.kube-system.svc.cluster.local:80
+  pullPrefix: localhost:5000
+  # dev/demo convenience: deploy a plain registry:2 inside the cluster.
+  # For production bring your own registry (Harbor, ECR, GCR, ...).
+  internal:
+    enabled: false
+    storageSize: 10Gi
+
+# Base images for hosted apps: one per supported Python version.
+# When build.enabled, a post-install Job builds and pushes them with BuildKit.
+baseImages:
+  build: true
+  pythonVersions: ["3.12"]
+
+# Control plane database. Empty url -> SQLite on a PVC (single replica only).
+# For production set a PostgreSQL URL, e.g. postgresql+psycopg://user:pw@host/db
+database:
+  url: ""
+  persistence:
+    size: 1Gi
+    storageClass: ""
+
+ingress:
+  className: nginx
+  # hostname of the management console (and API)
+  consoleHost: streamlit.example.com
+  tls:
+    enabled: false
+    secretName: ""
+
+console:
+  enabled: true
+  # public URL of the console (used for OIDC redirects)
+  url: http://streamlit.example.com
+
+auth:
+  # Console login + RBAC (SPEC: management RBAC). Disable only for demos.
+  console:
+    enabled: false
+    issuerUrl: ""            # e.g. https://keycloak.example.com/realms/myrealm
+    clientId: streamlit-host
+    clientSecret: ""         # or use existingSecret
+    existingSecret: ""       # secret with keys: oidc-client-secret, session-secret
+    sessionSecret: ""        # random string; generated secret recommended
+    adminGroups: ["admins"]
+    creatorGroups: []
+    viewerGroups: []
+    # Restrict who may make apps PUBLIC (anyone-with-the-URL).
+    # Empty = anyone who can manage the app; non-empty = only these groups
+    # (admins always may).
+    publicSharingGroups: []
+  # Private-app viewer auth (oauth2-proxy in front of app ingresses).
+  # Deploy your own oauth2-proxy (or use deploy/auth for a demo) and point
+  # these at it; leave disabled to make all apps public-only.
+  viewer:
+    enabled: false
+    oauth2ProxyAuthUrl: ""   # /oauth2/auth endpoint reachable from control plane
+    signinHost: ""           # browser-facing auth host (defaults to auth.<apps.domain>)
+
+controlPlane:
+  replicas: 1
+  reconcileInterval: 3
+  resources:
+    requests: {cpu: 100m, memory: 256Mi}
+    limits: {cpu: "1", memory: 512Mi}

@@ -1,0 +1,147 @@
+{{- if not .Values.database.url }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "sh.controlPlaneName" . }}-data
+  namespace: {{ .Release.Namespace }}
+  labels: {{- include "sh.labels" . | nindent 4 }}
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: {{ .Values.database.persistence.size }}
+  {{- with .Values.database.persistence.storageClass }}
+  storageClassName: {{ . }}
+  {{- end }}
+---
+{{- end }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "sh.controlPlaneName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels: {{- include "sh.labels" . | nindent 4 }}
+spec:
+  replicas: {{ if .Values.database.url }}{{ .Values.controlPlane.replicas }}{{ else }}1{{ end }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: control-plane
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: control-plane
+        {{- include "sh.labels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "sh.controlPlaneName" . }}
+      containers:
+        - name: control-plane
+          image: "{{ .Values.image.controlPlane.repository }}:{{ .Values.image.controlPlane.tag }}"
+          imagePullPolicy: {{ .Values.image.controlPlane.pullPolicy }}
+          ports:
+            - containerPort: 8000
+          env:
+            - name: SH_DATABASE_URL
+              value: {{ .Values.database.url | default "sqlite:////data/streamlit_host.db" | quote }}
+            - name: SH_APPS_NAMESPACE
+              value: {{ .Values.apps.namespace | quote }}
+            - name: SH_BUILDS_NAMESPACE
+              value: {{ .Values.builds.namespace | quote }}
+            - name: SH_ROUTING_MODE
+              value: {{ .Values.apps.routing | quote }}
+            - name: SH_APPS_PATH_PREFIX
+              value: {{ .Values.apps.pathPrefix | quote }}
+            - name: SH_APPS_DOMAIN
+              value: {{ .Values.apps.domain | quote }}
+            - name: SH_APPS_URL_PORT
+              value: {{ .Values.apps.urlPort | quote }}
+            - name: SH_INGRESS_CLASS
+              value: {{ .Values.ingress.className | quote }}
+            - name: SH_REGISTRY_PUSH_URL
+              value: {{ .Values.registry.pushUrl | quote }}
+            - name: SH_REGISTRY_PULL_PREFIX
+              value: {{ .Values.registry.pullPrefix | quote }}
+            - name: SH_PYTHON_VERSIONS
+              value: {{ include "sh.pythonVersionsJson" . | quote }}
+            - name: SH_BUILDKIT_ROOTLESS
+              value: {{ .Values.builds.rootless | quote }}
+            - name: SH_BUILD_TIMEOUT_SECONDS
+              value: {{ .Values.builds.timeoutSeconds | quote }}
+            - name: SH_RECONCILE_INTERVAL
+              value: {{ .Values.controlPlane.reconcileInterval | quote }}
+            - name: SH_APP_CPU_REQUEST
+              value: {{ .Values.apps.resources.cpuRequest | quote }}
+            - name: SH_APP_CPU_LIMIT
+              value: {{ .Values.apps.resources.cpuLimit | quote }}
+            - name: SH_APP_MEM_REQUEST
+              value: {{ .Values.apps.resources.memRequest | quote }}
+            - name: SH_APP_MEM_LIMIT
+              value: {{ .Values.apps.resources.memLimit | quote }}
+            - name: SH_UI_BASE_URL
+              value: {{ .Values.console.url | quote }}
+            {{- if .Values.auth.console.enabled }}
+            - name: SH_UI_AUTH_ENABLED
+              value: "true"
+            - name: SH_OIDC_ISSUER_URL
+              value: {{ .Values.auth.console.issuerUrl | quote }}
+            - name: SH_OIDC_CLIENT_ID
+              value: {{ .Values.auth.console.clientId | quote }}
+            - name: SH_OIDC_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "sh.authSecretName" . }}
+                  key: oidc-client-secret
+            - name: SH_SESSION_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "sh.authSecretName" . }}
+                  key: session-secret
+            - name: SH_ADMIN_GROUPS
+              value: {{ .Values.auth.console.adminGroups | toJson | quote }}
+            - name: SH_CREATOR_GROUPS
+              value: {{ .Values.auth.console.creatorGroups | toJson | quote }}
+            - name: SH_VIEWER_GROUPS
+              value: {{ .Values.auth.console.viewerGroups | toJson | quote }}
+            - name: SH_PUBLIC_SHARING_GROUPS
+              value: {{ .Values.auth.console.publicSharingGroups | toJson | quote }}
+            {{- end }}
+            {{- if .Values.auth.viewer.enabled }}
+            - name: SH_AUTH_ENABLED
+              value: "true"
+            - name: SH_OAUTH2_PROXY_AUTH_URL
+              value: {{ .Values.auth.viewer.oauth2ProxyAuthUrl | quote }}
+            - name: SH_AUTHZ_BASE_URL
+              value: "http://{{ include "sh.controlPlaneName" . }}.{{ .Release.Namespace }}.svc:8000"
+            {{- end }}
+          readinessProbe:
+            httpGet: {path: /healthz, port: 8000}
+            initialDelaySeconds: 3
+          livenessProbe:
+            httpGet: {path: /healthz, port: 8000}
+            initialDelaySeconds: 15
+          resources: {{- toYaml .Values.controlPlane.resources | nindent 12 }}
+          {{- if not .Values.database.url }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          {{- end }}
+      {{- if not .Values.database.url }}
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "sh.controlPlaneName" . }}-data
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "sh.controlPlaneName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels: {{- include "sh.labels" . | nindent 4 }}
+spec:
+  selector:
+    app.kubernetes.io/component: control-plane
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - port: 8000
+      targetPort: 8000

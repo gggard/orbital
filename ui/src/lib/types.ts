@@ -1,0 +1,71 @@
+export type AppState =
+  | "created"
+  | "building"
+  | "deploying"
+  | "running"
+  | "sleeping"
+  | "build_failed"
+  | "deploy_failed"
+  | "deleting";
+
+export type BuildPhase = "pending" | "running" | "succeeded" | "failed";
+
+export interface AppOut {
+  id: string;
+  slug: string;
+  repo_url: string;
+  branch: string;
+  main_file: string;
+  python_version: string;
+  public: boolean;
+  allowed_groups: string[];
+  owner_groups: string[];
+  state: AppState;
+  error: string | null;
+  current_build_id: string | null;
+  url: string;
+  webhook_path: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BuildOut {
+  id: string;
+  app_id: string;
+  commit_sha: string | null;
+  image: string | null;
+  phase: BuildPhase;
+  error: string | null;
+  created_at: string;
+  finished_at: string | null;
+}
+
+export interface AppCreate {
+  slug: string;
+  repo_url: string;
+  branch: string;
+  main_file: string;
+  python_version?: string;
+  public: boolean;
+  allowed_groups: string[];
+  secrets_toml?: string;
+}
+
+export interface Me {
+  authenticated: boolean;
+  auth_enabled: boolean;
+  email: string;
+  groups: string[];
+  role: "admin" | "creator" | "viewer";
+  can_create: boolean;
+  can_publish: boolean;
+}
+
+export interface AppUpdate {
+  branch?: string;
+  main_file?: string;
+  python_version?: string;
+  public?: boolean;
+  allowed_groups?: string[];
+  owner_groups?: string[];
+}

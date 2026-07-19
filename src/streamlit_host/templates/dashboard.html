@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>streamlit-host</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+  body { margin: 0 auto; max-width: 960px; padding: 1.5rem; }
+  h1 { font-size: 1.4rem; } h1 span { color: #e74c3c; }
+  table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+  th, td { text-align: left; padding: .5rem .6rem; border-bottom: 1px solid #8884; font-size: .9rem; }
+  .state { padding: .15rem .5rem; border-radius: 1rem; font-size: .78rem; white-space: nowrap; }
+  .running { background: #2ecc7133; color: #27ae60; }
+  .building, .deploying, .created { background: #f39c1233; color: #d68910; }
+  .build_failed, .deploy_failed { background: #e74c3c33; color: #c0392b; }
+  .deleting, .sleeping { background: #7f8c8d33; color: #7f8c8d; }
+  button { cursor: pointer; border: 1px solid #8886; background: transparent; color: inherit;
+           border-radius: 4px; padding: .25rem .6rem; font-size: .8rem; margin-right: .25rem; }
+  button:hover { background: #8882; }
+  form#create { display: grid; grid-template-columns: repeat(6, 1fr); gap: .5rem; margin-top: 1rem;
+                padding: 1rem; border: 1px solid #8884; border-radius: 8px; }
+  form#create input, form#create select { padding: .4rem; border: 1px solid #8886; border-radius: 4px;
+                background: transparent; color: inherit; }
+  form#create button { grid-column: span 1; background: #e74c3c; color: white; border: none; }
+  #err { color: #c0392b; font-size: .85rem; min-height: 1.2rem; }
+  .mono { font-family: ui-monospace, monospace; font-size: .8rem; }
+  dialog { border: 1px solid #8886; border-radius: 8px; max-width: 80ch; }
+  dialog pre { max-height: 60vh; overflow: auto; font-size: .75rem; }
+</style>
+</head>
+<body>
+<h1><span>&#x1F388;</span> streamlit-host <small style="font-weight:normal;color:#888">apps at *.{{ apps_domain }}</small></h1>
+
+<form id="create">
+  <input name="slug" placeholder="slug" required pattern="[a-z0-9][a-z0-9-]*" style="grid-column: span 1">
+  <input name="repo_url" placeholder="git repository URL" required style="grid-column: span 2">
+  <input name="branch" placeholder="branch (main)" style="grid-column: span 1">
+  <input name="main_file" placeholder="main file (streamlit_app.py)" style="grid-column: span 1">
+  <button type="submit">Deploy</button>
+  <label style="grid-column: span 2; display:flex; align-items:center; gap:.4rem; font-size:.85rem">
+    <input type="checkbox" name="private" style="width:auto"> Private app
+  </label>
+  <input name="groups" placeholder="allowed groups, comma-separated (empty = any signed-in user)"
+         style="grid-column: span 4">
+</form>
+<div id="err"></div>
+
+<table>
+  <thead><tr><th>App</th><th>State</th><th>Repo</th><th>URL</th><th>Actions</th></tr></thead>
+  <tbody id="apps"></tbody>
+</table>
+
+<dialog id="logdlg"><h3 id="logtitle"></h3><pre id="logbody"></pre>
+  <form method="dialog"><button>Close</button></form></dialog>
+
+<script>
+const api = (path, opts) => fetch('/api/v1' + path, opts).then(async r => {
+  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || r.statusText);
+  return r.headers.get('content-type')?.includes('json') ? r.json() : r.text();
+});
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+async function refresh() {
+  try {
+    const apps = await api('/apps');
+    document.getElementById('apps').innerHTML = apps.map(a => `
+      <tr>
+        <td><b>${esc(a.slug)}</b> ${a.public ? '' : '&#x1F512;'}<br><span class="mono">${esc(a.id)}</span>
+            ${a.public ? '' : `<br><small class="mono">${a.allowed_groups.length ? esc(a.allowed_groups.join(', ')) : 'any signed-in user'}</small>`}</td>
+        <td><span class="state ${esc(a.state)}">${esc(a.state)}</span>
+            ${a.error ? `<br><small class="mono" title="${esc(a.error)}">${esc(a.error.slice(0, 60))}</small>` : ''}</td>
+        <td class="mono">${esc(a.repo_url.replace('https://',''))}<br>${esc(a.branch)} &middot; ${esc(a.main_file)}</td>
+        <td><a href="${esc(a.url)}" target="_blank">${esc(a.slug)}.{{ apps_domain }}</a></td>
+        <td>
+          <button onclick="act('${a.id}','deploy')">Redeploy</button>
+          <button onclick="act('${a.id}','reboot')">Reboot</button>
+          <button onclick="showLogs('${a.id}','${esc(a.slug)}', '${a.current_build_id ?? ''}')">Logs</button>
+          <button onclick="if(confirm('Delete ${esc(a.slug)}?')) act('${a.id}','','DELETE')">Delete</button>
+        </td>
+      </tr>`).join('');
+  } catch (e) { showErr(e); }
+}
+const showErr = e => { document.getElementById('err').textContent = e.message || e; setTimeout(() => document.getElementById('err').textContent = '', 6000); };
+async function act(id, action, method = 'POST') {
+  try { await api(`/apps/${id}` + (action ? `/${action}` : ''), {method}); refresh(); }
+  catch (e) { showErr(e); }
+}
+async function showLogs(id, slug, buildId) {
+  let text;
+  try {
+    text = await api(`/apps/${id}/logs?tail=200`);
+    if (!text.trim() && buildId) text = await api(`/apps/${id}/builds/${buildId}/logs`);
+  } catch (e) { text = String(e); }
+  document.getElementById('logtitle').textContent = `Logs: ${slug}`;
+  document.getElementById('logbody').textContent = text || '[empty]';
+  document.getElementById('logdlg').showModal();
+}
+document.getElementById('create').addEventListener('submit', async ev => {
+  ev.preventDefault();
+  const f = new FormData(ev.target);
+  const body = {
+    slug: f.get('slug'), repo_url: f.get('repo_url'),
+    branch: f.get('branch') || 'main', main_file: f.get('main_file') || 'streamlit_app.py',
+    public: !f.get('private'),
+    allowed_groups: (f.get('groups') || '').split(',').map(s => s.trim()).filter(Boolean),
+  };
+  try {
+    await api('/apps', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+    ev.target.reset(); refresh();
+  } catch (e) { showErr(e); }
+});
+refresh();
+setInterval(refresh, 4000);
+</script>
+</body>
+</html>

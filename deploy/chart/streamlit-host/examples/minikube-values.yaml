@@ -1,0 +1,28 @@
+# Example values: minikube with the registry + ingress addons and the
+# VS Code / SSH tunnel workflow from the README (apps on port 8090).
+# helm install streamlit-host deploy/chart/streamlit-host \
+#   -n streamlit-platform --create-namespace -f this-file.yaml
+image:
+  controlPlane:
+    repository: localhost:5000/streamlit-host/control-plane
+    tag: 0.1.0
+  console:
+    repository: localhost:5000/streamlit-host/console
+    tag: 0.1.0
+
+apps:
+  domain: 127.0.0.1.nip.io
+  urlPort: 8090
+
+ingress:
+  consoleHost: console.127.0.0.1.nip.io
+
+console:
+  url: http://console.127.0.0.1.nip.io:8090
+
+builds:
+  rootless: false   # required on hosts without user-namespace support
+
+# minikube registry addon defaults already match:
+# registry.pushUrl:    registry.kube-system.svc.cluster.local:80
+# registry.pullPrefix: localhost:5000

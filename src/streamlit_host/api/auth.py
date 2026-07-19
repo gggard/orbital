@@ -1,0 +1,134 @@
+"""Console OIDC login (authorization-code flow) and session endpoints."""
+
+import logging
+import secrets as pysecrets
+from urllib.parse import urlencode
+
+import httpx
+import jwt
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import RedirectResponse
+
+from ..config import Settings, get_settings
+from .security import User, can_publish, get_current_user, resolve_role
+
+log = logging.getLogger(__name__)
+
+router = APIRouter(tags=["auth"])
+
+_jwks_clients: dict[str, jwt.PyJWKClient] = {}
+
+
+def _endpoints(settings: Settings) -> dict[str, str]:
+    base = settings.oidc_issuer_url.rstrip("/")
+    return {
+        "authorize": f"{base}/protocol/openid-connect/auth",
+        "token": f"{base}/protocol/openid-connect/token",
+        "jwks": f"{base}/protocol/openid-connect/certs",
+        "logout": f"{base}/protocol/openid-connect/logout",
+    }
+
+
+def _redirect_uri(settings: Settings) -> str:
+    return f"{settings.ui_base_url.rstrip('/')}/api/auth/callback"
+
+
+def _verify_id_token(id_token: str, settings: Settings) -> dict:
+    jwks_url = _endpoints(settings)["jwks"]
+    client = _jwks_clients.setdefault(jwks_url, jwt.PyJWKClient(jwks_url))
+    key = client.get_signing_key_from_jwt(id_token)
+    return jwt.decode(
+        id_token,
+        key.key,
+        algorithms=["RS256"],
+        audience=settings.oidc_client_id,
+        issuer=settings.oidc_issuer_url.rstrip("/"),
+    )
+
+
+@router.get("/api/auth/login")
+def login(request: Request, next: str = "/", settings: Settings = Depends(get_settings)):
+    if not settings.ui_auth_enabled:
+        return RedirectResponse(next)
+    state = pysecrets.token_urlsafe(16)
+    request.session["oauth_state"] = state
+    request.session["post_login_redirect"] = next if next.startswith("/") else "/"
+    params = {
+        "client_id": settings.oidc_client_id,
+        "response_type": "code",
+        "scope": "openid email profile",
+        "redirect_uri": _redirect_uri(settings),
+        "state": state,
+    }
+    return RedirectResponse(f"{_endpoints(settings)['authorize']}?{urlencode(params)}")
+
+
+@router.get("/api/auth/callback")
+def callback(
+    request: Request,
+    code: str = "",
+    state: str = "",
+    settings: Settings = Depends(get_settings),
+):
+    if not code or state != request.session.pop("oauth_state", None):
+        raise HTTPException(400, "invalid login callback (state mismatch)")
+    try:
+        resp = httpx.post(
+            _endpoints(settings)["token"],
+            data={
+                "grant_type": "authorization_code",
+                "code": code,
+                "redirect_uri": _redirect_uri(settings),
+                "client_id": settings.oidc_client_id,
+                "client_secret": settings.oidc_client_secret,
+            },
+            timeout=10,
+        )
+        resp.raise_for_status()
+        claims = _verify_id_token(resp.json()["id_token"], settings)
+    except (httpx.HTTPError, jwt.PyJWTError, KeyError) as e:
+        log.warning("login failed: %s", e)
+        raise HTTPException(502, f"login failed: {e}")
+
+    email = claims.get("email", claims.get("preferred_username", ""))
+    groups = [g for g in claims.get("groups", []) if isinstance(g, str)]
+    request.session["user"] = {"email": email, "groups": groups}
+    # kept for RP-initiated logout (id_token_hint), so signing out also ends
+    # the Keycloak SSO session
+    request.session["id_token"] = resp.json()["id_token"]
+    log.info("console login: %s (groups=%s, role=%s)",
+             email, groups, resolve_role(groups, settings))
+    return RedirectResponse(request.session.pop("post_login_redirect", "/"))
+
+
+@router.get("/api/auth/logout")
+def logout(request: Request, settings: Settings = Depends(get_settings)):
+    """Browser navigation target: clears the console session AND the IdP SSO
+    session (RP-initiated logout), then returns to the console."""
+    id_token = request.session.pop("id_token", None)
+    request.session.clear()
+    home = settings.ui_base_url.rstrip("/") + "/"
+    if not settings.ui_auth_enabled or not id_token:
+        return RedirectResponse(home)
+    params = {
+        "id_token_hint": id_token,
+        "post_logout_redirect_uri": home,
+        "client_id": settings.oidc_client_id,
+    }
+    return RedirectResponse(f"{_endpoints(settings)['logout']}?{urlencode(params)}")
+
+
+@router.get("/api/v1/me")
+def me(
+    user: User = Depends(get_current_user),
+    settings: Settings = Depends(get_settings),
+):
+    return {
+        "authenticated": True,
+        "auth_enabled": settings.ui_auth_enabled,
+        "email": user.email,
+        "groups": user.groups,
+        "role": user.role,
+        "can_create": user.role in ("admin", "creator"),
+        "can_publish": can_publish(user, settings),
+    }
