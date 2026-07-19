@@ -3,9 +3,9 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: {{ include "sh.fullname" . }}-registry
+  name: {{ include "orbital.fullname" . }}-registry
   namespace: {{ .Release.Namespace }}
-  labels: {{- include "sh.labels" . | nindent 4 }}
+  labels: {{- include "orbital.labels" . | nindent 4 }}
 spec:
   accessModes: [ReadWriteOnce]
   resources:
@@ -15,9 +15,9 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "sh.fullname" . }}-registry
+  name: {{ include "orbital.fullname" . }}-registry
   namespace: {{ .Release.Namespace }}
-  labels: {{- include "sh.labels" . | nindent 4 }}
+  labels: {{- include "orbital.labels" . | nindent 4 }}
 spec:
   replicas: 1
   selector:
@@ -28,7 +28,7 @@ spec:
     metadata:
       labels:
         app.kubernetes.io/component: registry
-        {{- include "sh.labels" . | nindent 8 }}
+        {{- include "orbital.labels" . | nindent 8 }}
     spec:
       containers:
         - name: registry
@@ -41,14 +41,14 @@ spec:
       volumes:
         - name: data
           persistentVolumeClaim:
-            claimName: {{ include "sh.fullname" . }}-registry
+            claimName: {{ include "orbital.fullname" . }}-registry
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "sh.fullname" . }}-registry
+  name: {{ include "orbital.fullname" . }}-registry
   namespace: {{ .Release.Namespace }}
-  labels: {{- include "sh.labels" . | nindent 4 }}
+  labels: {{- include "orbital.labels" . | nindent 4 }}
 spec:
   selector:
     app.kubernetes.io/component: registry

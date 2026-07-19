@@ -2,9 +2,9 @@
 
 import pytest
 
-from streamlit_host.config import Settings
-from streamlit_host.k8s import resources
-from streamlit_host.models import App
+from orbital.config import Settings
+from orbital.k8s import resources
+from orbital.models import App
 
 
 def make_app(slug="demo") -> App:

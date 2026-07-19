@@ -1,5 +1,5 @@
 [project]
-name = "streamlit-host"
+name = "orbital"
 version = "0.1.0"
 description = "Self-hosted Streamlit hosting platform on Kubernetes"
 requires-python = ">=3.12"

@@ -148,7 +148,7 @@ def groups(
 ):
     """Known groups for the console's pickers (viewer access, ownership).
 
-    Merged from the role config, SH_KNOWN_GROUPS, and (when enabled) the
+    Merged from the role config, ORBITAL_KNOWN_GROUPS, and (when enabled) the
     Keycloak realm's group list. ``q`` filters by case-insensitive substring;
     ``limit`` caps the response so huge directories stay usable. Advisory
     only — free-typed group names are still accepted everywhere.

@@ -1,4 +1,4 @@
-# UI Specification: streamlit-host Management Console
+# UI Specification: Orbital Management Console
 
 **Status:** v1 · **Stack:** Next.js (App Router, TypeScript) + MUI (Material UI) + SWR
 **Replaces:** the minimal single-file dashboard served by FastAPI at `/`.

@@ -1,4 +1,4 @@
-# streamlit-host — User Manual
+# Orbital — User Manual
 
 Audience: developers deploying Streamlit apps (creator role) and app viewers.
 If something in the console is missing for you (no "New app" button, no

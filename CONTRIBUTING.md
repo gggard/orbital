@@ -1,6 +1,6 @@
-# Contributing to streamlit-host
+# Contributing to Orbital
 
-Thanks for your interest in improving streamlit-host. This document covers
+Thanks for your interest in improving Orbital. This document covers
 the mechanics of contributing; for local environment setup (minikube, the
 console, the demo auth stack) see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 

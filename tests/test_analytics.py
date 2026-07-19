@@ -5,10 +5,10 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from fastapi.testclient import TestClient
 
-from streamlit_host import analytics
-from streamlit_host.api.security import User, get_current_user
-from streamlit_host.config import get_settings
-from streamlit_host.models import App, ViewEvent
+from orbital import analytics
+from orbital.api.security import User, get_current_user
+from orbital.config import get_settings
+from orbital.models import App, ViewEvent
 
 ADMIN = User(email="carol@example.com", groups=["admins"], role="admin")
 CREATOR = User(email="alice@example.com", groups=["data-team"], role="creator")
@@ -17,15 +17,15 @@ OUTSIDER = User(email="bob@example.com", groups=["other-team"], role="creator")
 
 @pytest.fixture
 def client(tmp_path, monkeypatch):
-    monkeypatch.setenv("SH_DATABASE_URL", f"sqlite:///{tmp_path}/test.db")
-    monkeypatch.setenv("SH_RECONCILER_ENABLED", "false")
-    monkeypatch.setenv("SH_AUTH_ENABLED", "true")
-    monkeypatch.setenv("SH_OAUTH2_PROXY_AUTH_URL", "http://oauth2-proxy.test/oauth2/auth")
-    monkeypatch.setenv("SH_UI_AUTH_ENABLED", "false")
-    monkeypatch.setenv("SH_APPS_DOMAIN", "apps.local")
+    monkeypatch.setenv("ORBITAL_DATABASE_URL", f"sqlite:///{tmp_path}/test.db")
+    monkeypatch.setenv("ORBITAL_RECONCILER_ENABLED", "false")
+    monkeypatch.setenv("ORBITAL_AUTH_ENABLED", "true")
+    monkeypatch.setenv("ORBITAL_OAUTH2_PROXY_AUTH_URL", "http://oauth2-proxy.test/oauth2/auth")
+    monkeypatch.setenv("ORBITAL_UI_AUTH_ENABLED", "false")
+    monkeypatch.setenv("ORBITAL_APPS_DOMAIN", "apps.local")
     get_settings.cache_clear()
-    from streamlit_host import db
-    from streamlit_host.main import app
+    from orbital import db
+    from orbital.main import app
 
     db.init_engine(f"sqlite:///{tmp_path}/test.db")
     with TestClient(app) as c:
@@ -52,7 +52,7 @@ def make_client_app(client, slug="demo", **extra):
 
 
 def test_record_view_dedupes_within_window():
-    from streamlit_host import db as db_mod
+    from orbital import db as db_mod
 
     db_mod.init_engine("sqlite://")
     with db_mod.session_scope() as session:
@@ -66,7 +66,7 @@ def test_record_view_dedupes_within_window():
 
 
 def test_record_view_distinct_keys_both_recorded():
-    from streamlit_host import db as db_mod
+    from orbital import db as db_mod
 
     db_mod.init_engine("sqlite://")
     with db_mod.session_scope() as session:
@@ -80,7 +80,7 @@ def test_record_view_distinct_keys_both_recorded():
 
 
 def test_record_view_outside_window_counted_again():
-    from streamlit_host import db as db_mod
+    from orbital import db as db_mod
 
     db_mod.init_engine("sqlite://")
     with db_mod.session_scope() as session:
@@ -96,7 +96,7 @@ def test_record_view_outside_window_counted_again():
 
 
 def test_record_view_blank_key_ignored():
-    from streamlit_host import db as db_mod
+    from orbital import db as db_mod
 
     db_mod.init_engine("sqlite://")
     with db_mod.session_scope() as session:
@@ -112,7 +112,7 @@ def test_record_view_blank_key_ignored():
 
 
 def test_summary_aggregates_totals_and_daily_series():
-    from streamlit_host import db as db_mod
+    from orbital import db as db_mod
 
     db_mod.init_engine("sqlite://")
     with db_mod.session_scope() as session:
@@ -147,7 +147,7 @@ def test_summary_aggregates_totals_and_daily_series():
 
 
 def test_summary_empty_app_has_zeroed_stats():
-    from streamlit_host import db as db_mod
+    from orbital import db as db_mod
 
     db_mod.init_engine("sqlite://")
     with db_mod.session_scope() as session:
@@ -186,7 +186,7 @@ def test_repeated_public_pings_dedupe_to_one_view(client):
 
 
 def test_private_authz_records_named_viewer(client, monkeypatch):
-    from streamlit_host.api import authz
+    from orbital.api import authz
 
     monkeypatch.setattr(
         authz, "check_session", lambda url, cookie: (True, "alice@example.com", ["data-team"])
@@ -201,7 +201,7 @@ def test_private_authz_records_named_viewer(client, monkeypatch):
 
 
 def test_private_authz_denied_group_records_no_view(client, monkeypatch):
-    from streamlit_host.api import authz
+    from orbital.api import authz
 
     monkeypatch.setattr(
         authz, "check_session", lambda url, cookie: (True, "bob@example.com", ["other"])
@@ -239,7 +239,7 @@ def test_analytics_hidden_from_non_owning_group(client):
 
 
 def test_deleting_app_removes_view_events():
-    from streamlit_host import db as db_mod
+    from orbital import db as db_mod
 
     db_mod.init_engine("sqlite://")
     with db_mod.session_scope() as session:

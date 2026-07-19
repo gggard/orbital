@@ -12,7 +12,7 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_PREFIX: ghcr.io/${{ github.repository }}
-  CHART_PATH: deploy/chart/streamlit-host
+  CHART_PATH: deploy/chart/orbital
 
 jobs:
   version:
@@ -93,7 +93,7 @@ jobs:
         run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login "$REGISTRY" -u "${{ github.actor }}" --password-stdin
 
       - name: Push chart
-        run: helm push dist/streamlit-host-${{ needs.version.outputs.version }}.tgz "oci://${{ env.IMAGE_PREFIX }}/charts"
+        run: helm push dist/orbital-${{ needs.version.outputs.version }}.tgz "oci://${{ env.IMAGE_PREFIX }}/charts"
 
       - uses: actions/upload-artifact@v4
         with:

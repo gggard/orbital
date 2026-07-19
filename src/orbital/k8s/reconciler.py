@@ -393,7 +393,7 @@ class Reconciler:
             "spec": {
                 "template": {
                     "metadata": {
-                        "annotations": {"app.streamlit-host.io/restarted-at": _now_iso()}
+                        "annotations": {"app.orbital.io/restarted-at": _now_iso()}
                     }
                 }
             }
@@ -422,7 +422,7 @@ class Reconciler:
         # surface crash loops / pull errors instead of waiting forever
         pods = client.core().list_namespaced_pod(
             self.settings.apps_namespace,
-            label_selector=f"app.streamlit-host.io/app-id={app.id}",
+            label_selector=f"app.orbital.io/app-id={app.id}",
         )
         for pod in pods.items:
             for cs in pod.status.container_statuses or []:
@@ -445,7 +445,7 @@ class Reconciler:
         )
         jobs = client.batch().list_namespaced_job(
             s.builds_namespace,
-            label_selector=f"app.streamlit-host.io/app-id={app.id}",
+            label_selector=f"app.orbital.io/app-id={app.id}",
         )
         for job in jobs.items:
             _not_found_ok(

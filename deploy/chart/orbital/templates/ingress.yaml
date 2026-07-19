@@ -2,9 +2,9 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ include "sh.consoleName" . }}
+  name: {{ include "orbital.consoleName" . }}
   namespace: {{ .Release.Namespace }}
-  labels: {{- include "sh.labels" . | nindent 4 }}
+  labels: {{- include "orbital.labels" . | nindent 4 }}
 spec:
   ingressClassName: {{ .Values.ingress.className }}
   {{- if .Values.ingress.tls.enabled }}
@@ -20,6 +20,6 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: {{ include "sh.consoleName" . }}
+                name: {{ include "orbital.consoleName" . }}
                 port: {number: 3000}
 {{- end }}

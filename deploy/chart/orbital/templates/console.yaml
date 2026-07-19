@@ -2,9 +2,9 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "sh.consoleName" . }}
+  name: {{ include "orbital.consoleName" . }}
   namespace: {{ .Release.Namespace }}
-  labels: {{- include "sh.labels" . | nindent 4 }}
+  labels: {{- include "orbital.labels" . | nindent 4 }}
 spec:
   replicas: 1
   selector:
@@ -15,7 +15,7 @@ spec:
     metadata:
       labels:
         app.kubernetes.io/component: console
-        {{- include "sh.labels" . | nindent 8 }}
+        {{- include "orbital.labels" . | nindent 8 }}
     spec:
       containers:
         - name: console
@@ -25,7 +25,7 @@ spec:
             - containerPort: 3000
           env:
             - name: CONTROL_PLANE_URL
-              value: "http://{{ include "sh.controlPlaneName" . }}:8000"
+              value: "http://{{ include "orbital.controlPlaneName" . }}:8000"
           readinessProbe:
             httpGet: {path: /, port: 3000}
             initialDelaySeconds: 3
@@ -36,9 +36,9 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "sh.consoleName" . }}
+  name: {{ include "orbital.consoleName" . }}
   namespace: {{ .Release.Namespace }}
-  labels: {{- include "sh.labels" . | nindent 4 }}
+  labels: {{- include "orbital.labels" . | nindent 4 }}
 spec:
   selector:
     app.kubernetes.io/component: console

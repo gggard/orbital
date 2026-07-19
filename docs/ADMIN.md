@@ -1,4 +1,4 @@
-# streamlit-host — Administrator Manual
+# Orbital — Administrator Manual
 
 Audience: platform operators (members of `auth.console.adminGroups`).
 
@@ -43,9 +43,9 @@ match against the app's `allowed_groups`.
 (viewer access, ownership, new-app dialog) suggest a directory of known
 groups. It always contains the role-config groups above; extend it with:
 
-- `auth.console.knownGroups` (`SH_KNOWN_GROUPS`) — a static list, works with
+- `auth.console.knownGroups` (`ORBITAL_KNOWN_GROUPS`) — a static list, works with
   any IdP;
-- `auth.console.groupsFromKeycloak` (`SH_GROUPS_FROM_KEYCLOAK`) — list the
+- `auth.console.groupsFromKeycloak` (`ORBITAL_GROUPS_FROM_KEYCLOAK`) — list the
   Keycloak realm's groups live (cached 60 s, subgroups flattened). The OIDC
   client must have **service accounts enabled** and its service account
   granted the `query-groups` and `view-users` roles of the realm's
@@ -58,7 +58,7 @@ authorization always evaluates the OIDC `groups` claim at request time.
 
 **Restricting public sharing.** By default anyone who can manage an app may
 make it public. Set `auth.console.publicSharingGroups`
-(`SH_PUBLIC_SHARING_GROUPS`) to limit that right to specific groups — other
+(`ORBITAL_PUBLIC_SHARING_GROUPS`) to limit that right to specific groups — other
 users can then only deploy private apps (the console greys out the Public
 switch; the API rejects the transition with 403). Admins are always allowed.
 Already-public apps stay public until someone flips them; the policy gates
@@ -79,7 +79,7 @@ the private→public transition.
   ```bash
   kubectl -n streamlit-apps get deploy,pods       # runtime health
   kubectl -n streamlit-builds get jobs,pods        # builds in flight
-  kubectl -n streamlit-platform logs deploy/streamlit-host-control-plane
+  kubectl -n orbital-platform logs deploy/orbital-control-plane
   ```
 
 ### Python versions & base images
@@ -99,7 +99,7 @@ the build job re-runs. Apps pick the new base at their next rebuild
 
 Apps are routed by **subdomain** (`<slug>.<apps-domain>`, needs wildcard DNS)
 or by **path** (`<apps-domain>/app/<slug>`, one host — for environments
-without wildcard DNS). Set `apps.routing` (`SH_ROUTING_MODE`) and optionally
+without wildcard DNS). Set `apps.routing` (`ORBITAL_ROUTING_MODE`) and optionally
 `apps.pathPrefix`. Switching modes is safe on a live platform: the reconciler
 migrates every running app's ingress and redeploys it with the matching
 Streamlit `baseUrlPath` (a brief rolling restart per app). Bookmarked URLs
@@ -114,9 +114,9 @@ control plane scales it back to one replica and repoints its ingress; no
 extra authentication is required beyond the app's normal sharing mode.
 
 - Platform default: `hibernation.enabled` / `hibernation.timeoutHours`
-  (`SH_HIBERNATION_ENABLED` / `SH_HIBERNATION_TIMEOUT_SECONDS`).
+  (`ORBITAL_HIBERNATION_ENABLED` / `ORBITAL_HIBERNATION_TIMEOUT_SECONDS`).
 - Platform maximum: `hibernation.maxTimeoutHours`
-  (`SH_HIBERNATION_MAX_TIMEOUT_SECONDS`), default **7 days**. Caps how high
+  (`ORBITAL_HIBERNATION_MAX_TIMEOUT_SECONDS`), default **7 days**. Caps how high
   an app's timeout can go, whether raised per-app or via the platform
   default — apps are guaranteed to eventually be reclaimed. Must be `>=`
   the default timeout (checked at startup).
@@ -128,7 +128,7 @@ extra authentication is required beyond the app's normal sharing mode.
   the app's Ingress is repointed at the control plane (via the in-namespace
   `sh-wake-proxy` `ExternalName` Service) which doubles as the wake proxy.
   Requires `hibernation.enabled` and a control plane Service reachable from
-  the ingress controller (`SH_CONTROL_PLANE_SERVICE_HOST/PORT`, set
+  the ingress controller (`ORBITAL_CONTROL_PLANE_SERVICE_HOST/PORT`, set
   automatically by the chart).
 
 ### Git-poll auto-update
@@ -140,9 +140,9 @@ periodically runs `git ls-remote` on the tracked branch and redeploys if the
 head has moved since the last deployed build.
 
 - Platform default interval: `gitPoll.defaultIntervalMinutes`
-  (`SH_GIT_POLL_DEFAULT_INTERVAL_SECONDS`), default 10 minutes.
+  (`ORBITAL_GIT_POLL_DEFAULT_INTERVAL_SECONDS`), default 10 minutes.
 - Platform minimum: `gitPoll.minIntervalMinutes`
-  (`SH_GIT_POLL_MIN_INTERVAL_SECONDS`), default **1 minute**. Floors how low
+  (`ORBITAL_GIT_POLL_MIN_INTERVAL_SECONDS`), default **1 minute**. Floors how low
   an app's interval can go, whether lowered per-app or via the platform
   default — keeps `git ls-remote` traffic against developers' git hosts
   bounded. Must be `<=` the default interval (checked at startup).

@@ -1,17 +1,17 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: {{ include "sh.controlPlaneName" . }}
+  name: {{ include "orbital.controlPlaneName" . }}
   namespace: {{ .Release.Namespace }}
-  labels: {{- include "sh.labels" . | nindent 4 }}
+  labels: {{- include "orbital.labels" . | nindent 4 }}
 ---
 # app runtime objects
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: {{ include "sh.fullname" . }}-apps
+  name: {{ include "orbital.fullname" . }}-apps
   namespace: {{ .Values.apps.namespace }}
-  labels: {{- include "sh.labels" . | nindent 4 }}
+  labels: {{- include "orbital.labels" . | nindent 4 }}
 rules:
   - apiGroups: [""]
     resources: [services, secrets, configmaps]
@@ -33,25 +33,25 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: {{ include "sh.fullname" . }}-apps
+  name: {{ include "orbital.fullname" . }}-apps
   namespace: {{ .Values.apps.namespace }}
-  labels: {{- include "sh.labels" . | nindent 4 }}
+  labels: {{- include "orbital.labels" . | nindent 4 }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: {{ include "sh.fullname" . }}-apps
+  name: {{ include "orbital.fullname" . }}-apps
 subjects:
   - kind: ServiceAccount
-    name: {{ include "sh.controlPlaneName" . }}
+    name: {{ include "orbital.controlPlaneName" . }}
     namespace: {{ .Release.Namespace }}
 ---
 # build jobs
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: {{ include "sh.fullname" . }}-builds
+  name: {{ include "orbital.fullname" . }}-builds
   namespace: {{ .Values.builds.namespace }}
-  labels: {{- include "sh.labels" . | nindent 4 }}
+  labels: {{- include "orbital.labels" . | nindent 4 }}
 rules:
   - apiGroups: [batch]
     resources: [jobs]
@@ -66,14 +66,14 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: {{ include "sh.fullname" . }}-builds
+  name: {{ include "orbital.fullname" . }}-builds
   namespace: {{ .Values.builds.namespace }}
-  labels: {{- include "sh.labels" . | nindent 4 }}
+  labels: {{- include "orbital.labels" . | nindent 4 }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: {{ include "sh.fullname" . }}-builds
+  name: {{ include "orbital.fullname" . }}-builds
 subjects:
   - kind: ServiceAccount
-    name: {{ include "sh.controlPlaneName" . }}
+    name: {{ include "orbital.controlPlaneName" . }}
     namespace: {{ .Release.Namespace }}

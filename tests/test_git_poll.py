@@ -6,9 +6,9 @@ from unittest.mock import patch
 import pytest
 from fastapi.testclient import TestClient
 
-from streamlit_host.config import Settings, get_settings
-from streamlit_host.gitutil import GitError
-from streamlit_host.models import App, AppState, Build, BuildPhase, PendingAction
+from orbital.config import Settings, get_settings
+from orbital.gitutil import GitError
+from orbital.models import App, AppState, Build, BuildPhase, PendingAction
 
 
 def make_app(
@@ -37,10 +37,10 @@ def make_app(
 
 @pytest.fixture
 def reconciler(monkeypatch, tmp_path):
-    monkeypatch.setenv("SH_DATABASE_URL", f"sqlite:///{tmp_path}/test.db")
+    monkeypatch.setenv("ORBITAL_DATABASE_URL", f"sqlite:///{tmp_path}/test.db")
     get_settings.cache_clear()
-    from streamlit_host import db as db_mod
-    from streamlit_host.k8s.reconciler import Reconciler
+    from orbital import db as db_mod
+    from orbital.k8s.reconciler import Reconciler
 
     db_mod.init_engine(f"sqlite:///{tmp_path}/test.db")
     r = Reconciler()
@@ -49,7 +49,7 @@ def reconciler(monkeypatch, tmp_path):
 
 
 def _persist(app: App, build: Build | None = None) -> str:
-    from streamlit_host import db as db_mod
+    from orbital import db as db_mod
 
     with db_mod.session_scope() as session:
         session.add(app)
@@ -59,7 +59,7 @@ def _persist(app: App, build: Build | None = None) -> str:
 
 
 def test_settings_reject_min_interval_above_default_interval():
-    with pytest.raises(ValueError, match="SH_GIT_POLL_MIN_INTERVAL_SECONDS"):
+    with pytest.raises(ValueError, match="ORBITAL_GIT_POLL_MIN_INTERVAL_SECONDS"):
         Settings(
             git_poll_default_interval_seconds=300,
             git_poll_min_interval_seconds=600,
@@ -68,12 +68,12 @@ def test_settings_reject_min_interval_above_default_interval():
 
 
 def test_poll_disabled_by_default_is_noop(reconciler):
-    from streamlit_host import db as db_mod
+    from orbital import db as db_mod
 
     app_id = _persist(make_app(poll_enabled=False))
     with db_mod.session_scope() as session:
         app = session.get(App, app_id)
-        with patch("streamlit_host.k8s.reconciler.resolve_branch_head") as mock_resolve:
+        with patch("orbital.k8s.reconciler.resolve_branch_head") as mock_resolve:
             reconciler._maybe_poll_git(session, app)
         mock_resolve.assert_not_called()
         assert app.pending_action == PendingAction.none
@@ -81,18 +81,18 @@ def test_poll_disabled_by_default_is_noop(reconciler):
 
 
 def test_poll_skips_when_interval_not_elapsed(reconciler):
-    from streamlit_host import db as db_mod
+    from orbital import db as db_mod
 
     app_id = _persist(make_app(last_polled_at=datetime.now(UTC) - timedelta(seconds=30)))
     with db_mod.session_scope() as session:
         app = session.get(App, app_id)
-        with patch("streamlit_host.k8s.reconciler.resolve_branch_head") as mock_resolve:
+        with patch("orbital.k8s.reconciler.resolve_branch_head") as mock_resolve:
             reconciler._maybe_poll_git(session, app)
         mock_resolve.assert_not_called()
 
 
 def test_poll_triggers_redeploy_on_new_commit(reconciler):
-    from streamlit_host import db as db_mod
+    from orbital import db as db_mod
 
     build = Build(
         id="bld000000001",
@@ -104,7 +104,7 @@ def test_poll_triggers_redeploy_on_new_commit(reconciler):
     with db_mod.session_scope() as session:
         app = session.get(App, app_id)
         with patch(
-            "streamlit_host.k8s.reconciler.resolve_branch_head", return_value="bbb222"
+            "orbital.k8s.reconciler.resolve_branch_head", return_value="bbb222"
         ):
             reconciler._maybe_poll_git(session, app)
         assert app.pending_action == PendingAction.deploy
@@ -112,7 +112,7 @@ def test_poll_triggers_redeploy_on_new_commit(reconciler):
 
 
 def test_poll_noop_when_commit_unchanged(reconciler):
-    from streamlit_host import db as db_mod
+    from orbital import db as db_mod
 
     build = Build(
         id="bld000000001",
@@ -124,14 +124,14 @@ def test_poll_noop_when_commit_unchanged(reconciler):
     with db_mod.session_scope() as session:
         app = session.get(App, app_id)
         with patch(
-            "streamlit_host.k8s.reconciler.resolve_branch_head", return_value="aaa111"
+            "orbital.k8s.reconciler.resolve_branch_head", return_value="aaa111"
         ):
             reconciler._maybe_poll_git(session, app)
         assert app.pending_action == PendingAction.none
 
 
 def test_poll_handles_git_error_without_crashing(reconciler):
-    from streamlit_host import db as db_mod
+    from orbital import db as db_mod
 
     build = Build(
         id="bld000000001",
@@ -143,7 +143,7 @@ def test_poll_handles_git_error_without_crashing(reconciler):
     with db_mod.session_scope() as session:
         app = session.get(App, app_id)
         with patch(
-            "streamlit_host.k8s.reconciler.resolve_branch_head",
+            "orbital.k8s.reconciler.resolve_branch_head",
             side_effect=GitError("host unreachable"),
         ):
             reconciler._maybe_poll_git(session, app)  # must not raise
@@ -154,7 +154,7 @@ def test_poll_handles_git_error_without_crashing(reconciler):
 
 
 def test_poll_respects_per_app_interval_override(reconciler):
-    from streamlit_host import db as db_mod
+    from orbital import db as db_mod
 
     app_id = _persist(
         make_app(
@@ -164,7 +164,7 @@ def test_poll_respects_per_app_interval_override(reconciler):
     )
     with db_mod.session_scope() as session:
         app = session.get(App, app_id)
-        with patch("streamlit_host.k8s.reconciler.resolve_branch_head") as mock_resolve:
+        with patch("orbital.k8s.reconciler.resolve_branch_head") as mock_resolve:
             reconciler._maybe_poll_git(session, app)
         # 15 min < the 1h per-app override, even though it's past the 10 min
         # platform default
@@ -175,11 +175,11 @@ def test_poll_clamps_per_app_interval_to_platform_minimum(monkeypatch, tmp_path)
     """A per-app interval below the platform minimum (e.g. set before the
     minimum existed, or written directly to the DB) must not let an app
     poll more often than the floor."""
-    monkeypatch.setenv("SH_DATABASE_URL", f"sqlite:///{tmp_path}/test.db")
-    monkeypatch.setenv("SH_GIT_POLL_MIN_INTERVAL_SECONDS", "600")
+    monkeypatch.setenv("ORBITAL_DATABASE_URL", f"sqlite:///{tmp_path}/test.db")
+    monkeypatch.setenv("ORBITAL_GIT_POLL_MIN_INTERVAL_SECONDS", "600")
     get_settings.cache_clear()
-    from streamlit_host import db as db_mod
-    from streamlit_host.k8s.reconciler import Reconciler
+    from orbital import db as db_mod
+    from orbital.k8s.reconciler import Reconciler
 
     db_mod.init_engine(f"sqlite:///{tmp_path}/test.db")
     reconciler = Reconciler()
@@ -192,7 +192,7 @@ def test_poll_clamps_per_app_interval_to_platform_minimum(monkeypatch, tmp_path)
     )
     with db_mod.session_scope() as session:
         app = session.get(App, app_id)
-        with patch("streamlit_host.k8s.reconciler.resolve_branch_head") as mock_resolve:
+        with patch("orbital.k8s.reconciler.resolve_branch_head") as mock_resolve:
             reconciler._maybe_poll_git(session, app)
         # 5 min elapsed < the 10 min platform minimum, so no poll yet
         mock_resolve.assert_not_called()
@@ -204,12 +204,12 @@ def test_poll_clamps_per_app_interval_to_platform_minimum(monkeypatch, tmp_path)
 
 @pytest.fixture
 def client(tmp_path, monkeypatch):
-    monkeypatch.setenv("SH_DATABASE_URL", f"sqlite:///{tmp_path}/test.db")
-    monkeypatch.setenv("SH_RECONCILER_ENABLED", "false")
-    monkeypatch.setenv("SH_UI_AUTH_ENABLED", "false")
+    monkeypatch.setenv("ORBITAL_DATABASE_URL", f"sqlite:///{tmp_path}/test.db")
+    monkeypatch.setenv("ORBITAL_RECONCILER_ENABLED", "false")
+    monkeypatch.setenv("ORBITAL_UI_AUTH_ENABLED", "false")
     get_settings.cache_clear()
-    from streamlit_host import db
-    from streamlit_host.main import app
+    from orbital import db
+    from orbital.main import app
 
     db.init_engine(f"sqlite:///{tmp_path}/test.db")
     with TestClient(app) as c:

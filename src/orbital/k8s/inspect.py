@@ -32,7 +32,7 @@ def _read_log(pod: str, namespace: str, tail: int, container: str | None = None)
 
 def app_log_tail(app_id: str, settings: Settings, tail: int = 500) -> str:
     chunks = []
-    for pod in _pods_for(settings.apps_namespace, f"app.streamlit-host.io/app-id={app_id}"):
+    for pod in _pods_for(settings.apps_namespace, f"app.orbital.io/app-id={app_id}"):
         try:
             chunks.append(_read_log(pod.metadata.name, settings.apps_namespace, tail))
         except ApiException as e:
@@ -41,7 +41,7 @@ def app_log_tail(app_id: str, settings: Settings, tail: int = 500) -> str:
 
 
 def app_log_stream(app_id: str, settings: Settings, tail: int = 100) -> Iterator[bytes]:
-    pods = _pods_for(settings.apps_namespace, f"app.streamlit-host.io/app-id={app_id}")
+    pods = _pods_for(settings.apps_namespace, f"app.orbital.io/app-id={app_id}")
     if not pods:
         yield b"[no running pods]\n"
         return
@@ -62,7 +62,7 @@ def build_log_tail(build_id: str, settings: Settings, tail: int = 200) -> str:
     """Concatenated logs of the fetch (clone+detect) and buildkit containers."""
     chunks = []
     for pod in _pods_for(
-        settings.builds_namespace, f"app.streamlit-host.io/build-id={build_id}"
+        settings.builds_namespace, f"app.orbital.io/build-id={build_id}"
     ):
         for container in ("fetch", "buildkit"):
             try:

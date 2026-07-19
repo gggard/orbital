@@ -33,7 +33,7 @@ async def lifespan(app: FastAPI):
         yield
 
 
-app = FastAPI(title="streamlit-host", version=__version__, lifespan=lifespan)
+app = FastAPI(title="orbital", version=__version__, lifespan=lifespan)
 app.add_middleware(
     SessionMiddleware,
     secret_key=get_settings().session_secret,

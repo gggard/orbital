@@ -22,7 +22,7 @@ echo "[fetch] at commit $(git rev-parse HEAD)"
 """
 
 DETECT_SH = r"""#!/bin/sh
-# Detects the app's Python dependency file and generates Dockerfile.streamlit-host.
+# Detects the app's Python dependency file and generates Dockerfile.orbital.
 # Search order (SPEC 4.3): entrypoint directory first, then repository root.
 # Priority: uv.lock (+pyproject.toml) > requirements.txt > pyproject.toml.
 set -eu
@@ -66,7 +66,7 @@ for f in Pipfile environment.yml environment.yaml; do
   done
 done
 
-DF="$SRC_DIR/Dockerfile.streamlit-host"
+DF="$SRC_DIR/Dockerfile.orbital"
 {
   echo "FROM $BASE_IMAGE"
   echo "WORKDIR /app"
@@ -119,7 +119,7 @@ buildctl-daemonless.sh build \
   --frontend dockerfile.v0 \
   --local context="$SRC_DIR" \
   --local dockerfile="$SRC_DIR" \
-  --opt filename=Dockerfile.streamlit-host \
+  --opt filename=Dockerfile.orbital \
   --output type=image,name="$IMAGE",push=true,registry.insecure=true
 echo "[build] pushed $IMAGE"
 """

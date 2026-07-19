@@ -1,4 +1,4 @@
-streamlit-host {{ .Chart.AppVersion }} installed.
+Orbital {{ .Chart.AppVersion }} installed.
 
 Console:      http{{ if .Values.ingress.tls.enabled }}s{{ end }}://{{ .Values.ingress.consoleHost }}
 Hosted apps:  http://<slug>.{{ .Values.apps.domain }}{{ if ne (int .Values.apps.urlPort) 80 }}:{{ .Values.apps.urlPort }}{{ end }}

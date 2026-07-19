@@ -3,8 +3,8 @@
 Merged from three sources, deduplicated and sorted:
 
 - the role configuration (admin/creator/viewer/public-sharing groups),
-- the static ``SH_KNOWN_GROUPS`` list,
-- optionally the Keycloak realm's groups (``SH_GROUPS_FROM_KEYCLOAK``),
+- the static ``ORBITAL_KNOWN_GROUPS`` list,
+- optionally the Keycloak realm's groups (``ORBITAL_GROUPS_FROM_KEYCLOAK``),
   fetched from the admin REST API with the OIDC client's service account
   (requires the ``query-groups`` + ``view-users`` roles from the realm's
   ``realm-management`` client).

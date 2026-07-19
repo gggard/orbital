@@ -2,9 +2,9 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: {{ include "sh.controlPlaneName" . }}-data
+  name: {{ include "orbital.controlPlaneName" . }}-data
   namespace: {{ .Release.Namespace }}
-  labels: {{- include "sh.labels" . | nindent 4 }}
+  labels: {{- include "orbital.labels" . | nindent 4 }}
 spec:
   accessModes: [ReadWriteOnce]
   resources:
@@ -18,9 +18,9 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "sh.controlPlaneName" . }}
+  name: {{ include "orbital.controlPlaneName" . }}
   namespace: {{ .Release.Namespace }}
-  labels: {{- include "sh.labels" . | nindent 4 }}
+  labels: {{- include "orbital.labels" . | nindent 4 }}
 spec:
   replicas: {{ if .Values.database.url }}{{ .Values.controlPlane.replicas }}{{ else }}1{{ end }}
   selector:
@@ -31,9 +31,9 @@ spec:
     metadata:
       labels:
         app.kubernetes.io/component: control-plane
-        {{- include "sh.labels" . | nindent 8 }}
+        {{- include "orbital.labels" . | nindent 8 }}
     spec:
-      serviceAccountName: {{ include "sh.controlPlaneName" . }}
+      serviceAccountName: {{ include "orbital.controlPlaneName" . }}
       containers:
         - name: control-plane
           image: "{{ .Values.image.controlPlane.repository }}:{{ .Values.image.controlPlane.tag }}"
@@ -41,95 +41,95 @@ spec:
           ports:
             - containerPort: 8000
           env:
-            - name: SH_DATABASE_URL
-              value: {{ .Values.database.url | default "sqlite:////data/streamlit_host.db" | quote }}
-            - name: SH_APPS_NAMESPACE
+            - name: ORBITAL_DATABASE_URL
+              value: {{ .Values.database.url | default "sqlite:////data/orbital.db" | quote }}
+            - name: ORBITAL_APPS_NAMESPACE
               value: {{ .Values.apps.namespace | quote }}
-            - name: SH_BUILDS_NAMESPACE
+            - name: ORBITAL_BUILDS_NAMESPACE
               value: {{ .Values.builds.namespace | quote }}
-            - name: SH_ROUTING_MODE
+            - name: ORBITAL_ROUTING_MODE
               value: {{ .Values.apps.routing | quote }}
-            - name: SH_APPS_PATH_PREFIX
+            - name: ORBITAL_APPS_PATH_PREFIX
               value: {{ .Values.apps.pathPrefix | quote }}
-            - name: SH_APPS_DOMAIN
+            - name: ORBITAL_APPS_DOMAIN
               value: {{ .Values.apps.domain | quote }}
-            - name: SH_APPS_URL_PORT
+            - name: ORBITAL_APPS_URL_PORT
               value: {{ .Values.apps.urlPort | quote }}
-            - name: SH_INGRESS_CLASS
+            - name: ORBITAL_INGRESS_CLASS
               value: {{ .Values.ingress.className | quote }}
-            - name: SH_REGISTRY_PUSH_URL
+            - name: ORBITAL_REGISTRY_PUSH_URL
               value: {{ .Values.registry.pushUrl | quote }}
-            - name: SH_REGISTRY_PULL_PREFIX
+            - name: ORBITAL_REGISTRY_PULL_PREFIX
               value: {{ .Values.registry.pullPrefix | quote }}
-            - name: SH_PYTHON_VERSIONS
-              value: {{ include "sh.pythonVersionsJson" . | quote }}
-            - name: SH_BUILDKIT_ROOTLESS
+            - name: ORBITAL_PYTHON_VERSIONS
+              value: {{ include "orbital.pythonVersionsJson" . | quote }}
+            - name: ORBITAL_BUILDKIT_ROOTLESS
               value: {{ .Values.builds.rootless | quote }}
-            - name: SH_BUILD_TIMEOUT_SECONDS
+            - name: ORBITAL_BUILD_TIMEOUT_SECONDS
               value: {{ .Values.builds.timeoutSeconds | quote }}
-            - name: SH_RECONCILE_INTERVAL
+            - name: ORBITAL_RECONCILE_INTERVAL
               value: {{ .Values.controlPlane.reconcileInterval | quote }}
-            - name: SH_APP_CPU_REQUEST
+            - name: ORBITAL_APP_CPU_REQUEST
               value: {{ .Values.apps.resources.cpuRequest | quote }}
-            - name: SH_APP_CPU_LIMIT
+            - name: ORBITAL_APP_CPU_LIMIT
               value: {{ .Values.apps.resources.cpuLimit | quote }}
-            - name: SH_APP_MEM_REQUEST
+            - name: ORBITAL_APP_MEM_REQUEST
               value: {{ .Values.apps.resources.memRequest | quote }}
-            - name: SH_APP_MEM_LIMIT
+            - name: ORBITAL_APP_MEM_LIMIT
               value: {{ .Values.apps.resources.memLimit | quote }}
-            - name: SH_UI_BASE_URL
+            - name: ORBITAL_UI_BASE_URL
               value: {{ .Values.console.url | quote }}
-            - name: SH_HIBERNATION_ENABLED
+            - name: ORBITAL_HIBERNATION_ENABLED
               value: {{ .Values.hibernation.enabled | quote }}
-            - name: SH_HIBERNATION_TIMEOUT_SECONDS
+            - name: ORBITAL_HIBERNATION_TIMEOUT_SECONDS
               value: {{ mul .Values.hibernation.timeoutHours 3600 | quote }}
-            - name: SH_HIBERNATION_MAX_TIMEOUT_SECONDS
+            - name: ORBITAL_HIBERNATION_MAX_TIMEOUT_SECONDS
               value: {{ mul .Values.hibernation.maxTimeoutHours 3600 | quote }}
-            - name: SH_GIT_POLL_DEFAULT_INTERVAL_SECONDS
+            - name: ORBITAL_GIT_POLL_DEFAULT_INTERVAL_SECONDS
               value: {{ mul .Values.gitPoll.defaultIntervalMinutes 60 | quote }}
-            - name: SH_GIT_POLL_MIN_INTERVAL_SECONDS
+            - name: ORBITAL_GIT_POLL_MIN_INTERVAL_SECONDS
               value: {{ mul .Values.gitPoll.minIntervalMinutes 60 | quote }}
-            - name: SH_CONTROL_PLANE_SERVICE_HOST
-              value: "{{ include "sh.controlPlaneName" . }}.{{ .Release.Namespace }}.svc.cluster.local"
-            - name: SH_CONTROL_PLANE_SERVICE_PORT
+            - name: ORBITAL_CONTROL_PLANE_SERVICE_HOST
+              value: "{{ include "orbital.controlPlaneName" . }}.{{ .Release.Namespace }}.svc.cluster.local"
+            - name: ORBITAL_CONTROL_PLANE_SERVICE_PORT
               value: "8000"
             {{- if .Values.auth.console.enabled }}
-            - name: SH_UI_AUTH_ENABLED
+            - name: ORBITAL_UI_AUTH_ENABLED
               value: "true"
-            - name: SH_OIDC_ISSUER_URL
+            - name: ORBITAL_OIDC_ISSUER_URL
               value: {{ .Values.auth.console.issuerUrl | quote }}
-            - name: SH_OIDC_CLIENT_ID
+            - name: ORBITAL_OIDC_CLIENT_ID
               value: {{ .Values.auth.console.clientId | quote }}
-            - name: SH_OIDC_CLIENT_SECRET
+            - name: ORBITAL_OIDC_CLIENT_SECRET
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "sh.authSecretName" . }}
+                  name: {{ include "orbital.authSecretName" . }}
                   key: oidc-client-secret
-            - name: SH_SESSION_SECRET
+            - name: ORBITAL_SESSION_SECRET
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "sh.authSecretName" . }}
+                  name: {{ include "orbital.authSecretName" . }}
                   key: session-secret
-            - name: SH_ADMIN_GROUPS
+            - name: ORBITAL_ADMIN_GROUPS
               value: {{ .Values.auth.console.adminGroups | toJson | quote }}
-            - name: SH_CREATOR_GROUPS
+            - name: ORBITAL_CREATOR_GROUPS
               value: {{ .Values.auth.console.creatorGroups | toJson | quote }}
-            - name: SH_VIEWER_GROUPS
+            - name: ORBITAL_VIEWER_GROUPS
               value: {{ .Values.auth.console.viewerGroups | toJson | quote }}
-            - name: SH_PUBLIC_SHARING_GROUPS
+            - name: ORBITAL_PUBLIC_SHARING_GROUPS
               value: {{ .Values.auth.console.publicSharingGroups | toJson | quote }}
-            - name: SH_KNOWN_GROUPS
+            - name: ORBITAL_KNOWN_GROUPS
               value: {{ .Values.auth.console.knownGroups | toJson | quote }}
-            - name: SH_GROUPS_FROM_KEYCLOAK
+            - name: ORBITAL_GROUPS_FROM_KEYCLOAK
               value: {{ .Values.auth.console.groupsFromKeycloak | quote }}
             {{- end }}
             {{- if .Values.auth.viewer.enabled }}
-            - name: SH_AUTH_ENABLED
+            - name: ORBITAL_AUTH_ENABLED
               value: "true"
-            - name: SH_OAUTH2_PROXY_AUTH_URL
+            - name: ORBITAL_OAUTH2_PROXY_AUTH_URL
               value: {{ .Values.auth.viewer.oauth2ProxyAuthUrl | quote }}
-            - name: SH_AUTHZ_BASE_URL
-              value: "http://{{ include "sh.controlPlaneName" . }}.{{ .Release.Namespace }}.svc:8000"
+            - name: ORBITAL_AUTHZ_BASE_URL
+              value: "http://{{ include "orbital.controlPlaneName" . }}.{{ .Release.Namespace }}.svc:8000"
             {{- end }}
           readinessProbe:
             httpGet: {path: /healthz, port: 8000}
@@ -147,15 +147,15 @@ spec:
       volumes:
         - name: data
           persistentVolumeClaim:
-            claimName: {{ include "sh.controlPlaneName" . }}-data
+            claimName: {{ include "orbital.controlPlaneName" . }}-data
       {{- end }}
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "sh.controlPlaneName" . }}
+  name: {{ include "orbital.controlPlaneName" . }}
   namespace: {{ .Release.Namespace }}
-  labels: {{- include "sh.labels" . | nindent 4 }}
+  labels: {{- include "orbital.labels" . | nindent 4 }}
 spec:
   selector:
     app.kubernetes.io/component: control-plane

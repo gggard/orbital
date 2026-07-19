@@ -8,9 +8,9 @@ import pytest
 from fastapi.testclient import TestClient
 from kubernetes.client import ApiException
 
-from streamlit_host.config import Settings, get_settings
-from streamlit_host.k8s import resources
-from streamlit_host.models import App, AppState
+from orbital.config import Settings, get_settings
+from orbital.k8s import resources
+from orbital.models import App, AppState
 
 
 def make_app(
@@ -40,7 +40,7 @@ def make_app(
 def settings() -> Settings:
     return Settings(
         apps_domain="apps.example.com",
-        control_plane_service_host="cp.streamlit-platform.svc.cluster.local",
+        control_plane_service_host="cp.orbital-platform.svc.cluster.local",
         _env_file=None,
     )
 
@@ -73,11 +73,11 @@ def test_public_app_gets_activity_beacon(settings):
 
 def test_public_app_activity_beacon_uses_authz_base_url_override():
     # dev setups where the control plane isn't an in-cluster Service (see
-    # SH_AUTHZ_BASE_URL in docs/DEVELOPMENT.md) need this for public apps
+    # ORBITAL_AUTHZ_BASE_URL in docs/DEVELOPMENT.md) need this for public apps
     # too - not just the private-app /authz annotation.
     s = Settings(
         apps_domain="apps.example.com",
-        control_plane_service_host="cp.streamlit-platform.svc.cluster.local",
+        control_plane_service_host="cp.orbital-platform.svc.cluster.local",
         authz_base_url="http://192.168.58.1:8000",
         _env_file=None,
     )
@@ -101,7 +101,7 @@ def test_per_app_hibernation_disabled_skips_beacon(settings):
 
 
 def test_settings_reject_max_timeout_below_default_timeout():
-    with pytest.raises(ValueError, match="SH_HIBERNATION_MAX_TIMEOUT_SECONDS"):
+    with pytest.raises(ValueError, match="ORBITAL_HIBERNATION_MAX_TIMEOUT_SECONDS"):
         Settings(
             hibernation_timeout_seconds=7200,
             hibernation_max_timeout_seconds=3600,
@@ -119,7 +119,7 @@ def test_private_app_auth_url_falls_back_to_internal_base_url():
     s = Settings(
         apps_domain="apps.example.com",
         auth_enabled=True,
-        control_plane_service_host="cp.streamlit-platform.svc.cluster.local",
+        control_plane_service_host="cp.orbital-platform.svc.cluster.local",
         _env_file=None,
     )
     app = make_app(public=False, state=AppState.running)
@@ -141,9 +141,9 @@ def test_wake_service_shape(settings):
 
 @pytest.fixture
 def reconciler(monkeypatch):
-    monkeypatch.setenv("SH_DATABASE_URL", "sqlite://")
+    monkeypatch.setenv("ORBITAL_DATABASE_URL", "sqlite://")
     get_settings.cache_clear()
-    from streamlit_host.k8s.reconciler import Reconciler
+    from orbital.k8s.reconciler import Reconciler
 
     r = Reconciler()
     yield r
@@ -151,7 +151,7 @@ def reconciler(monkeypatch):
 
 
 def _mock_k8s(monkeypatch):
-    from streamlit_host.k8s import client as k8s_client
+    from orbital.k8s import client as k8s_client
 
     apps_v1, core, networking = MagicMock(), MagicMock(), MagicMock()
     networking.read_namespaced_ingress.side_effect = ApiException(status=404)
@@ -202,11 +202,11 @@ def test_maybe_hibernate_clamps_per_app_override_to_platform_maximum(monkeypatch
     """A per-app timeout beyond the platform maximum (e.g. set before the
     maximum existed, or written directly to the DB) must not let an app
     stay awake past it."""
-    monkeypatch.setenv("SH_DATABASE_URL", "sqlite://")
-    monkeypatch.setenv("SH_HIBERNATION_TIMEOUT_SECONDS", "1800")
-    monkeypatch.setenv("SH_HIBERNATION_MAX_TIMEOUT_SECONDS", "3600")
+    monkeypatch.setenv("ORBITAL_DATABASE_URL", "sqlite://")
+    monkeypatch.setenv("ORBITAL_HIBERNATION_TIMEOUT_SECONDS", "1800")
+    monkeypatch.setenv("ORBITAL_HIBERNATION_MAX_TIMEOUT_SECONDS", "3600")
     get_settings.cache_clear()
-    from streamlit_host.k8s.reconciler import Reconciler
+    from orbital.k8s.reconciler import Reconciler
 
     _mock_k8s(monkeypatch)
     reconciler = Reconciler()
@@ -225,12 +225,12 @@ def test_maybe_hibernate_survives_naive_last_active_at_after_db_roundtrip(tmp_pa
     have a naive last_active_at. _maybe_hibernate must not crash comparing
     it against an aware `datetime.now(UTC)`.
     """
-    monkeypatch.setenv("SH_DATABASE_URL", f"sqlite:///{tmp_path}/test.db")
+    monkeypatch.setenv("ORBITAL_DATABASE_URL", f"sqlite:///{tmp_path}/test.db")
     get_settings.cache_clear()
     _mock_k8s(monkeypatch)
 
-    from streamlit_host import db as db_mod
-    from streamlit_host.k8s.reconciler import Reconciler
+    from orbital import db as db_mod
+    from orbital.k8s.reconciler import Reconciler
 
     db_mod.init_engine(f"sqlite:///{tmp_path}/test.db")
     reconciler = Reconciler()
@@ -274,13 +274,13 @@ def test_maybe_wake_noop_without_request(reconciler, monkeypatch):
 
 @pytest.fixture
 def client(tmp_path, monkeypatch):
-    monkeypatch.setenv("SH_DATABASE_URL", f"sqlite:///{tmp_path}/test.db")
-    monkeypatch.setenv("SH_RECONCILER_ENABLED", "false")
-    monkeypatch.setenv("SH_UI_AUTH_ENABLED", "false")
-    monkeypatch.setenv("SH_APPS_DOMAIN", "apps.local")  # .env may set something else
+    monkeypatch.setenv("ORBITAL_DATABASE_URL", f"sqlite:///{tmp_path}/test.db")
+    monkeypatch.setenv("ORBITAL_RECONCILER_ENABLED", "false")
+    monkeypatch.setenv("ORBITAL_UI_AUTH_ENABLED", "false")
+    monkeypatch.setenv("ORBITAL_APPS_DOMAIN", "apps.local")  # .env may set something else
     get_settings.cache_clear()
-    from streamlit_host import db
-    from streamlit_host.main import app
+    from orbital import db
+    from orbital.main import app
 
     db.init_engine(f"sqlite:///{tmp_path}/test.db")
     with TestClient(app) as c:
@@ -373,7 +373,7 @@ def _sleep_app(client, slug="sleepy"):
     app_id = make_client_app(client, slug=slug).json()["id"]
     from sqlalchemy import select
 
-    from streamlit_host import db as db_mod
+    from orbital import db as db_mod
 
     with db_mod.session_scope() as session:
         app = session.scalar(select(App).where(App.id == app_id))
@@ -390,7 +390,7 @@ def test_sleeping_app_host_shows_interstitial(client):
     # a wake request was recorded
     from sqlalchemy import select
 
-    from streamlit_host import db as db_mod
+    from orbital import db as db_mod
 
     with db_mod.session_scope() as session:
         app = session.scalar(select(App).where(App.id == app_id))

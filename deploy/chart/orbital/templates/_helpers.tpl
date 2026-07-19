@@ -1,22 +1,22 @@
-{{- define "sh.fullname" -}}
+{{- define "orbital.fullname" -}}
 {{- printf "%s" .Release.Name | trunc 50 | trimSuffix "-" -}}
 {{- end -}}
 
-{{- define "sh.labels" -}}
-app.kubernetes.io/name: streamlit-host
+{{- define "orbital.labels" -}}
+app.kubernetes.io/name: orbital
 app.kubernetes.io/instance: {{ .Release.Name }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end -}}
 
-{{- define "sh.controlPlaneName" -}}
-{{ include "sh.fullname" . }}-control-plane
+{{- define "orbital.controlPlaneName" -}}
+{{ include "orbital.fullname" . }}-control-plane
 {{- end -}}
 
-{{- define "sh.consoleName" -}}
-{{ include "sh.fullname" . }}-console
+{{- define "orbital.consoleName" -}}
+{{ include "orbital.fullname" . }}-console
 {{- end -}}
 
-{{- define "sh.pythonVersionsJson" -}}
+{{- define "orbital.pythonVersionsJson" -}}
 {{- $d := dict -}}
 {{- range .Values.baseImages.pythonVersions -}}
 {{- $_ := set $d . (printf "streamlit-base:py%s" .) -}}
@@ -24,10 +24,10 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- $d | toJson -}}
 {{- end -}}
 
-{{- define "sh.authSecretName" -}}
+{{- define "orbital.authSecretName" -}}
 {{- if .Values.auth.console.existingSecret -}}
 {{ .Values.auth.console.existingSecret }}
 {{- else -}}
-{{ include "sh.fullname" . }}-auth
+{{ include "orbital.fullname" . }}-auth
 {{- end -}}
 {{- end -}}
