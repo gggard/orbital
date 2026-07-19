@@ -36,6 +36,12 @@ hibernation:
   enabled: true
   timeoutHours: 12
 
+# Git-poll auto-update fallback (SPEC §4.2/FR-2.2): opt-in per app, for git
+# hosts that can't deliver a push webhook into the cluster. This is the
+# platform default interval; apps can override it individually.
+gitPoll:
+  defaultIntervalMinutes: 10
+
 builds:
   namespace: streamlit-builds
   createNamespace: true

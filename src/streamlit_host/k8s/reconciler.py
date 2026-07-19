@@ -157,6 +157,14 @@ class Reconciler:
                 app.secrets_dirty = False
                 app.state = AppState.deploying
 
+        if app.pending_action == PendingAction.none and app.state not in (
+            AppState.created,
+            AppState.building,
+            AppState.deploying,
+            AppState.deleting,
+        ):
+            self._maybe_poll_git(session, app)
+
     # -- build -------------------------------------------------------------
 
     def _start_build(self, session, app: App):
@@ -355,6 +363,28 @@ class Reconciler:
         self._scale(app, replicas=1)
         app.state = AppState.deploying
         log.info("waking %s", app.slug)
+
+    def _maybe_poll_git(self, session, app: App):
+        """Fallback redeploy trigger for git hosts that can't reach the
+        cluster with a push webhook (SPEC §4.2/FR-2.2). Opt-in per app.
+        """
+        if not app.poll_enabled:
+            return
+        interval = app.poll_interval_seconds or self.settings.git_poll_default_interval_seconds
+        now = datetime.now(UTC)
+        if app.last_polled_at and (now - ensure_aware(app.last_polled_at)).total_seconds() < interval:
+            return
+        app.last_polled_at = now
+        try:
+            head = resolve_branch_head(app.repo_url, app.branch)
+        except GitError:
+            log.warning("git poll failed for app %s (%s)", app.slug, app.id)
+            return
+        build = session.get(Build, app.current_build_id) if app.current_build_id else None
+        deployed_sha = build.commit_sha if build else None
+        if deployed_sha and head != deployed_sha:
+            log.info("git poll found new commit for %s: %s -> %s", app.slug, deployed_sha, head)
+            app.pending_action = PendingAction.deploy
 
     def _restart(self, app: App):
         patch = {

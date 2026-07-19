@@ -41,12 +41,22 @@ export default function SettingsTab({
   const [hibernateBusy, setHibernateBusy] = useState(false);
   const [hibernateError, setHibernateError] = useState("");
 
+  const [pollEnabled, setPollEnabled] = useState(app.poll_enabled);
+  const [pollMinutes, setPollMinutes] = useState(
+    app.poll_interval_seconds ? String(app.poll_interval_seconds / 60) : "",
+  );
+  const [pollBusy, setPollBusy] = useState(false);
+  const [pollError, setPollError] = useState("");
+
   const dirty =
     branch !== app.branch || mainFile !== app.main_file || python !== app.python_version;
   const hibernateDirty =
     hibernateEnabled !== app.hibernate_enabled ||
     (hibernateHours !== "" &&
       Number(hibernateHours) * 3600 !== app.hibernate_after_seconds);
+  const pollDirty =
+    pollEnabled !== app.poll_enabled ||
+    (pollMinutes !== "" && Number(pollMinutes) * 60 !== app.poll_interval_seconds);
 
   const webhookUrl =
     typeof window !== "undefined" ? `${window.location.origin}${app.webhook_path}` : app.webhook_path;
@@ -77,6 +87,22 @@ export default function SettingsTab({
       setHibernateError(e instanceof Error ? e.message : String(e));
     } finally {
       setHibernateBusy(false);
+    }
+  };
+
+  const savePolling = async () => {
+    setPollBusy(true);
+    setPollError("");
+    try {
+      await patchApp(app.id, {
+        poll_enabled: pollEnabled,
+        ...(pollMinutes !== "" && { poll_interval_seconds: Math.round(Number(pollMinutes) * 60) }),
+      });
+      onSaved("auto-update settings saved");
+    } catch (e) {
+      setPollError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setPollBusy(false);
     }
   };
 
@@ -147,6 +173,51 @@ export default function SettingsTab({
             push to <b>{app.branch}</b>:
           </Typography>
           <CopyField value={webhookUrl} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent>
+          <Typography variant="h6" gutterBottom>
+            Poll for updates
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            Fallback for git hosts that can&apos;t deliver the webhook above: periodically
+            check <b>{app.branch}</b> for new commits and redeploy if it has moved.
+          </Typography>
+          {pollError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {pollError}
+            </Alert>
+          )}
+          <Stack spacing={2}>
+            <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+              <Switch checked={pollEnabled} onChange={(e) => setPollEnabled(e.target.checked)} />
+              <Typography variant="body2">Enable polling</Typography>
+            </Stack>
+            {pollEnabled && (
+              <TextField
+                label="Check interval (minutes)"
+                size="small"
+                sx={{ maxWidth: 220 }}
+                placeholder="platform default"
+                value={pollMinutes}
+                onChange={(e) => setPollMinutes(e.target.value)}
+                helperText="leave blank to use the platform default"
+              />
+            )}
+            <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+              <Button
+                variant="contained"
+                startIcon={<SaveIcon />}
+                disabled={!pollDirty}
+                loading={pollBusy}
+                onClick={savePolling}
+              >
+                Save
+              </Button>
+            </Stack>
+          </Stack>
         </CardContent>
       </Card>
 

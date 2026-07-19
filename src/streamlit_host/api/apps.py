@@ -67,6 +67,9 @@ def _to_out(app: App, settings: Settings) -> AppOut:
         webhook_path=f"/webhooks/apps/{app.id}/{app.webhook_token}",
         hibernate_enabled=app.hibernate_enabled,
         hibernate_after_seconds=app.hibernate_after_seconds,
+        poll_enabled=app.poll_enabled,
+        poll_interval_seconds=app.poll_interval_seconds,
+        last_polled_at=app.last_polled_at,
         last_active_at=app.last_active_at,
         created_at=app.created_at,
         updated_at=app.updated_at,
@@ -120,6 +123,8 @@ def create_app(
         pending_action=PendingAction.deploy,
         hibernate_enabled=payload.hibernate_enabled,
         hibernate_after_seconds=payload.hibernate_after_seconds,
+        poll_enabled=payload.poll_enabled,
+        poll_interval_seconds=payload.poll_interval_seconds,
     )
     db.add(app)
     db.flush()
@@ -193,6 +198,10 @@ def update_app(
         app.hibernate_enabled = payload.hibernate_enabled
     if payload.hibernate_after_seconds is not None:
         app.hibernate_after_seconds = payload.hibernate_after_seconds
+    if payload.poll_enabled is not None:
+        app.poll_enabled = payload.poll_enabled
+    if payload.poll_interval_seconds is not None:
+        app.poll_interval_seconds = payload.poll_interval_seconds
     if needs_rebuild and app.state != AppState.building:
         app.pending_action = PendingAction.deploy
     return _to_out(app, settings)

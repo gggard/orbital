@@ -27,6 +27,9 @@ export interface AppOut {
   webhook_path: string;
   hibernate_enabled: boolean;
   hibernate_after_seconds: number | null;
+  poll_enabled: boolean;
+  poll_interval_seconds: number | null;
+  last_polled_at: string | null;
   last_active_at: string;
   created_at: string;
   updated_at: string;
@@ -54,6 +57,8 @@ export interface AppCreate {
   secrets_toml?: string;
   hibernate_enabled?: boolean;
   hibernate_after_seconds?: number;
+  poll_enabled?: boolean;
+  poll_interval_seconds?: number;
 }
 
 export interface Me {
@@ -110,4 +115,6 @@ export interface AppUpdate {
   owner_groups?: string[];
   hibernate_enabled?: boolean;
   hibernate_after_seconds?: number;
+  poll_enabled?: boolean;
+  poll_interval_seconds?: number;
 }

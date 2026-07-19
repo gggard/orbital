@@ -126,6 +126,22 @@ extra authentication is required beyond the app's normal sharing mode.
   the ingress controller (`SH_CONTROL_PLANE_SERVICE_HOST/PORT`, set
   automatically by the chart).
 
+### Git-poll auto-update
+
+Push webhooks (Settings → *Deploy webhook*) are the primary way apps redeploy
+on new commits. For git hosts that can't reach this cluster to deliver a
+webhook, developers can opt an app into polling instead: the reconciler
+periodically runs `git ls-remote` on the tracked branch and redeploys if the
+head has moved since the last deployed build.
+
+- Platform default interval: `gitPoll.defaultIntervalMinutes`
+  (`SH_GIT_POLL_DEFAULT_INTERVAL_SECONDS`), default 10 minutes.
+- Per app: developers enable polling and may override the interval from the
+  app's Settings tab (*Poll for updates*); disabled by default.
+- Failures (host unreachable, bad credentials, renamed branch) are logged and
+  retried at the next interval — same as a webhook delivery that never
+  arrives needs a fresh push.
+
 ### Resource tiers
 
 Per-app requests/limits are platform-wide (`apps.resources.*`). Raising them
