@@ -55,6 +55,7 @@ See [SPEC.md](SPEC.md) for the full functional specification and architecture.
 | [docs/ADMIN.md](docs/ADMIN.md) | Operate the platform (roles, RBAC, upgrades) |
 | [docs/USER.md](docs/USER.md) | Deploy and manage your own apps |
 | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | Contribute to streamlit-host (local dev on minikube) |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | PR/issue workflow and contribution guidelines |
 | [SPEC.md](SPEC.md) | Full specification |
 
 ## Status
@@ -64,3 +65,12 @@ API/dashboard, in-cluster BuildKit image build (Python packages only, no apt
 packages), deploy behind ingress, logs, redeploy webhook, secrets, reboot,
 delete. Not yet implemented: OIDC auth, hibernation, analytics (see
 SPEC §4.6–4.8).
+
+## Contributing
+
+Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for the
+workflow and [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for local setup.
+
+## License
+
+[GPL-3.0](LICENSE)
