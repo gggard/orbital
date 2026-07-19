@@ -114,7 +114,19 @@ belong to — transferring an app entirely to another team is done by an admin.
   says so.)
 - **Overview**: current state, commit, build times, ownership, visibility.
 
-## 7. Limits & good practices
+## 7. Hibernation
+
+Apps with no traffic for 12 hours (platform default) scale to zero and show
+as **Sleeping**. The next visit to the app's URL wakes it automatically — the
+visitor sees a "waking up" page for a few seconds while it starts back up,
+then lands on the app. No sign-in beyond what the app normally requires.
+
+In Settings you can raise or lower your app's timeout, or turn hibernation
+off entirely if it needs to stay warm (e.g. it's polled by another system).
+A sleeping app can also be woken from the console with the **Wake now**
+button on the app page.
+
+## 8. Limits & good practices
 
 - One dependency file; Python packages only.
 - Ephemeral storage only — persist data in external services (S3, DBs, …).

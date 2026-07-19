@@ -7,6 +7,7 @@ import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import MenuItem from "@mui/material/MenuItem";
 import Stack from "@mui/material/Stack";
+import Switch from "@mui/material/Switch";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { useRouter } from "next/navigation";
@@ -33,8 +34,19 @@ export default function SettingsTab({
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
+  const [hibernateEnabled, setHibernateEnabled] = useState(app.hibernate_enabled);
+  const [hibernateHours, setHibernateHours] = useState(
+    app.hibernate_after_seconds ? String(app.hibernate_after_seconds / 3600) : "",
+  );
+  const [hibernateBusy, setHibernateBusy] = useState(false);
+  const [hibernateError, setHibernateError] = useState("");
+
   const dirty =
     branch !== app.branch || mainFile !== app.main_file || python !== app.python_version;
+  const hibernateDirty =
+    hibernateEnabled !== app.hibernate_enabled ||
+    (hibernateHours !== "" &&
+      Number(hibernateHours) * 3600 !== app.hibernate_after_seconds);
 
   const webhookUrl =
     typeof window !== "undefined" ? `${window.location.origin}${app.webhook_path}` : app.webhook_path;
@@ -49,6 +61,22 @@ export default function SettingsTab({
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(false);
+    }
+  };
+
+  const saveHibernation = async () => {
+    setHibernateBusy(true);
+    setHibernateError("");
+    try {
+      await patchApp(app.id, {
+        hibernate_enabled: hibernateEnabled,
+        ...(hibernateHours !== "" && { hibernate_after_seconds: Math.round(Number(hibernateHours) * 3600) }),
+      });
+      onSaved("hibernation settings saved");
+    } catch (e) {
+      setHibernateError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setHibernateBusy(false);
     }
   };
 
@@ -119,6 +147,52 @@ export default function SettingsTab({
             push to <b>{app.branch}</b>:
           </Typography>
           <CopyField value={webhookUrl} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent>
+          <Typography variant="h6" gutterBottom>
+            Hibernation
+          </Typography>
+          {hibernateError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {hibernateError}
+            </Alert>
+          )}
+          <Stack spacing={2}>
+            <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+              <Switch
+                checked={hibernateEnabled}
+                onChange={(e) => setHibernateEnabled(e.target.checked)}
+              />
+              <Typography variant="body2">
+                Sleep when idle (scales to zero, wakes automatically on the next visit)
+              </Typography>
+            </Stack>
+            {hibernateEnabled && (
+              <TextField
+                label="Idle timeout (hours)"
+                size="small"
+                sx={{ maxWidth: 220 }}
+                placeholder="platform default"
+                value={hibernateHours}
+                onChange={(e) => setHibernateHours(e.target.value)}
+                helperText="leave blank to use the platform default"
+              />
+            )}
+            <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+              <Button
+                variant="contained"
+                startIcon={<SaveIcon />}
+                disabled={!hibernateDirty}
+                loading={hibernateBusy}
+                onClick={saveHibernation}
+              >
+                Save
+              </Button>
+            </Stack>
+          </Stack>
         </CardContent>
       </Card>
 

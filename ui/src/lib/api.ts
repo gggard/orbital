@@ -125,6 +125,9 @@ export const deployApp = (id: string) =>
 export const rebootApp = (id: string) =>
   api(`/api/v1/apps/${id}/reboot`, { method: "POST" });
 
+export const wakeApp = (id: string) =>
+  api(`/api/v1/apps/${id}/wake`, { method: "POST" });
+
 export const putSecrets = (id: string, secrets_toml: string) =>
   api(`/api/v1/apps/${id}/secrets`, {
     method: "PUT",

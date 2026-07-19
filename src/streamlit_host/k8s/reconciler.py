@@ -82,6 +82,15 @@ class Reconciler:
             self.settings.builds_namespace,
             cm,
         )
+        if self.settings.hibernation_enabled and self.settings.control_plane_service_host:
+            svc = resources.wake_service(self.settings)
+            _apply(
+                client.core().create_namespaced_service,
+                client.core().replace_namespaced_service,
+                svc["metadata"]["name"],
+                self.settings.apps_namespace,
+                svc,
+            )
 
     # -- reconcile ---------------------------------------------------------
 
@@ -130,6 +139,11 @@ class Reconciler:
         if app.state == AppState.running:
             self._ensure_ingress(app)
             self._ensure_base_path(app)
+            self._maybe_hibernate(app)
+
+        if app.state == AppState.sleeping:
+            self._ensure_ingress(app)
+            self._maybe_wake(app)
 
         if app.state in (AppState.running, AppState.deploying, AppState.deploy_failed):
             if app.pending_action == PendingAction.reboot:
@@ -257,15 +271,20 @@ class Reconciler:
             if current
             else None
         )
+        desired_backend = desired_rule["http"]["paths"][0]["backend"]["service"]["name"]
+        current_backend = (
+            current.spec.rules[0].http.paths[0].backend.service.name if current else None
+        )
         if (
             current is None
             or current.spec.rules[0].host != desired_host
             or current.spec.rules[0].http.paths[0].path != desired_path
             or current_auth != desired_auth
+            or current_backend != desired_backend
         ):
             log.info(
-                "updating ingress for %s (host=%s path=%s auth=%s)",
-                app.slug, desired_host, desired_path, bool(desired_auth),
+                "updating ingress for %s (host=%s path=%s auth=%s backend=%s)",
+                app.slug, desired_host, desired_path, bool(desired_auth), desired_backend,
             )
             _apply(
                 client.networking().create_namespaced_ingress,
@@ -296,6 +315,46 @@ class Reconciler:
             )
             self._deploy(app)
             app.state = AppState.deploying
+
+    # -- hibernation (SPEC §4.8/§5.6) --------------------------------------
+
+    def _scale(self, app: App, replicas: int):
+        patch = {"spec": {"replicas": replicas}}
+        _not_found_ok(
+            client.apps_v1().patch_namespaced_deployment,
+            resources.name_for(app),
+            self.settings.apps_namespace,
+            patch,
+        )
+
+    def _maybe_hibernate(self, app: App):
+        s = self.settings
+        if app.state != AppState.running:
+            # _ensure_base_path may have just kicked off a redeploy
+            return
+        if not (s.hibernation_enabled and s.control_plane_service_host and app.hibernate_enabled):
+            return
+        timeout = app.hibernate_after_seconds or s.hibernation_timeout_seconds
+        if timeout <= 0:
+            return
+        idle_for = (datetime.now(UTC) - app.last_active_at).total_seconds()
+        if idle_for < timeout:
+            return
+        self._scale(app, replicas=0)
+        app.state = AppState.sleeping
+        # repoint the ingress at the wake proxy immediately rather than
+        # waiting for the next tick's sleeping-state convergence
+        self._ensure_ingress(app)
+        log.info("hibernated %s after %ds idle", app.slug, int(idle_for))
+
+    def _maybe_wake(self, app: App):
+        if app.wake_requested_at is None:
+            return
+        app.wake_requested_at = None
+        app.last_active_at = datetime.now(UTC)
+        self._scale(app, replicas=1)
+        app.state = AppState.deploying
+        log.info("waking %s", app.slug)
 
     def _restart(self, app: App):
         patch = {

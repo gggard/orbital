@@ -51,6 +51,14 @@ export default function OverviewTab({ app }: { app: AppOut }) {
             <Row label="Owned by">
               {app.owner_groups.length ? app.owner_groups.join(", ") : "admins only"}
             </Row>
+            <Row label="Hibernation">
+              {app.hibernate_enabled
+                ? `sleeps after ${app.hibernate_after_seconds ? `${(app.hibernate_after_seconds / 3600).toFixed(1)}h` : "the platform default"} idle`
+                : "disabled"}
+            </Row>
+            {app.state !== "sleeping" && (
+              <Row label="Last active">{new Date(app.last_active_at).toLocaleString()}</Row>
+            )}
             <Row label="Created">{new Date(app.created_at).toLocaleString()}</Row>
             <Row label="Updated">{new Date(app.updated_at).toLocaleString()}</Row>
           </Stack>

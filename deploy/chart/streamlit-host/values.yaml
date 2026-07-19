@@ -30,6 +30,12 @@ apps:
     memRequest: 512Mi
     memLimit: 2Gi
 
+# Hibernation (SPEC §4.8): idle apps scale to zero and wake on the next
+# request. Timeout is the platform default; apps can override or opt out.
+hibernation:
+  enabled: true
+  timeoutHours: 12
+
 builds:
   namespace: streamlit-builds
   createNamespace: true

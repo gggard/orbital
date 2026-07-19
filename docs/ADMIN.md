@@ -105,6 +105,27 @@ migrates every running app's ingress and redeploys it with the matching
 Streamlit `baseUrlPath` (a brief rolling restart per app). Bookmarked URLs
 from the old mode stop working — announce the change to users.
 
+### Hibernation
+
+Apps idle past a timeout (default **12h**, matching Streamlit Community
+Cloud) are scaled to zero replicas — state `Sleeping`. Any request to a
+sleeping app's URL shows an auto-refreshing "waking up" page while the
+control plane scales it back to one replica and repoints its ingress; no
+extra authentication is required beyond the app's normal sharing mode.
+
+- Platform default: `hibernation.enabled` / `hibernation.timeoutHours`
+  (`SH_HIBERNATION_ENABLED` / `SH_HIBERNATION_TIMEOUT_SECONDS`).
+- Per app: developers can raise/lower the timeout or disable hibernation
+  entirely from the app's Settings tab.
+- Mechanism: activity is recorded via the same nginx `auth_request` hook
+  already used for private-app authorization, generalized to a non-blocking
+  beacon for public apps — no ingress-log pipeline required. While sleeping,
+  the app's Ingress is repointed at the control plane (via the in-namespace
+  `sh-wake-proxy` `ExternalName` Service) which doubles as the wake proxy.
+  Requires `hibernation.enabled` and a control plane Service reachable from
+  the ingress controller (`SH_CONTROL_PLANE_SERVICE_HOST/PORT`, set
+  automatically by the chart).
+
 ### Resource tiers
 
 Per-app requests/limits are platform-wide (`apps.resources.*`). Raising them

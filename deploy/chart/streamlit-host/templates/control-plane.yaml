@@ -79,6 +79,14 @@ spec:
               value: {{ .Values.apps.resources.memLimit | quote }}
             - name: SH_UI_BASE_URL
               value: {{ .Values.console.url | quote }}
+            - name: SH_HIBERNATION_ENABLED
+              value: {{ .Values.hibernation.enabled | quote }}
+            - name: SH_HIBERNATION_TIMEOUT_SECONDS
+              value: {{ mul .Values.hibernation.timeoutHours 3600 | quote }}
+            - name: SH_CONTROL_PLANE_SERVICE_HOST
+              value: "{{ include "sh.controlPlaneName" . }}.{{ .Release.Namespace }}.svc.cluster.local"
+            - name: SH_CONTROL_PLANE_SERVICE_PORT
+              value: "8000"
             {{- if .Values.auth.console.enabled }}
             - name: SH_UI_AUTH_ENABLED
               value: "true"

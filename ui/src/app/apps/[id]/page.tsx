@@ -1,6 +1,7 @@
 "use client";
 
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import BoltIcon from "@mui/icons-material/Bolt";
 import LaunchIcon from "@mui/icons-material/Launch";
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
 import ReplayIcon from "@mui/icons-material/Replay";
@@ -29,7 +30,7 @@ import OverviewTab from "@/components/detail/OverviewTab";
 import SecretsTab from "@/components/detail/SecretsTab";
 import SettingsTab from "@/components/detail/SettingsTab";
 import SharingTab from "@/components/detail/SharingTab";
-import { deployApp, rebootApp, useApp, useMe } from "@/lib/api";
+import { deployApp, rebootApp, useApp, useMe, wakeApp } from "@/lib/api";
 
 const ALL_TABS = ["Overview", "Metrics", "Logs", "Builds", "Secrets", "Sharing", "Settings"] as const;
 const VIEWER_TABS = ["Overview", "Metrics", "Logs", "Builds"] as const;
@@ -87,7 +88,7 @@ export default function AppDetail() {
             <Button
               size="small"
               startIcon={<LaunchIcon />}
-              disabled={app.state !== "running"}
+              disabled={!["running", "sleeping"].includes(app.state)}
               component="a"
               href={app.url}
               target="_blank"
@@ -99,6 +100,16 @@ export default function AppDetail() {
         </Tooltip>
         {!readOnly && (
           <>
+            {app.state === "sleeping" && (
+              <Button
+                size="small"
+                variant="contained"
+                startIcon={<BoltIcon />}
+                onClick={() => act(() => wakeApp(app.id), "waking up")}
+              >
+                Wake now
+              </Button>
+            )}
             <Button
               size="small"
               startIcon={<ReplayIcon />}
@@ -119,7 +130,10 @@ export default function AppDetail() {
       </Stack>
 
       <Box sx={{ ml: 5.5, mb: 2 }}>
-        <CopyField value={app.url} href={app.state === "running" ? app.url : undefined} />
+        <CopyField
+          value={app.url}
+          href={["running", "sleeping"].includes(app.state) ? app.url : undefined}
+        />
       </Box>
 
       {app.error && (
