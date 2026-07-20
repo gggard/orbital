@@ -5,8 +5,13 @@
 
 version: 2
 updates:
-  - package-ecosystem: "" # See documentation for possible values
+  - package-ecosystem: "pip"
     directory: "/" # Location of package manifests
     schedule:
       interval: "weekly"
-      
+
+  - package-ecosystem: "npm"
+    directory: "/ui"
+    schedule:
+      interval: "weekly"
+
