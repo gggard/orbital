@@ -1,5 +1,6 @@
 "use client";
 
+import AdminPanelSettingsOutlinedIcon from "@mui/icons-material/AdminPanelSettingsOutlined";
 import DarkModeOutlinedIcon from "@mui/icons-material/DarkModeOutlined";
 import LightModeOutlinedIcon from "@mui/icons-material/LightModeOutlined";
 import LoginIcon from "@mui/icons-material/Login";
@@ -25,6 +26,18 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import Logo from "@/components/Logo";
 import { loginUrl, logout, useMe } from "@/lib/api";
+
+function AdminLink() {
+  const { data: me } = useMe();
+  if (me?.role !== "admin") return null;
+  return (
+    <Tooltip title="Admin">
+      <IconButton component={Link} href="/admin" color="inherit" aria-label="admin dashboard">
+        <AdminPanelSettingsOutlinedIcon />
+      </IconButton>
+    </Tooltip>
+  );
+}
 
 function ThemeToggle() {
   const { mode, setMode } = useColorScheme();
@@ -142,6 +155,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             Orbital
           </Typography>
           <Box sx={{ flexGrow: 1 }} />
+          <AdminLink />
           <UserMenu />
           <ThemeToggle />
         </Toolbar>

@@ -49,7 +49,7 @@ def _managed(db: Session, app_id: str, user: User) -> App:
     return managed_app(user, _get_app(db, app_id))
 
 
-def _to_out(app: App, settings: Settings) -> AppOut:
+def to_app_out(app: App, settings: Settings) -> AppOut:
     return AppOut(
         id=app.id,
         slug=app.slug,
@@ -148,7 +148,7 @@ def create_app(
     )
     db.add(app)
     db.flush()
-    return _to_out(app, settings)
+    return to_app_out(app, settings)
 
 
 @router.get("/apps", response_model=list[AppOut])
@@ -160,7 +160,7 @@ def list_apps(
     from .security import can_see
 
     apps = db.scalars(select(App).order_by(App.created_at)).all()
-    return [_to_out(a, settings) for a in apps if can_see(user, a)]
+    return [to_app_out(a, settings) for a in apps if can_see(user, a)]
 
 
 @router.get("/apps/{app_id}", response_model=AppOut)
@@ -170,7 +170,7 @@ def get_app(
     settings: Settings = Depends(get_settings),
     user: User = Depends(get_current_user),
 ):
-    return _to_out(_visible(db, app_id, user), settings)
+    return to_app_out(_visible(db, app_id, user), settings)
 
 
 @router.patch("/apps/{app_id}", response_model=AppOut)
@@ -226,7 +226,7 @@ def update_app(
         app.poll_interval_seconds = payload.poll_interval_seconds
     if needs_rebuild and app.state != AppState.building:
         app.pending_action = PendingAction.deploy
-    return _to_out(app, settings)
+    return to_app_out(app, settings)
 
 
 @router.delete("/apps/{app_id}", status_code=202)

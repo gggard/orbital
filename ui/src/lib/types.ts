@@ -110,6 +110,23 @@ export interface AnalyticsOut {
   viewers: AnalyticsViewer[];
 }
 
+export interface AdminAppOut extends AppOut {
+  cpu: number | null; // cores, latest sample
+  mem: number | null; // bytes, latest sample
+}
+
+export interface AdminTotals {
+  app_count: number;
+  running_count: number;
+  cpu: number; // consumption, not a mutualized pool — apps have per-app limits, not a shared cap
+  mem: number;
+}
+
+export interface AdminOverviewOut {
+  totals: AdminTotals;
+  apps: AdminAppOut[];
+}
+
 export interface AppUpdate {
   branch?: string;
   main_file?: string;

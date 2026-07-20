@@ -99,6 +99,11 @@ class MetricsStore:
         with self._lock:
             return list(self._series.get(app_id, ()))
 
+    def latest(self, app_id: str) -> Sample | None:
+        with self._lock:
+            series = self._series.get(app_id)
+            return series[-1] if series else None
+
     def drop(self, app_id: str) -> None:
         with self._lock:
             self._series.pop(app_id, None)
