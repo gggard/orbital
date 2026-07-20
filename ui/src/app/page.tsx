@@ -1,6 +1,7 @@
 "use client";
 
 import AddIcon from "@mui/icons-material/Add";
+import FileDownloadOutlinedIcon from "@mui/icons-material/FileDownloadOutlined";
 import TableRowsOutlinedIcon from "@mui/icons-material/TableRowsOutlined";
 import TuneOutlinedIcon from "@mui/icons-material/TuneOutlined";
 import ViewModuleOutlinedIcon from "@mui/icons-material/ViewModuleOutlined";
@@ -25,7 +26,9 @@ import AppsTable from "@/components/AppsTable";
 import CreateAppDialog from "@/components/CreateAppDialog";
 import Logo from "@/components/Logo";
 import { useAdminOverview, useApps, useMe } from "@/lib/api";
+import { appsToCsv, downloadCsv } from "@/lib/csv";
 import { fmtCpu, fmtMem } from "@/lib/format";
+import { applySort, DEFAULT_SORT, toggleSort } from "@/lib/sort";
 import type { AdminAppOut, AppState } from "@/lib/types";
 
 export default function AppsOverview() {
@@ -38,6 +41,7 @@ export default function AppsOverview() {
   const [view, setView] = useState<"cards" | "table">("cards");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [filter, setFilter] = useState(EMPTY_FILTER);
+  const [sort, setSort] = useState(DEFAULT_SORT);
   const canCreate = me?.can_create ?? false;
   const readOnly = me?.role === "viewer";
   const activeFilters = filterCount(filter);
@@ -50,11 +54,17 @@ export default function AppsOverview() {
   const allApps: AdminAppOut[] =
     isAdmin && overview ? overview.apps : (apps ?? []).map((a) => ({ ...a, cpu: null, mem: null }));
   const filteredApps = applyFilter(allApps, filter);
+  const sortedApps = applySort(filteredApps, sort);
 
   const removeState = (s: AppState) =>
     setFilter({ ...filter, states: filter.states.filter((x) => x !== s) });
   const removeOwner = (o: string) =>
     setFilter({ ...filter, owners: filter.owners.filter((x) => x !== o) });
+
+  const handleExport = () => {
+    const stamp = new Date().toISOString().slice(0, 10);
+    downloadCsv(`orbital-apps-${stamp}.csv`, appsToCsv(sortedApps));
+  };
 
   return (
     <>
@@ -69,6 +79,17 @@ export default function AppsOverview() {
           )}
         </Box>
         <Box sx={{ flexGrow: 1 }} />
+        <Tooltip title="Export CSV">
+          <span>
+            <IconButton
+              onClick={handleExport}
+              disabled={sortedApps.length === 0}
+              aria-label="export csv"
+            >
+              <FileDownloadOutlinedIcon fontSize="small" />
+            </IconButton>
+          </span>
+        </Tooltip>
         <Tooltip title="Filters">
           <IconButton
             onClick={() => setFiltersOpen((o) => !o)}
@@ -183,12 +204,16 @@ export default function AppsOverview() {
               gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr", md: "1fr 1fr 1fr" },
             }}
           >
-            {filteredApps.map((app) => (
+            {sortedApps.map((app) => (
               <AppCard key={app.id} app={app} readOnly={readOnly} onAction={setSnack} />
             ))}
           </Box>
         ) : (
-          <AppsTable apps={filteredApps} />
+          <AppsTable
+            apps={sortedApps}
+            sort={sort}
+            onSortChange={(key) => setSort(toggleSort(sort, key))}
+          />
         )}
       </Box>
 

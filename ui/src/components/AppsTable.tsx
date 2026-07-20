@@ -8,30 +8,54 @@ import TableCell from "@mui/material/TableCell";
 import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
+import TableSortLabel from "@mui/material/TableSortLabel";
 import Typography from "@mui/material/Typography";
 import NextLink from "next/link";
 import StateChip from "@/components/StateChip";
 import { fmtCpu, fmtMem } from "@/lib/format";
+import type { AppsSort, SortKey } from "@/lib/sort";
 import type { AdminAppOut } from "@/lib/types";
 import { mono } from "@/theme";
+
+const COLUMNS: { key: SortKey; label: string; align?: "right" }[] = [
+  { key: "slug", label: "Slug" },
+  { key: "state", label: "State" },
+  { key: "owner_groups", label: "Owner groups" },
+  { key: "cpu", label: "CPU", align: "right" },
+  { key: "mem", label: "Memory", align: "right" },
+  { key: "updated_at", label: "Updated" },
+];
 
 /**
  * Table alternative to the card grid. `cpu`/`mem` are only populated for
  * admins (from GET /api/v1/admin/overview); other roles pass apps with those
  * fields set to null and the columns render "—".
  */
-export default function AppsTable({ apps }: { apps: AdminAppOut[] }) {
+export default function AppsTable({
+  apps,
+  sort,
+  onSortChange,
+}: {
+  apps: AdminAppOut[];
+  sort: AppsSort;
+  onSortChange: (key: SortKey) => void;
+}) {
   return (
     <TableContainer component={Card}>
       <Table size="small" stickyHeader>
         <TableHead>
           <TableRow>
-            <TableCell>Slug</TableCell>
-            <TableCell>State</TableCell>
-            <TableCell>Owner groups</TableCell>
-            <TableCell align="right">CPU</TableCell>
-            <TableCell align="right">Memory</TableCell>
-            <TableCell>Updated</TableCell>
+            {COLUMNS.map((col) => (
+              <TableCell key={col.key} align={col.align}>
+                <TableSortLabel
+                  active={sort.key === col.key}
+                  direction={sort.key === col.key ? sort.dir : "asc"}
+                  onClick={() => onSortChange(col.key)}
+                >
+                  {col.label}
+                </TableSortLabel>
+              </TableCell>
+            ))}
           </TableRow>
         </TableHead>
         <TableBody>
