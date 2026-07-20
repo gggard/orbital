@@ -9,7 +9,7 @@ from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 
 from . import __version__
-from .api import admin, apps, auth, authz, wake, webhooks
+from .api import admin, apps, auth, authz, tokens, wake, webhooks
 from .api.wake import hibernation_middleware
 from .config import get_settings
 from .db import init_engine
@@ -50,6 +50,7 @@ app.include_router(admin.router)
 app.include_router(apps.router)
 app.include_router(auth.router)
 app.include_router(authz.router)
+app.include_router(tokens.router)
 app.include_router(wake.router)
 app.include_router(webhooks.router)
 

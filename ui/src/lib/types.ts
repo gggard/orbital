@@ -73,6 +73,7 @@ export interface Me {
   git_poll_min_interval_seconds: number;
   hibernation_timeout_seconds: number;
   hibernation_max_timeout_seconds: number;
+  api_token_max_ttl_days: number;
 }
 
 export interface MetricsPoint {
@@ -138,4 +139,26 @@ export interface AppUpdate {
   hibernate_after_seconds?: number;
   poll_enabled?: boolean;
   poll_interval_seconds?: number;
+}
+
+export interface TokenCreate {
+  name: string;
+  ttl_days?: number;
+}
+
+export interface TokenCreated {
+  id: string;
+  name: string;
+  token: string; // raw secret, shown once
+  created_at: string;
+  expires_at: string;
+}
+
+export interface TokenOut {
+  id: string;
+  name: string;
+  created_at: string;
+  expires_at: string;
+  last_used_at: string | null;
+  revoked_at: string | null;
 }

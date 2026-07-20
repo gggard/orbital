@@ -156,6 +156,9 @@ GET    /api/v1/apps/{id}/logs?follow=true
 GET    /api/v1/apps/{id}/builds/{bid}/logs
 PUT    /api/v1/apps/{id}/secrets        {"secrets_toml": "..."}
 POST   /webhooks/apps/{id}/{token}      git push webhook (generic)
+POST   /api/v1/me/tokens                {"name": "...", "ttl_days": ...} -> personal API token
+GET    /api/v1/me/tokens                list your own tokens
+DELETE /api/v1/me/tokens/{id}           revoke a token
 ```
 
 See [API.md](API.md) for full deploy/monitor walkthroughs with shell, Python,

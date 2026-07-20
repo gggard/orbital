@@ -63,6 +63,11 @@ class Settings(BaseSettings):
     ui_base_url: str = "http://localhost:3000"  # browser-facing console URL
     session_secret: str = "dev-session-secret-change-me"
 
+    # Personal API tokens (SPEC: "dashboard session or personal API token").
+    # No separate default is needed beyond this: a token with no explicit
+    # ttl_days gets this value, so it's both the default and the ceiling.
+    api_token_max_ttl_days: int = 90
+
     # Build
     # Rootless BuildKit is the default (SPEC §5.2); some environments (nested
     # containers/LXC without user-namespace support) need privileged builds.

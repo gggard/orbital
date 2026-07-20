@@ -136,6 +136,7 @@ def me(
         "git_poll_min_interval_seconds": settings.git_poll_min_interval_seconds,
         "hibernation_timeout_seconds": settings.hibernation_timeout_seconds,
         "hibernation_max_timeout_seconds": settings.hibernation_max_timeout_seconds,
+        "api_token_max_ttl_days": settings.api_token_max_ttl_days,
     }
 
 

@@ -10,6 +10,9 @@ import type {
   BuildOut,
   Me,
   MetricsOut,
+  TokenCreate,
+  TokenCreated,
+  TokenOut,
 } from "./types";
 
 export class ApiError extends Error {
@@ -135,6 +138,9 @@ export const useSecrets = (id: string) =>
     revalidateOnFocus: false,
   });
 
+export const useTokens = () =>
+  useSWR<TokenOut[]>("/api/v1/me/tokens", jsonFetcher, { revalidateOnFocus: false });
+
 // -- mutations -------------------------------------------------------------
 
 export const createApp = (body: AppCreate) =>
@@ -160,3 +166,8 @@ export const putSecrets = (id: string, secrets_toml: string) =>
     method: "PUT",
     body: JSON.stringify({ secrets_toml }),
   });
+
+export const createToken = (body: TokenCreate) =>
+  api<TokenCreated>("/api/v1/me/tokens", { method: "POST", body: JSON.stringify(body) });
+
+export const revokeToken = (id: string) => api(`/api/v1/me/tokens/${id}`, { method: "DELETE" });

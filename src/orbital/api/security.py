@@ -7,12 +7,17 @@ owner_groups intersect their groups). Users in none of the mapped groups are
 rejected at login.
 """
 
+import hashlib
 from dataclasses import dataclass
+from datetime import UTC, datetime
 
 from fastapi import Depends, HTTPException, Request
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from ..config import Settings, get_settings
-from ..models import App
+from ..db import get_db
+from ..models import ApiToken, App, ensure_aware
 
 
 @dataclass
@@ -37,11 +42,32 @@ def resolve_role(groups: list[str], settings: Settings) -> str | None:
     return None
 
 
+def _user_from_token(token: str, db: Session, settings: Settings) -> User:
+    token_hash = hashlib.sha256(token.encode()).hexdigest()
+    rec = db.scalar(select(ApiToken).where(ApiToken.token_hash == token_hash))
+    if rec is None or rec.revoked_at is not None:
+        raise HTTPException(401, "invalid API token")
+    if ensure_aware(rec.expires_at) < datetime.now(UTC):
+        raise HTTPException(401, "API token has expired")
+    role = resolve_role(rec.groups, settings)
+    if role is None:
+        raise HTTPException(403, "your groups grant no access to this console")
+    rec.last_used_at = datetime.now(UTC)
+    return User(email=rec.email, groups=rec.groups, role=role)
+
+
 def get_current_user(
-    request: Request, settings: Settings = Depends(get_settings)
+    request: Request,
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
 ) -> User:
     if not settings.ui_auth_enabled:
         return User(email="dev@localhost", groups=[], role="admin")
+
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        return _user_from_token(auth_header.removeprefix("Bearer ").strip(), db, settings)
+
     sess = request.session.get("user")
     if not sess:
         raise HTTPException(401, "not signed in")
