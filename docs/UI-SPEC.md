@@ -29,10 +29,14 @@
   ├─ tab: Secrets     TOML editor
   ├─ tab: Sharing     public/private + allowed groups
   └─ tab: Settings    branch/main file/python, webhook, danger zone
+/admin                Admin dashboard (admins only)
+  ├─ tab: Overview    fleet totals, all-apps card/table toggle
+  └─ tab: Reconciler logs   live control-plane log tail
 ```
 
-Top-level layout: slim AppBar (product name, theme toggle) + content
-container (max-width `lg`). No side nav — two levels only.
+Top-level layout: slim AppBar (product name, admin shield icon for admins,
+theme toggle) + content container (max-width `lg`). No side nav — two levels
+only.
 
 ## 3. Screens
 
@@ -95,6 +99,21 @@ Below: MUI `Tabs`.
   with copy button + hint for GitHub/GitLab/Gitea · **Danger zone**:
   outlined red card with Delete (confirm dialog typing the slug).
 
+### 3.4 Admin dashboard (`/admin`)
+
+Admins only (403-style `Alert` for everyone else; the AppBar shield icon is
+hidden for non-admins). MUI `Tabs`:
+
+- **Overview**: stat cards (app count, running count, total CPU, total memory
+  — the last two against platform limits) built from `GET /api/v1/admin/overview`,
+  polled every 5 s. Below, the same card/table toggle pattern as the Metrics
+  tab (§3.3): cards reuse `AppCard` unchanged; the table adds columns not on
+  the card (owner groups, live CPU/memory, last updated) and is the default
+  view for a fleet-wide glance.
+- **Reconciler logs**: `LogPane` fed by `GET /api/v1/admin/logs?tail=500`,
+  polled every 4 s — a simpler sibling of the per-app Logs tab (no
+  follow-toggle or download, always-on tail).
+
 ## 4. Components
 
 | Component | Purpose |
@@ -105,7 +124,8 @@ Below: MUI `Tabs`.
 | `LogPane` | scrollable monospace log viewer w/ follow + download |
 | `ConfirmDialog` | generic destructive-action confirmation |
 | `CopyField` | read-only value + copy-to-clipboard button |
-| `useApps / useApp / useBuilds / useLogs` | SWR hooks in `lib/api.ts` |
+| `FleetOverviewTab` / `FleetLogsTab` | `/admin` tab bodies (fleet stats + card/table toggle; reconciler log tail) |
+| `useApps / useApp / useBuilds / useLogs / useAdminOverview / useAdminLogs` | SWR hooks in `lib/api.ts` |
 
 ## 5. Design system
 

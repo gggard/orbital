@@ -116,6 +116,25 @@ class AnalyticsViewer(BaseModel):
     last_seen: datetime
 
 
+class AdminAppOut(AppOut):
+    cpu: float | None  # cores, latest sample (None: no metrics yet)
+    mem: float | None  # bytes, latest sample
+
+
+class AdminTotals(BaseModel):
+    app_count: int
+    running_count: int
+    cpu: float  # sum of latest per-app samples
+    mem: float
+    cpu_limit: float  # settings.app_cpu_limit * running_count
+    mem_limit: float  # settings.app_mem_limit * running_count
+
+
+class AdminOverviewOut(BaseModel):
+    totals: AdminTotals
+    apps: list[AdminAppOut]
+
+
 class AnalyticsOut(BaseModel):
     total_views: int
     unique_viewers_1d: int

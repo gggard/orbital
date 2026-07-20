@@ -75,6 +75,20 @@ the private→public transition.
   kept in memory — history resets when the control plane restarts). If the
   cluster has no metrics-server, the tab reports "no metrics" and everything
   else works normally.
+- Admins get a fleet-wide **Admin** page (the shield icon in the top bar,
+  `/admin` in the console) with two views:
+  - **Overview**: total app/running counts and aggregate CPU/memory (latest
+    metrics-server samples, same source as the per-app Metrics tab) against
+    platform limits, plus every app's status, owner groups and resource
+    usage — toggle between the familiar card grid and a sortable table.
+  - **Reconciler logs**: a live tail of the control plane's in-memory log
+    buffer (reconciler + API), for a namespace-level view without shelling
+    into the cluster.
+
+  Both are in-memory and per-replica, the same caveat as the Metrics tab:
+  history resets on restart, and with `controlPlane.replicas > 1` (only
+  possible with `database.url` set) each replica only reflects what it has
+  seen itself.
 - Cluster level:
   ```bash
   kubectl -n streamlit-apps get deploy,pods       # runtime health

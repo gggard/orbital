@@ -78,6 +78,11 @@ def require_creator(user: User) -> None:
         raise HTTPException(403, "your role cannot create apps")
 
 
+def require_admin(user: User) -> None:
+    if not user.is_admin:
+        raise HTTPException(403, "admin only")
+
+
 def can_publish(user: User, settings: Settings) -> bool:
     """Whether the user may make an app public (platform policy)."""
     if not settings.public_sharing_groups or user.is_admin:

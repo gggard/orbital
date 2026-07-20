@@ -110,6 +110,25 @@ export interface AnalyticsOut {
   viewers: AnalyticsViewer[];
 }
 
+export interface AdminAppOut extends AppOut {
+  cpu: number | null; // cores, latest sample
+  mem: number | null; // bytes, latest sample
+}
+
+export interface AdminTotals {
+  app_count: number;
+  running_count: number;
+  cpu: number;
+  mem: number;
+  cpu_limit: number;
+  mem_limit: number;
+}
+
+export interface AdminOverviewOut {
+  totals: AdminTotals;
+  apps: AdminAppOut[];
+}
+
 export interface AppUpdate {
   branch?: string;
   main_file?: string;

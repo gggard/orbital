@@ -1,7 +1,16 @@
 "use client";
 
 import useSWR from "swr";
-import type { AnalyticsOut, AppCreate, AppOut, AppUpdate, BuildOut, Me, MetricsOut } from "./types";
+import type {
+  AdminOverviewOut,
+  AnalyticsOut,
+  AppCreate,
+  AppOut,
+  AppUpdate,
+  BuildOut,
+  Me,
+  MetricsOut,
+} from "./types";
 
 export class ApiError extends Error {
   status: number;
@@ -106,6 +115,18 @@ export const useAppMetrics = (id: string) =>
 export const useAppAnalytics = (id: string) =>
   useSWR<AnalyticsOut>(`/api/v1/apps/${id}/analytics`, jsonFetcher, {
     refreshInterval: 30000,
+    keepPreviousData: true,
+  });
+
+export const useAdminOverview = () =>
+  useSWR<AdminOverviewOut>("/api/v1/admin/overview", jsonFetcher, {
+    refreshInterval: 5000,
+    keepPreviousData: true,
+  });
+
+export const useAdminLogs = (tail = 500) =>
+  useSWR<string>(`/api/v1/admin/logs?tail=${tail}`, textFetcher, {
+    refreshInterval: 4000,
     keepPreviousData: true,
   });
 
