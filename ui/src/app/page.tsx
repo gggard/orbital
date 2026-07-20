@@ -1,8 +1,6 @@
 "use client";
 
 import AddIcon from "@mui/icons-material/Add";
-import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
-import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
 import FileDownloadOutlinedIcon from "@mui/icons-material/FileDownloadOutlined";
 import TableRowsOutlinedIcon from "@mui/icons-material/TableRowsOutlined";
 import TuneOutlinedIcon from "@mui/icons-material/TuneOutlined";
@@ -13,11 +11,7 @@ import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import Collapse from "@mui/material/Collapse";
-import FormControl from "@mui/material/FormControl";
 import IconButton from "@mui/material/IconButton";
-import InputLabel from "@mui/material/InputLabel";
-import MenuItem from "@mui/material/MenuItem";
-import Select from "@mui/material/Select";
 import Skeleton from "@mui/material/Skeleton";
 import Snackbar from "@mui/material/Snackbar";
 import Stack from "@mui/material/Stack";
@@ -34,7 +28,7 @@ import Logo from "@/components/Logo";
 import { useAdminOverview, useApps, useMe } from "@/lib/api";
 import { appsToCsv, downloadCsv } from "@/lib/csv";
 import { fmtCpu, fmtMem } from "@/lib/format";
-import { applySort, DEFAULT_SORT, SORT_LABELS, toggleSort, type SortKey } from "@/lib/sort";
+import { applySort, DEFAULT_SORT, toggleSort } from "@/lib/sort";
 import type { AdminAppOut, AppState } from "@/lib/types";
 
 export default function AppsOverview() {
@@ -85,33 +79,6 @@ export default function AppsOverview() {
           )}
         </Box>
         <Box sx={{ flexGrow: 1 }} />
-        <FormControl size="small" sx={{ minWidth: 140 }}>
-          <InputLabel id="apps-sort-label">Sort by</InputLabel>
-          <Select
-            labelId="apps-sort-label"
-            label="Sort by"
-            value={sort.key}
-            onChange={(e) => setSort({ key: e.target.value as SortKey, dir: sort.dir })}
-          >
-            {(Object.keys(SORT_LABELS) as SortKey[]).map((key) => (
-              <MenuItem key={key} value={key}>
-                {SORT_LABELS[key]}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-        <Tooltip title={sort.dir === "asc" ? "Ascending" : "Descending"}>
-          <IconButton
-            onClick={() => setSort({ ...sort, dir: sort.dir === "asc" ? "desc" : "asc" })}
-            aria-label="toggle sort direction"
-          >
-            {sort.dir === "asc" ? (
-              <ArrowUpwardIcon fontSize="small" />
-            ) : (
-              <ArrowDownwardIcon fontSize="small" />
-            )}
-          </IconButton>
-        </Tooltip>
         <Tooltip title="Export CSV">
           <span>
             <IconButton

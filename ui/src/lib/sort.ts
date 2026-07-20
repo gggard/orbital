@@ -10,15 +10,6 @@ export interface AppsSort {
 
 export const DEFAULT_SORT: AppsSort = { key: "updated_at", dir: "desc" };
 
-export const SORT_LABELS: Record<SortKey, string> = {
-  slug: "Name",
-  state: "State",
-  owner_groups: "Owner",
-  cpu: "CPU",
-  mem: "Memory",
-  updated_at: "Last update",
-};
-
 function sortValue(app: AdminAppOut, key: SortKey): string | number | null {
   switch (key) {
     case "slug":
