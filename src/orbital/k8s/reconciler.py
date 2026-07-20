@@ -31,6 +31,14 @@ _BUILD_TIMEOUT_GRACE_SECONDS = 120
 # cleared automatically once the app reconciles cleanly again.
 _RECONCILER_ERROR_PREFIX = "reconciler error:"
 
+# How often to sweep apps_namespace for orphaned Deployment/Service/Ingress/
+# Secret objects whose app-id label has no matching row in the DB (#23) -
+# a namespace-wide list on every 3s tick would be wasteful, and this is a
+# slow-drift safety net rather than something that needs tight latency.
+_GC_INTERVAL_SECONDS = 60.0
+
+_APP_ID_LABEL = "app.orbital.io/app-id"
+
 
 def _now_iso() -> str:
     return datetime.now(UTC).isoformat()
@@ -60,6 +68,7 @@ class Reconciler:
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
         self._last_sample = 0.0
+        self._last_gc = 0.0
 
     # -- lifecycle ---------------------------------------------------------
 
@@ -124,6 +133,7 @@ class Reconciler:
                     if app.error and app.error.startswith(_RECONCILER_ERROR_PREFIX):
                         app.error = None
             self._sample_metrics(apps)
+            self._gc_orphaned_resources(apps)
 
     def _sample_metrics(self, apps: list[App]):
         now = time.time()
@@ -140,6 +150,49 @@ class Reconciler:
                 continue
             if sample is not None:
                 metrics.store.add(app.id, sample)
+
+    def _gc_orphaned_resources(self, apps: list[App]):
+        """Delete apps_namespace Deployment/Service/Ingress/Secret objects
+        whose app-id label has no matching row in the DB (#23).
+
+        These become permanently orphaned when the DB and cluster state
+        drift apart (e.g. the DB is reset without the cluster following, or
+        _delete_app raises after deleting some but not all of an app's
+        resources) - nothing else ever revisits them, and a leftover
+        Ingress in particular can permanently block a new app from ever
+        claiming the same slug/host again.
+
+        Safe by construction: an app's DB row is created before any of its
+        cluster resources (see _start_build/_deploy), so a resource is only
+        ever a GC candidate once its owning app is truly gone from the DB,
+        never while it's mid-creation.
+        """
+        now = time.time()
+        if now - self._last_gc < _GC_INTERVAL_SECONDS:
+            return
+        self._last_gc = now
+
+        live_ids = {app.id for app in apps}
+        ns = self.settings.apps_namespace
+        resource_kinds = (
+            ("Deployment", client.apps_v1().list_namespaced_deployment,
+             client.apps_v1().delete_namespaced_deployment),
+            ("Service", client.core().list_namespaced_service,
+             client.core().delete_namespaced_service),
+            ("Ingress", client.networking().list_namespaced_ingress,
+             client.networking().delete_namespaced_ingress),
+            ("Secret", client.core().list_namespaced_secret,
+             client.core().delete_namespaced_secret),
+        )
+        for kind, list_fn, delete_fn in resource_kinds:
+            for item in list_fn(ns, label_selector=_APP_ID_LABEL).items:
+                app_id = (item.metadata.labels or {}).get(_APP_ID_LABEL)
+                if app_id and app_id not in live_ids:
+                    _not_found_ok(delete_fn, item.metadata.name, ns)
+                    log.warning(
+                        "gc: deleted orphaned %s %s (app-id=%s has no matching app)",
+                        kind, item.metadata.name, app_id,
+                    )
 
     def step(self, session, app: App):
         if app.pending_action == PendingAction.delete:
