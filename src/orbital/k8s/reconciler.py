@@ -114,8 +114,12 @@ class Reconciler:
                 except Exception as e:
                     log.exception("reconcile failed for app %s (%s)", app.slug, app.id)
                     # surface it instead of silently leaving the app's state
-                    # (and updated_at) frozen with no visible explanation
-                    app.error = f"{_RECONCILER_ERROR_PREFIX} {e!r}"
+                    # (and updated_at) frozen with no visible explanation.
+                    # str(e), not repr(e): ApiException overrides __str__ with the
+                    # HTTP status/reason/body but not __repr__, which would otherwise
+                    # collapse to a useless "ApiException()".
+                    detail = str(e).strip() or repr(e)
+                    app.error = f"{_RECONCILER_ERROR_PREFIX} {type(e).__name__}: {detail}"
                 else:
                     if app.error and app.error.startswith(_RECONCILER_ERROR_PREFIX):
                         app.error = None
