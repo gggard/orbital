@@ -169,6 +169,33 @@ def test_tick_surfaces_unhandled_step_exception_on_app(reconciler, monkeypatch):
         assert app.state == AppState.building
 
 
+class _CustomStrOnlyError(Exception):
+    """Mimics kubernetes.client.exceptions.ApiException: overrides __str__
+    with the useful detail but not __repr__, so formatting with `!r` collapses
+    to a useless "ClassName()"."""
+
+    def __str__(self):
+        return "(404)\nReason: Not Found\n"
+
+
+def test_tick_uses_str_not_repr_for_exceptions_with_custom_str(reconciler, monkeypatch):
+    """A bare repr() on an ApiException-shaped error produced a useless
+    "ApiException()" with no status/reason - str() carries the real detail."""
+    _persist(make_app())
+    monkeypatch.setattr(
+        reconciler, "step", MagicMock(side_effect=_CustomStrOnlyError())
+    )
+    reconciler.tick()
+
+    from orbital import db as db_mod
+
+    with db_mod.session_scope() as session:
+        app = session.get(App, "abc123def456")
+        assert app.error is not None
+        assert "Reason: Not Found" in app.error
+        assert "_CustomStrOnlyError()" not in app.error
+
+
 def test_tick_clears_synthetic_error_once_step_recovers(reconciler, monkeypatch):
     app_id = _persist(make_app())
     from orbital import db as db_mod
