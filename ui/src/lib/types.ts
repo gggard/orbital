@@ -73,6 +73,7 @@ export interface Me {
   git_poll_min_interval_seconds: number;
   hibernation_timeout_seconds: number;
   hibernation_max_timeout_seconds: number;
+  api_token_max_ttl_days: number;
 }
 
 export interface MetricsPoint {

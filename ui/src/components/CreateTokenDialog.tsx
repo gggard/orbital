@@ -12,7 +12,7 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { useState } from "react";
 import CopyField from "@/components/CopyField";
-import { createToken } from "@/lib/api";
+import { createToken, useMe } from "@/lib/api";
 
 export default function CreateTokenDialog({
   open,
@@ -23,6 +23,8 @@ export default function CreateTokenDialog({
   onClose: () => void;
   onCreated: () => void;
 }) {
+  const { data: me } = useMe();
+  const maxTtlDays = me?.api_token_max_ttl_days;
   const [name, setName] = useState("");
   const [ttlDays, setTtlDays] = useState("");
   const [error, setError] = useState("");
@@ -96,11 +98,15 @@ export default function CreateTokenDialog({
               label="Expires in (days)"
               type="number"
               size="small"
-              placeholder="platform default / max"
+              placeholder={maxTtlDays ? String(maxTtlDays) : undefined}
               value={ttlDays}
               onChange={(e) => setTtlDays(e.target.value)}
-              slotProps={{ htmlInput: { min: 1 } }}
-              helperText="leave blank to use the platform's default (and maximum) TTL"
+              slotProps={{ htmlInput: { min: 1, max: maxTtlDays } }}
+              helperText={
+                maxTtlDays
+                  ? `leave blank to use the platform maximum of ${maxTtlDays} days`
+                  : "leave blank to use the platform's default (and maximum) TTL"
+              }
             />
           </Stack>
         )}
