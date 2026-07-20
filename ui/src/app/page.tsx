@@ -2,12 +2,15 @@
 
 import AddIcon from "@mui/icons-material/Add";
 import TableRowsOutlinedIcon from "@mui/icons-material/TableRowsOutlined";
+import TuneOutlinedIcon from "@mui/icons-material/TuneOutlined";
 import ViewModuleOutlinedIcon from "@mui/icons-material/ViewModuleOutlined";
 import Alert from "@mui/material/Alert";
+import Badge from "@mui/material/Badge";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
-import Card from "@mui/material/Card";
-import CardContent from "@mui/material/CardContent";
+import Chip from "@mui/material/Chip";
+import Collapse from "@mui/material/Collapse";
+import IconButton from "@mui/material/IconButton";
 import Skeleton from "@mui/material/Skeleton";
 import Snackbar from "@mui/material/Snackbar";
 import Stack from "@mui/material/Stack";
@@ -17,14 +20,13 @@ import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import { useState } from "react";
 import AppCard from "@/components/AppCard";
-import AppsFilterBar, { applyFilter, EMPTY_FILTER } from "@/components/AppsFilterBar";
+import AppsFilterBar, { applyFilter, EMPTY_FILTER, filterCount } from "@/components/AppsFilterBar";
 import AppsTable from "@/components/AppsTable";
-import { ChartStatHeader } from "@/components/charts/SeriesChart";
 import CreateAppDialog from "@/components/CreateAppDialog";
 import Logo from "@/components/Logo";
 import { useAdminOverview, useApps, useMe } from "@/lib/api";
 import { fmtCpu, fmtMem } from "@/lib/format";
-import type { AdminAppOut } from "@/lib/types";
+import type { AdminAppOut, AppState } from "@/lib/types";
 
 export default function AppsOverview() {
   const { data: apps, error, isLoading } = useApps();
@@ -34,9 +36,11 @@ export default function AppsOverview() {
   const [createOpen, setCreateOpen] = useState(false);
   const [snack, setSnack] = useState("");
   const [view, setView] = useState<"cards" | "table">("cards");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [filter, setFilter] = useState(EMPTY_FILTER);
   const canCreate = me?.can_create ?? false;
   const readOnly = me?.role === "viewer";
+  const activeFilters = filterCount(filter);
 
   // Admins get every app with live CPU/mem from GET /api/v1/admin/overview;
   // everyone else gets the same shape built from their own visible apps, with
@@ -47,11 +51,35 @@ export default function AppsOverview() {
     isAdmin && overview ? overview.apps : (apps ?? []).map((a) => ({ ...a, cpu: null, mem: null }));
   const filteredApps = applyFilter(allApps, filter);
 
+  const removeState = (s: AppState) =>
+    setFilter({ ...filter, states: filter.states.filter((x) => x !== s) });
+  const removeOwner = (o: string) =>
+    setFilter({ ...filter, owners: filter.owners.filter((x) => x !== o) });
+
   return (
     <>
-      <Stack direction="row" spacing={2} sx={{ alignItems: "center", mb: 3 }}>
-        <Typography variant="h5">Apps</Typography>
+      <Stack direction="row" spacing={2} sx={{ alignItems: "flex-start", mb: 0.5 }}>
+        <Box>
+          <Typography variant="h5">Apps</Typography>
+          {isAdmin && overview && (
+            <Typography variant="body2" color="text.secondary">
+              {overview.totals.app_count} apps · {overview.totals.running_count} running ·{" "}
+              {fmtCpu(overview.totals.cpu)} CPU · {fmtMem(overview.totals.mem)} memory
+            </Typography>
+          )}
+        </Box>
         <Box sx={{ flexGrow: 1 }} />
+        <Tooltip title="Filters">
+          <IconButton
+            onClick={() => setFiltersOpen((o) => !o)}
+            color={filtersOpen ? "primary" : "default"}
+            sx={{ bgcolor: filtersOpen ? "action.selected" : undefined }}
+          >
+            <Badge badgeContent={activeFilters} color="primary" invisible={activeFilters === 0}>
+              <TuneOutlinedIcon fontSize="small" />
+            </Badge>
+          </IconButton>
+        </Tooltip>
         <ToggleButtonGroup
           size="small"
           exclusive
@@ -77,99 +105,92 @@ export default function AppsOverview() {
         )}
       </Stack>
 
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          control plane unreachable: {String(error.message ?? error)}
-        </Alert>
-      )}
-
-      {isAdmin && overview && (
-        <Box
-          sx={{
-            display: "grid",
-            gap: 2,
-            gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, 1fr)" },
-            mb: 2,
-          }}
-        >
-          <Card>
-            <CardContent>
-              <ChartStatHeader title="Apps" value={String(overview.totals.app_count)} />
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent>
-              <ChartStatHeader title="Running" value={String(overview.totals.running_count)} />
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent>
-              <ChartStatHeader title="CPU" value={fmtCpu(overview.totals.cpu)} sub="consumption" />
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent>
-              <ChartStatHeader title="Memory" value={fmtMem(overview.totals.mem)} sub="consumption" />
-            </CardContent>
-          </Card>
-        </Box>
-      )}
-
-      {isLoading || waitingForAdminData ? (
-        <Box
-          sx={{
-            display: "grid",
-            gap: 2,
-            gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr", md: "1fr 1fr 1fr" },
-          }}
-        >
-          {[0, 1, 2].map((i) => (
-            <Skeleton key={i} variant="rounded" height={150} />
+      {!filtersOpen && activeFilters > 0 && (
+        <Stack direction="row" spacing={1} sx={{ mt: 1.5, mb: 1, flexWrap: "wrap", rowGap: 1 }}>
+          {filter.search && (
+            <Chip
+              size="small"
+              label={`“${filter.search}”`}
+              onDelete={() => setFilter({ ...filter, search: "" })}
+            />
+          )}
+          {filter.states.map((s) => (
+            <Chip key={s} size="small" label={s} onDelete={() => removeState(s)} />
           ))}
-        </Box>
-      ) : allApps.length === 0 ? (
-        <Stack spacing={2} sx={{ alignItems: "center", py: 10, color: "text.secondary" }}>
-          <Box sx={{ opacity: 0.55 }}>
-            <Logo size={64} variant="tile" />
-          </Box>
-          <Typography>
-            {canCreate
-              ? "No apps yet — deploy your first Streamlit app from a git repository."
-              : "No apps are shared with your groups yet."}
-          </Typography>
-          {canCreate && (
-            <Button variant="outlined" startIcon={<AddIcon />} onClick={() => setCreateOpen(true)}>
-              Deploy your first app
-            </Button>
-          )}
+          {filter.owners.map((o) => (
+            <Chip key={o} size="small" label={o} onDelete={() => removeOwner(o)} />
+          ))}
+          <Chip
+            size="small"
+            variant="outlined"
+            label="Clear all"
+            onClick={() => setFilter(EMPTY_FILTER)}
+          />
         </Stack>
-      ) : (
-        <>
-          <AppsFilterBar apps={allApps} filter={filter} onChange={setFilter} />
-          {filteredApps.length === 0 ? (
-            <Stack spacing={1} sx={{ alignItems: "center", py: 8, color: "text.secondary" }}>
-              <Typography>No apps match these filters.</Typography>
-              <Button size="small" onClick={() => setFilter(EMPTY_FILTER)}>
-                Clear filters
-              </Button>
-            </Stack>
-          ) : view === "cards" ? (
-            <Box
-              sx={{
-                display: "grid",
-                gap: 2,
-                gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr", md: "1fr 1fr 1fr" },
-              }}
-            >
-              {filteredApps.map((app) => (
-                <AppCard key={app.id} app={app} readOnly={readOnly} onAction={setSnack} />
-              ))}
-            </Box>
-          ) : (
-            <AppsTable apps={filteredApps} />
-          )}
-        </>
       )}
+
+      <Box sx={{ mt: 3 }}>
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            control plane unreachable: {String(error.message ?? error)}
+          </Alert>
+        )}
+
+        <Collapse in={filtersOpen}>
+          <AppsFilterBar apps={allApps} filter={filter} onChange={setFilter} />
+        </Collapse>
+
+        {isLoading || waitingForAdminData ? (
+          <Box
+            sx={{
+              display: "grid",
+              gap: 2,
+              gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr", md: "1fr 1fr 1fr" },
+            }}
+          >
+            {[0, 1, 2].map((i) => (
+              <Skeleton key={i} variant="rounded" height={150} />
+            ))}
+          </Box>
+        ) : allApps.length === 0 ? (
+          <Stack spacing={2} sx={{ alignItems: "center", py: 10, color: "text.secondary" }}>
+            <Box sx={{ opacity: 0.55 }}>
+              <Logo size={64} variant="tile" />
+            </Box>
+            <Typography>
+              {canCreate
+                ? "No apps yet — deploy your first Streamlit app from a git repository."
+                : "No apps are shared with your groups yet."}
+            </Typography>
+            {canCreate && (
+              <Button variant="outlined" startIcon={<AddIcon />} onClick={() => setCreateOpen(true)}>
+                Deploy your first app
+              </Button>
+            )}
+          </Stack>
+        ) : filteredApps.length === 0 ? (
+          <Stack spacing={1} sx={{ alignItems: "center", py: 8, color: "text.secondary" }}>
+            <Typography>No apps match these filters.</Typography>
+            <Button size="small" onClick={() => setFilter(EMPTY_FILTER)}>
+              Clear filters
+            </Button>
+          </Stack>
+        ) : view === "cards" ? (
+          <Box
+            sx={{
+              display: "grid",
+              gap: 2,
+              gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr", md: "1fr 1fr 1fr" },
+            }}
+          >
+            {filteredApps.map((app) => (
+              <AppCard key={app.id} app={app} readOnly={readOnly} onAction={setSnack} />
+            ))}
+          </Box>
+        ) : (
+          <AppsTable apps={filteredApps} />
+        )}
+      </Box>
 
       <CreateAppDialog open={createOpen} onClose={() => setCreateOpen(false)} />
       <Snackbar
