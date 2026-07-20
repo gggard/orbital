@@ -99,7 +99,18 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     return (
       <Stack spacing={2} sx={{ alignItems: "center", py: 12 }}>
         <Logo size={72} variant="tile" />
-        <Typography variant="h5">Orbital</Typography>
+        <Typography
+          variant="h5"
+          sx={{
+            letterSpacing: "-0.015em",
+            backgroundImage: "linear-gradient(115deg, #ff7060, #c22718)",
+            backgroundClip: "text",
+            WebkitBackgroundClip: "text",
+            color: "transparent",
+          }}
+        >
+          Orbital
+        </Typography>
         <Typography color="text.secondary">
           Sign in with your organization account to manage apps.
         </Typography>
@@ -149,8 +160,15 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             component={Link}
             href="/"
             variant="subtitle1"
-            color="inherit"
-            sx={{ fontWeight: 700, textDecoration: "none" }}
+            sx={{
+              fontWeight: 750,
+              letterSpacing: "-0.01em",
+              textDecoration: "none",
+              backgroundImage: "linear-gradient(115deg, #ff7060, #c22718)",
+              backgroundClip: "text",
+              WebkitBackgroundClip: "text",
+              color: "transparent",
+            }}
           >
             Orbital
           </Typography>
