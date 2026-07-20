@@ -73,6 +73,28 @@ def test_webhook_token(client):
     assert client.post(body["webhook_path"]).status_code == 202
 
 
+def test_webhook_ignored_while_building_or_deleting(client):
+    from orbital import db
+    from orbital.models import App, AppState, PendingAction
+
+    body = make_app(client).json()
+    with db.session_scope() as session:
+        app = session.get(App, body["id"])
+        app.state = AppState.building
+
+    r = client.post(body["webhook_path"])
+    assert r.status_code == 202
+    assert r.json()["status"].startswith("ignored")
+
+    with db.session_scope() as session:
+        app = session.get(App, body["id"])
+        app.state = AppState.running
+        app.pending_action = PendingAction.delete
+
+    r = client.post(body["webhook_path"])
+    assert r.json()["status"].startswith("ignored")
+
+
 def test_delete_marks_deleting(client):
     app_id = make_app(client).json()["id"]
     assert client.delete(f"/api/v1/apps/{app_id}").status_code == 202

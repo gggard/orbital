@@ -1,5 +1,8 @@
 """Authz endpoint tests: public bypass, 401 unauthenticated, group allow/deny."""
 
+from unittest.mock import Mock, patch
+
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 
@@ -76,6 +79,50 @@ def test_private_group_mismatch_403(client, monkeypatch):
     app_id = make_app(client, public=False, groups=["data-team"])
     fake_session(monkeypatch, True, "bob@example.com", ["viewers"])
     assert client.get(f"/authz/{app_id}").status_code == 403
+
+
+def test_private_app_503_when_oauth2_proxy_not_configured(client, monkeypatch):
+    monkeypatch.setenv("ORBITAL_OAUTH2_PROXY_AUTH_URL", "")
+    get_settings.cache_clear()
+    app_id = make_app(client, public=False, groups=["data-team"])
+    assert client.get(f"/authz/{app_id}").status_code == 503
+    get_settings.cache_clear()
+
+
+# -- check_session (real implementation, unmocked) --------------------------
+
+
+def test_check_session_valid_response_parses_email_and_groups():
+    from orbital.api.authz import check_session
+
+    resp = Mock(
+        status_code=202,
+        headers={
+            "x-auth-request-email": "alice@example.com",
+            "x-auth-request-groups": "data-team, viewers ,",
+        },
+    )
+    with patch("orbital.api.authz.httpx.get", return_value=resp) as mock_get:
+        authenticated, email, groups = check_session("http://oauth2-proxy/oauth2/auth", "sess=abc")
+    assert authenticated is True
+    assert email == "alice@example.com"
+    assert groups == ["data-team", "viewers"]
+    assert mock_get.call_args.kwargs["headers"] == {"Cookie": "sess=abc"}
+
+
+def test_check_session_non_202_is_unauthenticated():
+    from orbital.api.authz import check_session
+
+    resp = Mock(status_code=401, headers={})
+    with patch("orbital.api.authz.httpx.get", return_value=resp):
+        assert check_session("http://oauth2-proxy/oauth2/auth", "") == (False, "", [])
+
+
+def test_check_session_proxy_unreachable_is_unauthenticated():
+    from orbital.api.authz import check_session
+
+    with patch("orbital.api.authz.httpx.get", side_effect=httpx.ConnectError("refused")):
+        assert check_session("http://oauth2-proxy/oauth2/auth", "") == (False, "", [])
 
 
 def test_access_change_does_not_rebuild(client):
