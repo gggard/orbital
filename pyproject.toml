@@ -6,7 +6,7 @@ requires-python = ">=3.12"
 license = "GPL-3.0-or-later"
 dependencies = [
     "fastapi>=0.139.2",
-    "uvicorn[standard]>=0.30",
+    "uvicorn[standard]>=0.51.0",
     "sqlalchemy>=2.0",
     "pydantic>=2.7",
     "pydantic-settings>=2.3",
