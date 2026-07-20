@@ -37,9 +37,17 @@ def reconciler(monkeypatch, tmp_path):
     monkeypatch.setenv("ORBITAL_DATABASE_URL", f"sqlite:///{tmp_path}/test.db")
     get_settings.cache_clear()
     from orbital import db as db_mod
+    from orbital.k8s import client as k8s_client
     from orbital.k8s.reconciler import Reconciler
 
     db_mod.init_engine(f"sqlite:///{tmp_path}/test.db")
+    # every tick() also runs _gc_orphaned_resources (#24), which lists cluster
+    # resources unconditionally - bare MagicMocks are enough since their
+    # default `__iter__` makes `.items` iterate empty; this just keeps tests
+    # that don't care about GC/builds from needing a live kubeconfig. Tests
+    # that do care override these via _mock_k8s() below.
+    for name in ("batch", "apps_v1", "core", "networking"):
+        monkeypatch.setattr(k8s_client, name, MagicMock())
     r = Reconciler()
     yield r
     get_settings.cache_clear()
