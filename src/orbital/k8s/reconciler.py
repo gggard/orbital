@@ -20,6 +20,17 @@ from .inspect import build_log_tail
 
 log = logging.getLogger(__name__)
 
+# Grace period on top of build_timeout_seconds before the reconciler's own
+# stuck-build fallback kicks in - gives the Job's activeDeadlineSeconds (set
+# to build_timeout_seconds, see builder.build_job) a chance to surface its
+# own "Failed"/DeadlineExceeded condition normally before we step in.
+_BUILD_TIMEOUT_GRACE_SECONDS = 120
+
+# Marker prefix so a synthetic error from an unhandled step() exception can
+# be told apart from an explicit build_failed/deploy_failed message and
+# cleared automatically once the app reconciles cleanly again.
+_RECONCILER_ERROR_PREFIX = "reconciler error:"
+
 
 def _now_iso() -> str:
     return datetime.now(UTC).isoformat()
@@ -100,8 +111,14 @@ class Reconciler:
             for app in apps:
                 try:
                     self.step(session, app)
-                except Exception:
+                except Exception as e:
                     log.exception("reconcile failed for app %s (%s)", app.slug, app.id)
+                    # surface it instead of silently leaving the app's state
+                    # (and updated_at) frozen with no visible explanation
+                    app.error = f"{_RECONCILER_ERROR_PREFIX} {e!r}"
+                else:
+                    if app.error and app.error.startswith(_RECONCILER_ERROR_PREFIX):
+                        app.error = None
             self._sample_metrics(apps)
 
     def _sample_metrics(self, apps: list[App]):
@@ -209,18 +226,48 @@ class Reconciler:
 
         for cond in (job.status.conditions or []):
             if cond.type == "Complete" and cond.status == "True":
-                build.phase = BuildPhase.succeeded
-                build.finished_at = datetime.now(UTC)
-                app.current_image = build.image
-                app.error = None
-                log.info("build %s succeeded; deploying %s", build.id, app.slug)
-                self._deploy(app)
-                app.state = AppState.deploying
+                self._succeed_build(build, app)
                 return
             if cond.type == "Failed" and cond.status == "True":
                 tail = build_log_tail(build.id, self.settings)
                 self._fail_build(build, app, cond.message or "build failed", tail)
                 return
+
+        # Job conditions are set on a separate controller reconcile from the
+        # one that observes the pod's terminal state, and can lag behind it.
+        # status.succeeded/status.failed are bumped as soon as the pod itself
+        # finishes, so use them as a more timely fallback rather than waiting
+        # on "Complete"/"Failed" to show up.
+        if (job.status.succeeded or 0) >= 1:
+            self._succeed_build(build, app)
+            return
+        if (job.status.failed or 0) >= 1:
+            tail = build_log_tail(build.id, self.settings)
+            self._fail_build(build, app, "build job failed", tail)
+            return
+
+        # Last-resort safety net: if the Job has reported no terminal signal
+        # at all well past its own activeDeadlineSeconds, don't leave the app
+        # stuck in "building" forever - fail it so it's visible and can be
+        # retried.
+        elapsed = (datetime.now(UTC) - ensure_aware(build.created_at)).total_seconds()
+        timeout = self.settings.build_timeout_seconds + _BUILD_TIMEOUT_GRACE_SECONDS
+        if elapsed > timeout:
+            self._fail_build(
+                build,
+                app,
+                f"build timed out after {int(elapsed)}s with no terminal status "
+                "from the build job",
+            )
+
+    def _succeed_build(self, build: Build, app: App):
+        build.phase = BuildPhase.succeeded
+        build.finished_at = datetime.now(UTC)
+        app.current_image = build.image
+        app.error = None
+        log.info("build %s succeeded; deploying %s", build.id, app.slug)
+        self._deploy(app)
+        app.state = AppState.deploying
 
     def _fail_build(self, build: Build, app: App, message: str, log_tail: str = ""):
         build.phase = BuildPhase.failed
