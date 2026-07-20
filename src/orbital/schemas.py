@@ -124,10 +124,8 @@ class AdminAppOut(AppOut):
 class AdminTotals(BaseModel):
     app_count: int
     running_count: int
-    cpu: float  # sum of latest per-app samples
+    cpu: float  # sum of latest per-app samples (consumption, not a mutualized pool)
     mem: float
-    cpu_limit: float  # settings.app_cpu_limit * running_count
-    mem_limit: float  # settings.app_mem_limit * running_count
 
 
 class AdminOverviewOut(BaseModel):

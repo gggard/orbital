@@ -42,23 +42,35 @@ only.
 
 - **Header row**: "Apps" title + card/table view toggle + primary button
   **New app**.
+- **Stat row** (admins only, above the filter bar): app count, running
+  count, total CPU consumption, total memory consumption — plain sums of
+  the latest per-app metrics-server samples, *not* against a platform
+  total: apps have per-app resource limits, not a shared/mutualized pool,
+  so an "of N allocated" figure would misrepresent capacity. Fed by
+  `GET /api/v1/admin/overview`, polled every 5s.
+- **Filter bar**: search-by-name text field + State and Owner multi-select
+  `Autocomplete`s, options derived from the currently loaded apps (not a
+  fixed list) so they never show a state/owner nothing matches. Filters
+  apply identically to both views; "Clear filters" appears once any filter
+  is active. Built for fleets in the hundreds — an admin can have far more
+  apps than fit a single screen.
 - **App grid** (default view): one MUI `Card` per app:
   - Slug (title) + lock icon when private, app id (caption, monospace).
   - **StateChip** (color-coded: running=green, building/deploying=amber with
     spinner, failed=red, sleeping/deleting=grey).
   - Repo (shortened), branch · main file.
+  - Owner groups + CPU/memory (admins: live usage across every app; other
+    roles: "—", no bulk metrics endpoint outside the admin role).
   - Error preview line when failed (truncated, tooltip with full text).
   - Actions: **Open** (external link, disabled unless running), **Redeploy**,
     overflow menu (Reboot, Delete).
   - Card click → app detail.
 - **Table view**: alternative to the grid — slug (link), state, owner
-  groups, CPU, memory, last updated. For admins, CPU/memory/owner span every
-  app and come from `GET /api/v1/admin/overview` (which also feeds a stat
-  row above the toggle: app count, running count, total CPU/memory against
-  platform limits). Other roles see the same table scoped to their own
-  visible apps, with the CPU/memory columns rendering "—" (no bulk metrics
-  endpoint outside the admin role) and no stat row.
-- Empty state: centered illustration-ish box + "Deploy your first app" CTA.
+  groups, CPU, memory, last updated. Same admin/other-role data split as
+  the card grid, same filters.
+- Empty state: centered illustration-ish box + "Deploy your first app" CTA
+  when there are no apps at all; "No apps match these filters" + Clear when
+  filters exclude everything.
 - Data: `GET /api/v1/apps`, SWR `refreshInterval: 4s`; admins additionally
   poll `GET /api/v1/admin/overview` every 5s.
 
@@ -119,8 +131,9 @@ resource totals live on the home page's table view (§3.1), not here.
 | Component | Purpose |
 |---|---|
 | `StateChip` | app/build state → color, label, spinner for transient states |
-| `AppCard` | overview grid item |
+| `AppCard` | overview grid item (owner + CPU/memory line included) |
 | `AppsTable` | overview table-view rows (slug, state, owner, CPU, memory, updated) |
+| `AppsFilterBar` | search + State/Owner `Autocomplete` filters, shared by both overview views |
 | `CreateAppDialog` | new app form |
 | `LogPane` | scrollable monospace log viewer w/ follow + download |
 | `ConfirmDialog` | generic destructive-action confirmation |

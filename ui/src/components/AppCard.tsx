@@ -18,7 +18,8 @@ import { useState } from "react";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import StateChip from "@/components/StateChip";
 import { deleteApp, deployApp, rebootApp } from "@/lib/api";
-import type { AppOut } from "@/lib/types";
+import { fmtCpu, fmtMem } from "@/lib/format";
+import type { AdminAppOut } from "@/lib/types";
 import { mono } from "@/theme";
 
 export default function AppCard({
@@ -26,7 +27,7 @@ export default function AppCard({
   readOnly,
   onAction,
 }: {
-  app: AppOut;
+  app: AdminAppOut;
   readOnly: boolean;
   onAction: (msg: string) => void;
 }) {
@@ -79,6 +80,16 @@ export default function AppCard({
           <Typography variant="caption" color="text.secondary" noWrap>
             {app.branch} · {app.main_file} · py{app.python_version}
           </Typography>
+          <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+            <Typography variant="caption" color="text.secondary" noWrap sx={{ flexGrow: 1 }}>
+              owner: {app.owner_groups.join(", ") || "—"}
+            </Typography>
+            {(app.cpu !== null || app.mem !== null) && (
+              <Typography variant="caption" color="text.secondary" noWrap sx={{ fontFamily: mono }}>
+                {app.cpu !== null ? fmtCpu(app.cpu) : "—"} · {app.mem !== null ? fmtMem(app.mem) : "—"}
+              </Typography>
+            )}
+          </Stack>
           {app.error && (
             <Tooltip title={app.error}>
               <Typography variant="caption" color="error" noWrap>

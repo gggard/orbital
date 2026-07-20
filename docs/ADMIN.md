@@ -68,16 +68,19 @@ the private→public transition.
 
 ### Monitoring apps
 
-- Console home shows every app (admins see all) with live states. Failure
-  states carry the error message; the Builds tab has per-build logs. The
-  card/table view toggle in the header switches to a table (slug, state,
-  owner groups, CPU, memory, last updated); for admins this is fleet-wide
-  (every app, backed by `GET /api/v1/admin/overview`) and adds a stat row
-  above the table — app/running counts and aggregate CPU/memory against
-  platform limits (latest **metrics-server** samples, same source as the
-  per-app Metrics tab). Other roles see the same table scoped to their own
-  apps, with CPU/memory blank (no bulk metrics endpoint outside the admin
-  role).
+- Console home shows every app (admins see all) with live states, owner
+  groups and CPU/memory (cards and table both), and lets you filter by
+  name, state or owner — built for fleets in the hundreds, not just a
+  handful of apps. Failure states carry the error message; the Builds tab
+  has per-build logs. The card/table view toggle in the header switches to
+  a table (slug, state, owner groups, CPU, memory, last updated); for
+  admins this is fleet-wide (every app, backed by `GET /api/v1/admin/overview`)
+  and adds a stat row above the filters — app/running counts and total
+  CPU/memory consumption (latest **metrics-server** samples, same source as
+  the per-app Metrics tab; a plain sum, not measured against a platform
+  total — apps have per-app limits, not a shared pool). Other roles see the
+  same cards/table scoped to their own apps, with CPU/memory blank (no bulk
+  metrics endpoint outside the admin role).
 - The **Metrics** tab on each app charts CPU and memory usage against the
   platform limits (sampled from **metrics-server** every 15 s, last ~30 min
   kept in memory — history resets when the control plane restarts). If the

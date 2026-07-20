@@ -118,10 +118,8 @@ export interface AdminAppOut extends AppOut {
 export interface AdminTotals {
   app_count: number;
   running_count: number;
-  cpu: number;
+  cpu: number; // consumption, not a mutualized pool — apps have per-app limits, not a shared cap
   mem: number;
-  cpu_limit: number;
-  mem_limit: number;
 }
 
 export interface AdminOverviewOut {

@@ -87,7 +87,6 @@ def test_overview_totals_and_rows(client):
         assert body["totals"]["running_count"] == 2
         assert body["totals"]["cpu"] == pytest.approx(0.3)
         assert body["totals"]["mem"] == pytest.approx(300 * 2**20)
-        assert body["totals"]["cpu_limit"] == pytest.approx(2 * 1.0)  # default app_cpu_limit=1
         rows = {r["slug"]: r for r in body["apps"]}
         assert rows["one"]["cpu"] == pytest.approx(0.1)
         assert rows["one"]["owner_groups"] == ["data-team"]

@@ -48,8 +48,6 @@ def overview(
             running_count=running_count,
             cpu=cpu_total,
             mem=mem_total,
-            cpu_limit=metrics.parse_quantity(settings.app_cpu_limit) * running_count,
-            mem_limit=metrics.parse_quantity(settings.app_mem_limit) * running_count,
         ),
         apps=rows,
     )

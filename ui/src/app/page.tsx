@@ -17,6 +17,7 @@ import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import { useState } from "react";
 import AppCard from "@/components/AppCard";
+import AppsFilterBar, { applyFilter, EMPTY_FILTER } from "@/components/AppsFilterBar";
 import AppsTable from "@/components/AppsTable";
 import { ChartStatHeader } from "@/components/charts/SeriesChart";
 import CreateAppDialog from "@/components/CreateAppDialog";
@@ -33,15 +34,18 @@ export default function AppsOverview() {
   const [createOpen, setCreateOpen] = useState(false);
   const [snack, setSnack] = useState("");
   const [view, setView] = useState<"cards" | "table">("cards");
+  const [filter, setFilter] = useState(EMPTY_FILTER);
   const canCreate = me?.can_create ?? false;
   const readOnly = me?.role === "viewer";
 
-  // Table view: admins get live CPU/mem + fleet totals from
-  // GET /api/v1/admin/overview; everyone else gets the same table built from
-  // their own visible apps, with the CPU/mem columns rendering "—" (no bulk
-  // metrics endpoint outside the admin role).
-  const tableApps: AdminAppOut[] =
+  // Admins get every app with live CPU/mem from GET /api/v1/admin/overview;
+  // everyone else gets the same shape built from their own visible apps, with
+  // the CPU/mem fields null (no bulk metrics endpoint outside the admin
+  // role) — both views (cards and table) render from this single list.
+  const waitingForAdminData = isAdmin && !overview;
+  const allApps: AdminAppOut[] =
     isAdmin && overview ? overview.apps : (apps ?? []).map((a) => ({ ...a, cpu: null, mem: null }));
+  const filteredApps = applyFilter(allApps, filter);
 
   return (
     <>
@@ -100,34 +104,18 @@ export default function AppsOverview() {
           </Card>
           <Card>
             <CardContent>
-              <ChartStatHeader
-                title="CPU"
-                value={fmtCpu(overview.totals.cpu)}
-                sub={
-                  overview.totals.cpu_limit
-                    ? `of ${fmtCpu(overview.totals.cpu_limit)} allocated`
-                    : undefined
-                }
-              />
+              <ChartStatHeader title="CPU" value={fmtCpu(overview.totals.cpu)} sub="consumption" />
             </CardContent>
           </Card>
           <Card>
             <CardContent>
-              <ChartStatHeader
-                title="Memory"
-                value={fmtMem(overview.totals.mem)}
-                sub={
-                  overview.totals.mem_limit
-                    ? `of ${fmtMem(overview.totals.mem_limit)} allocated`
-                    : undefined
-                }
-              />
+              <ChartStatHeader title="Memory" value={fmtMem(overview.totals.mem)} sub="consumption" />
             </CardContent>
           </Card>
         </Box>
       )}
 
-      {isLoading ? (
+      {isLoading || waitingForAdminData ? (
         <Box
           sx={{
             display: "grid",
@@ -139,7 +127,7 @@ export default function AppsOverview() {
             <Skeleton key={i} variant="rounded" height={150} />
           ))}
         </Box>
-      ) : apps?.length === 0 ? (
+      ) : allApps.length === 0 ? (
         <Stack spacing={2} sx={{ alignItems: "center", py: 10, color: "text.secondary" }}>
           <Box sx={{ opacity: 0.55 }}>
             <Logo size={64} variant="tile" />
@@ -155,22 +143,32 @@ export default function AppsOverview() {
             </Button>
           )}
         </Stack>
-      ) : view === "cards" ? (
-        <Box
-          sx={{
-            display: "grid",
-            gap: 2,
-            gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr", md: "1fr 1fr 1fr" },
-          }}
-        >
-          {apps?.map((app) => (
-            <AppCard key={app.id} app={app} readOnly={readOnly} onAction={setSnack} />
-          ))}
-        </Box>
-      ) : isAdmin && !overview ? (
-        <Skeleton variant="rounded" height={320} />
       ) : (
-        <AppsTable apps={tableApps} />
+        <>
+          <AppsFilterBar apps={allApps} filter={filter} onChange={setFilter} />
+          {filteredApps.length === 0 ? (
+            <Stack spacing={1} sx={{ alignItems: "center", py: 8, color: "text.secondary" }}>
+              <Typography>No apps match these filters.</Typography>
+              <Button size="small" onClick={() => setFilter(EMPTY_FILTER)}>
+                Clear filters
+              </Button>
+            </Stack>
+          ) : view === "cards" ? (
+            <Box
+              sx={{
+                display: "grid",
+                gap: 2,
+                gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr", md: "1fr 1fr 1fr" },
+              }}
+            >
+              {filteredApps.map((app) => (
+                <AppCard key={app.id} app={app} readOnly={readOnly} onAction={setSnack} />
+              ))}
+            </Box>
+          ) : (
+            <AppsTable apps={filteredApps} />
+          )}
+        </>
       )}
 
       <CreateAppDialog open={createOpen} onClose={() => setCreateOpen(false)} />
