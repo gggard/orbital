@@ -139,6 +139,28 @@ class Build(Base):
     app: Mapped[App] = relationship(back_populates="builds")
 
 
+class ApiToken(Base):
+    """Personal API token (SPEC: "dashboard session or personal API token").
+
+    ``groups`` is a snapshot of the issuing user's OIDC groups at creation
+    time; role is re-derived from it against the *current* role mapping at
+    verification time rather than stored, so admin changes to the group->role
+    mapping take effect immediately without reissuing tokens.
+    """
+
+    __tablename__ = "api_tokens"
+
+    id: Mapped[str] = mapped_column(String(12), primary_key=True, default=_uuid)
+    email: Mapped[str] = mapped_column(String(255), index=True)
+    name: Mapped[str] = mapped_column(String(100))
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    groups: Mapped[list] = mapped_column(JSON, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
+
+
 class ViewEvent(Base):
     """A recorded view of a running app (SPEC §4.7). One row per deduped visit."""
 

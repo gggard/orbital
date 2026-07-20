@@ -141,3 +141,27 @@ class AnalyticsOut(BaseModel):
     last_viewed_at: datetime | None
     daily: list[AnalyticsDailyPoint]  # last 30 days
     viewers: list[AnalyticsViewer]  # named viewers, most recently seen first
+
+
+class TokenCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+    ttl_days: int | None = Field(default=None, gt=0)
+
+
+class TokenCreated(BaseModel):
+    id: str
+    name: str
+    token: str  # raw secret, shown once, never retrievable again
+    created_at: datetime
+    expires_at: datetime
+
+
+class TokenOut(BaseModel):
+    id: str
+    name: str
+    created_at: datetime
+    expires_at: datetime
+    last_used_at: datetime | None
+    revoked_at: datetime | None
+
+    model_config = {"from_attributes": True}

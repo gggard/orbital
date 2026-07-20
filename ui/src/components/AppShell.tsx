@@ -3,6 +3,7 @@
 import AdminPanelSettingsOutlinedIcon from "@mui/icons-material/AdminPanelSettingsOutlined";
 import DarkModeOutlinedIcon from "@mui/icons-material/DarkModeOutlined";
 import LightModeOutlinedIcon from "@mui/icons-material/LightModeOutlined";
+import KeyOutlinedIcon from "@mui/icons-material/KeyOutlined";
 import LoginIcon from "@mui/icons-material/Login";
 import LogoutIcon from "@mui/icons-material/Logout";
 import Alert from "@mui/material/Alert";
@@ -75,6 +76,9 @@ function UserMenu() {
               {me.groups.join(", ") || "no groups"}
             </Typography>
           </Stack>
+        </MenuItem>
+        <MenuItem component={Link} href="/tokens" onClick={() => setAnchor(null)}>
+          <KeyOutlinedIcon fontSize="small" sx={{ mr: 1 }} /> My tokens
         </MenuItem>
         <MenuItem
           onClick={() => {

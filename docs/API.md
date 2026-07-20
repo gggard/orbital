@@ -11,21 +11,44 @@ available at `/docs`.
 
 ## Authentication
 
-The API is currently authenticated the same way the console is: a
-server-signed **session cookie**, established by signing in through
-`GET /api/auth/login` (OIDC) in a browser. There is no separate API-key or
-bearer-token scheme yet.
+If your platform runs with auth disabled (`ORBITAL_UI_AUTH_ENABLED=false`,
+the default for local dev — see [DEVELOPMENT.md](DEVELOPMENT.md)), every
+request is treated as an admin with no credentials required. This is what
+the examples below assume.
 
-- If your platform runs with auth disabled (`ORBITAL_UI_AUTH_ENABLED=false`,
-  the default for local dev — see [DEVELOPMENT.md](DEVELOPMENT.md)), every
-  request is treated as an admin with no credentials required. This is what
-  the examples below assume.
-- If your platform has auth enabled, sign in through the console once and
-  copy the `session` cookie value from your browser's dev tools, then send it
-  as a `Cookie: session=<value>` header with each request. Cookies expire
-  (12h by default), so this suits scripts and cron jobs more than
-  long-running automation — a personal API token is planned but not
-  implemented yet.
+If your platform has auth enabled, the console itself uses a server-signed
+session cookie (OIDC login via `GET /api/auth/login`), but scripts and
+automation should use a **personal API token** instead:
+
+1. Sign in to the console and open **My tokens** (account menu, top right),
+   or call the endpoint directly once you have a session:
+
+   ```bash
+   curl -sX POST localhost:8000/api/v1/me/tokens \
+     -H 'Content-Type: application/json' \
+     -H 'Cookie: session=<your browser session cookie>' \
+     -d '{"name": "ci", "ttl_days": 30}'
+   ```
+
+   The response's `token` field (`orbpat_...`) is shown **once** — copy it
+   immediately, it can't be retrieved again. `ttl_days` is optional and
+   defaults to (and is capped at) the platform's configured maximum
+   (`ORBITAL_API_TOKEN_MAX_TTL_DAYS`, 90 days by default); requesting more
+   is rejected with `422`.
+2. Use it on every subsequent request as a bearer token — no session/cookie
+   needed:
+
+   ```bash
+   curl -H "Authorization: Bearer $ORBITAL_TOKEN" localhost:8000/api/v1/apps
+   ```
+
+A token carries a snapshot of the groups you were in when you created it,
+so its **role** (viewer/creator/admin) always reflects the platform's
+*current* group→role mapping — but if you're later added to or removed from
+an actual OIDC group, that only takes effect on your next token (or your
+next browser sign-in). List (`GET /api/v1/me/tokens`) and revoke
+(`DELETE /api/v1/me/tokens/{id}`) your own tokens from the console's **My
+tokens** page or the API directly; revocation is immediate.
 
 ## Deploying an app
 

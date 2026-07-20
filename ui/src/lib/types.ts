@@ -139,3 +139,25 @@ export interface AppUpdate {
   poll_enabled?: boolean;
   poll_interval_seconds?: number;
 }
+
+export interface TokenCreate {
+  name: string;
+  ttl_days?: number;
+}
+
+export interface TokenCreated {
+  id: string;
+  name: string;
+  token: string; // raw secret, shown once
+  created_at: string;
+  expires_at: string;
+}
+
+export interface TokenOut {
+  id: string;
+  name: string;
+  created_at: string;
+  expires_at: string;
+  last_used_at: string | null;
+  revoked_at: string | null;
+}

@@ -106,6 +106,6 @@ def test_get_current_user_disabled_auth_returns_dev_admin():
     class FakeRequest:
         session: dict = {}
 
-    user = get_current_user(FakeRequest(), settings)
+    user = get_current_user(FakeRequest(), settings=settings)
     assert user == User(email="dev@localhost", groups=[], role="admin")
     assert user.is_admin
