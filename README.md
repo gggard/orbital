@@ -54,6 +54,7 @@ See [SPEC.md](SPEC.md) for the full functional specification and architecture.
 | [docs/INSTALL.md](docs/INSTALL.md) | Install the Helm chart on a real cluster |
 | [docs/ADMIN.md](docs/ADMIN.md) | Operate the platform (roles, RBAC, upgrades) |
 | [docs/USER.md](docs/USER.md) | Deploy and manage your own apps |
+| [docs/API.md](docs/API.md) | Deploy and monitor apps via the REST API |
 | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | Contribute to Orbital (local dev on minikube) |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | PR/issue workflow and contribution guidelines |
 | [SPEC.md](SPEC.md) | Full specification |

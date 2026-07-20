@@ -157,3 +157,6 @@ GET    /api/v1/apps/{id}/builds/{bid}/logs
 PUT    /api/v1/apps/{id}/secrets        {"secrets_toml": "..."}
 POST   /webhooks/apps/{id}/{token}      git push webhook (generic)
 ```
+
+See [API.md](API.md) for full deploy/monitor walkthroughs with shell, Python,
+and JS examples.
