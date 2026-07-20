@@ -69,26 +69,27 @@ the private→public transition.
 ### Monitoring apps
 
 - Console home shows every app (admins see all) with live states. Failure
-  states carry the error message; the Builds tab has per-build logs.
+  states carry the error message; the Builds tab has per-build logs. The
+  card/table view toggle in the header switches to a table (slug, state,
+  owner groups, CPU, memory, last updated); for admins this is fleet-wide
+  (every app, backed by `GET /api/v1/admin/overview`) and adds a stat row
+  above the table — app/running counts and aggregate CPU/memory against
+  platform limits (latest **metrics-server** samples, same source as the
+  per-app Metrics tab). Other roles see the same table scoped to their own
+  apps, with CPU/memory blank (no bulk metrics endpoint outside the admin
+  role).
 - The **Metrics** tab on each app charts CPU and memory usage against the
   platform limits (sampled from **metrics-server** every 15 s, last ~30 min
   kept in memory — history resets when the control plane restarts). If the
   cluster has no metrics-server, the tab reports "no metrics" and everything
   else works normally.
-- Admins get a fleet-wide **Admin** page (the shield icon in the top bar,
-  `/admin` in the console) with two views:
-  - **Overview**: total app/running counts and aggregate CPU/memory (latest
-    metrics-server samples, same source as the per-app Metrics tab) against
-    platform limits, plus every app's status, owner groups and resource
-    usage — toggle between the familiar card grid and a sortable table.
-  - **Reconciler logs**: a live tail of the control plane's in-memory log
-    buffer (reconciler + API), for a namespace-level view without shelling
-    into the cluster.
-
-  Both are in-memory and per-replica, the same caveat as the Metrics tab:
-  history resets on restart, and with `controlPlane.replicas > 1` (only
-  possible with `database.url` set) each replica only reflects what it has
-  seen itself.
+- Admins also get an **Admin** page (the shield icon in the top bar,
+  `/admin` in the console): a live tail of the control plane's in-memory log
+  buffer (reconciler + API), for a namespace-level view without shelling
+  into the cluster. Same in-memory/per-replica caveat as the Metrics tab and
+  the fleet overview: history resets on restart, and with
+  `controlPlane.replicas > 1` (only possible with `database.url` set) each
+  replica only reflects what it has seen itself.
 - Cluster level:
   ```bash
   kubectl -n streamlit-apps get deploy,pods       # runtime health

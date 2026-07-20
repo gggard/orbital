@@ -118,8 +118,8 @@ export const useAppAnalytics = (id: string) =>
     keepPreviousData: true,
   });
 
-export const useAdminOverview = () =>
-  useSWR<AdminOverviewOut>("/api/v1/admin/overview", jsonFetcher, {
+export const useAdminOverview = (enabled = true) =>
+  useSWR<AdminOverviewOut>(enabled ? "/api/v1/admin/overview" : null, jsonFetcher, {
     refreshInterval: 5000,
     keepPreviousData: true,
   });

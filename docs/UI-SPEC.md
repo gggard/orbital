@@ -29,9 +29,7 @@
   ├─ tab: Secrets     TOML editor
   ├─ tab: Sharing     public/private + allowed groups
   └─ tab: Settings    branch/main file/python, webhook, danger zone
-/admin                Admin dashboard (admins only)
-  ├─ tab: Overview    fleet totals, all-apps card/table toggle
-  └─ tab: Reconciler logs   live control-plane log tail
+/admin                Reconciler logs (admins only)
 ```
 
 Top-level layout: slim AppBar (product name, admin shield icon for admins,
@@ -42,8 +40,9 @@ only.
 
 ### 3.1 Apps overview (`/`)
 
-- **Header row**: "Apps" title + primary button **New app**.
-- **App grid**: one MUI `Card` per app:
+- **Header row**: "Apps" title + card/table view toggle + primary button
+  **New app**.
+- **App grid** (default view): one MUI `Card` per app:
   - Slug (title) + lock icon when private, app id (caption, monospace).
   - **StateChip** (color-coded: running=green, building/deploying=amber with
     spinner, failed=red, sleeping/deleting=grey).
@@ -52,8 +51,16 @@ only.
   - Actions: **Open** (external link, disabled unless running), **Redeploy**,
     overflow menu (Reboot, Delete).
   - Card click → app detail.
+- **Table view**: alternative to the grid — slug (link), state, owner
+  groups, CPU, memory, last updated. For admins, CPU/memory/owner span every
+  app and come from `GET /api/v1/admin/overview` (which also feeds a stat
+  row above the toggle: app count, running count, total CPU/memory against
+  platform limits). Other roles see the same table scoped to their own
+  visible apps, with the CPU/memory columns rendering "—" (no bulk metrics
+  endpoint outside the admin role) and no stat row.
 - Empty state: centered illustration-ish box + "Deploy your first app" CTA.
-- Data: `GET /api/v1/apps`, SWR `refreshInterval: 4s`.
+- Data: `GET /api/v1/apps`, SWR `refreshInterval: 4s`; admins additionally
+  poll `GET /api/v1/admin/overview` every 5s.
 
 ### 3.2 New app dialog
 
@@ -99,20 +106,13 @@ Below: MUI `Tabs`.
   with copy button + hint for GitHub/GitLab/Gitea · **Danger zone**:
   outlined red card with Delete (confirm dialog typing the slug).
 
-### 3.4 Admin dashboard (`/admin`)
+### 3.4 Reconciler logs (`/admin`)
 
 Admins only (403-style `Alert` for everyone else; the AppBar shield icon is
-hidden for non-admins). MUI `Tabs`:
-
-- **Overview**: stat cards (app count, running count, total CPU, total memory
-  — the last two against platform limits) built from `GET /api/v1/admin/overview`,
-  polled every 5 s. Below, the same card/table toggle pattern as the Metrics
-  tab (§3.3): cards reuse `AppCard` unchanged; the table adds columns not on
-  the card (owner groups, live CPU/memory, last updated) and is the default
-  view for a fleet-wide glance.
-- **Reconciler logs**: `LogPane` fed by `GET /api/v1/admin/logs?tail=500`,
-  polled every 4 s — a simpler sibling of the per-app Logs tab (no
-  follow-toggle or download, always-on tail).
+hidden for non-admins). `LogPane` fed by `GET /api/v1/admin/logs?tail=500`,
+polled every 4 s — a simpler sibling of the per-app Logs tab (no
+follow-toggle or download, always-on tail). Fleet-wide app status and
+resource totals live on the home page's table view (§3.1), not here.
 
 ## 4. Components
 
@@ -120,11 +120,12 @@ hidden for non-admins). MUI `Tabs`:
 |---|---|
 | `StateChip` | app/build state → color, label, spinner for transient states |
 | `AppCard` | overview grid item |
+| `AppsTable` | overview table-view rows (slug, state, owner, CPU, memory, updated) |
 | `CreateAppDialog` | new app form |
 | `LogPane` | scrollable monospace log viewer w/ follow + download |
 | `ConfirmDialog` | generic destructive-action confirmation |
 | `CopyField` | read-only value + copy-to-clipboard button |
-| `FleetOverviewTab` / `FleetLogsTab` | `/admin` tab bodies (fleet stats + card/table toggle; reconciler log tail) |
+| `FleetLogsTab` | `/admin` body (reconciler log tail) |
 | `useApps / useApp / useBuilds / useLogs / useAdminOverview / useAdminLogs` | SWR hooks in `lib/api.ts` |
 
 ## 5. Design system
