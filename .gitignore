@@ -4,3 +4,6 @@ __pycache__/
 *.db
 .env
 .pytest_cache/
+.coverage
+coverage.xml
+htmlcov/

@@ -10,7 +10,7 @@ run:
 	$(VENV)/bin/uvicorn orbital.main:app --host 0.0.0.0 --port 8000
 
 test:
-	$(VENV)/bin/pytest -q
+	$(VENV)/bin/pytest -q --cov=orbital --cov-report=term-missing --cov-report=xml
 
 setup-minikube:
 	bash deploy/minikube/setup.sh
