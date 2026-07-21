@@ -88,9 +88,8 @@
   }
   h1{font-size:clamp(2.1rem,5vw,3.4rem);line-height:1.08;letter-spacing:-.02em;margin:0 0 20px;font-weight:750}
   h1 .accent{color:var(--accent)}
-  .rotator{position:relative;display:inline-block;text-align:left;vertical-align:top}
-  .rotator-sizer{visibility:hidden}
-  .rotator-text{position:absolute;left:0;top:0;white-space:nowrap;opacity:0}
+  .rotator{display:inline-grid;vertical-align:top;text-align:center}
+  .rotator-text{grid-area:1/1;white-space:nowrap;opacity:0}
   .rotator-text.a{animation:rotate-a 6s ease-in-out infinite}
   .rotator-text.b{animation:rotate-b 6s ease-in-out infinite}
   @keyframes rotate-a{
@@ -246,7 +245,7 @@
   <section class="hero">
     <div class="wrap">
       <span class="eyebrow">GPL-3.0 · self-hosted · Kubernetes-native</span>
-      <h1><span class="rotator"><span class="rotator-sizer" aria-hidden="true">Streamlit apps</span><span class="rotator-text a">Streamlit apps</span><span class="rotator-text b">static sites</span></span> hosted on <span class="accent">your</span> cluster.</h1>
+      <h1><span class="rotator"><span class="rotator-text a">Streamlit apps</span><span class="rotator-text b">Static sites</span></span> hosted on <span class="accent">your</span> cluster.</h1>
       <p class="lede">
         Point Orbital at a git repo — a Streamlit app or a static site — and
         it's live on its own subdomain minutes later, with logs, automatic
