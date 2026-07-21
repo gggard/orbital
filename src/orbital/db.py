@@ -54,13 +54,17 @@ def _migrate_apps_table(engine, models) -> None:
     still_not_null = [
         name for name in _APPS_NOW_NULLABLE if not columns.get(name, {}).get("nullable", True)
     ]
-    if not missing and not still_not_null:
+    # `apps_old` left over means a previous SQLite rebuild attempt got partway
+    # through (see _sqlite_rebuild_apps_table) - must finish/redo it even if
+    # `apps` itself now looks complete, since the row copy may never have run.
+    stale_rebuild = "apps_old" in inspector.get_table_names()
+    if not missing and not still_not_null and not stale_rebuild:
         return
 
     if engine.dialect.name == "sqlite":
         # SQLite has no ALTER COLUMN to add/drop NOT NULL, so rebuild the
         # table against the current model definition and copy the data over.
-        _sqlite_rebuild_apps_table(engine, models, list(columns))
+        _sqlite_rebuild_apps_table(engine, models)
         return
 
     with engine.begin() as conn:
@@ -70,8 +74,35 @@ def _migrate_apps_table(engine, models) -> None:
             conn.execute(text(f"ALTER TABLE apps ALTER COLUMN {name} DROP NOT NULL"))
 
 
-def _sqlite_rebuild_apps_table(engine, models, old_columns: list[str]) -> None:
+def _sqlite_rebuild_apps_table(engine, models) -> None:
+    """Rebuild `apps` against the current model, preserving data.
+
+    SQLite has no ALTER COLUMN, so this renames the live table out of the
+    way, recreates `apps` from the current model, copies the data across,
+    then drops the renamed original.
+
+    Every statement here is its own SQLite autocommit - Python's sqlite3
+    driver commits each DDL statement individually, so `engine.begin()`
+    does NOT make this sequence atomic; a failure partway through (e.g. an
+    index name collision) can leave both `apps_old` and a partial `apps`
+    behind. So this function re-derives everything from live introspection
+    rather than trusting arguments computed before a possible earlier
+    failure, and is safe to simply call again: if `apps_old` already exists,
+    that's the authoritative last-known-good data, and any partial `apps`
+    from an earlier attempt is discarded and redone.
+    """
     apps_table = models.App.__table__
+    inspector = inspect(engine)
+    tables = inspector.get_table_names()
+
+    if "apps_old" not in tables:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE apps RENAME TO apps_old"))
+    elif "apps" in tables:
+        with engine.begin() as conn:
+            conn.execute(text("DROP TABLE apps"))
+
+    old_columns = [c["name"] for c in inspect(engine).get_columns("apps_old")]
     common = [c for c in old_columns if c in apps_table.columns]
     # Columns new to this table that aren't in the old data need an explicit
     # literal in the SELECT list (see _APPS_NEW_COLUMNS docstring above) -
@@ -83,8 +114,20 @@ def _sqlite_rebuild_apps_table(engine, models, old_columns: list[str]) -> None:
     ]
     insert_cols = ", ".join([*common, *(name for name, _ in extra)])
     select_cols = ", ".join([*common, *(literal for _, literal in extra)])
+
     with engine.begin() as conn:
-        conn.execute(text("ALTER TABLE apps RENAME TO apps_old"))
+        # SQLite's index namespace is database-wide, not per-table: renaming
+        # apps -> apps_old does NOT rename the indexes defined on it (e.g.
+        # the unique index on slug), so they must be dropped before the new
+        # `apps` table - which defines the same index names - can be created.
+        stale_indexes = conn.execute(
+            text(
+                "SELECT name FROM sqlite_master "
+                "WHERE type='index' AND tbl_name='apps_old' AND sql IS NOT NULL"
+            )
+        ).scalars().all()
+        for name in stale_indexes:
+            conn.execute(text(f"DROP INDEX {name}"))
         apps_table.create(conn)
         conn.execute(
             text(f"INSERT INTO apps ({insert_cols}) SELECT {select_cols} FROM apps_old")
