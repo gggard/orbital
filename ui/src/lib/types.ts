@@ -10,13 +10,18 @@ export type AppState =
 
 export type BuildPhase = "pending" | "running" | "succeeded" | "failed";
 
+export type AppType = "streamlit" | "static";
+
 export interface AppOut {
   id: string;
   slug: string;
   repo_url: string;
   branch: string;
-  main_file: string;
-  python_version: string;
+  app_type: AppType;
+  main_file: string | null;
+  python_version: string | null;
+  build_command: string | null;
+  output_dir: string;
   public: boolean;
   allowed_groups: string[];
   owner_groups: string[];
@@ -50,8 +55,11 @@ export interface AppCreate {
   slug: string;
   repo_url: string;
   branch: string;
-  main_file: string;
-  python_version?: string;
+  app_type?: AppType; // defaults to "streamlit"
+  main_file?: string; // streamlit only; defaults to "streamlit_app.py"
+  python_version?: string; // streamlit only
+  build_command?: string; // static only; unset = serve output_dir as-is
+  output_dir?: string; // static only; defaults to "."
   public: boolean;
   allowed_groups: string[];
   secrets_toml?: string;
@@ -132,6 +140,8 @@ export interface AppUpdate {
   branch?: string;
   main_file?: string;
   python_version?: string;
+  build_command?: string;
+  output_dir?: string;
   public?: boolean;
   allowed_groups?: string[];
   owner_groups?: string[];

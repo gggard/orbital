@@ -113,6 +113,14 @@ To refresh base images (e.g. for security updates), just `helm upgrade` —
 the build job re-runs. Apps pick the new base at their next rebuild
 (push or **Redeploy**).
 
+Static-site apps (`app_type=static`) share a single base image
+(`baseImages.staticTag`, default `static-base:latest`) — nginx, non-root,
+built from `deploy/base-image/static/`. It's controlled by
+`baseImages.buildStatic` (default `true`) and rebuilt the same way as the
+Python base images. Its bundled `nginx.conf` listens on `ORBITAL_APP_PORT`
+(default `8501`) — if you change that setting, rebuild the static base image
+to match, or static apps will fail their readiness probe.
+
 ### Routing modes
 
 Apps are routed by **subdomain** (`<slug>.<apps-domain>`, needs wildcard DNS)
@@ -122,6 +130,12 @@ without wildcard DNS). Set `apps.routing` (`ORBITAL_ROUTING_MODE`) and optionall
 migrates every running app's ingress and redeploys it with the matching
 Streamlit `baseUrlPath` (a brief rolling restart per app). Bookmarked URLs
 from the old mode stop working — announce the change to users.
+
+Static apps have no equivalent of Streamlit's `baseUrlPath` env var, so path
+mode is best-effort for them: plain multi-page HTML works, but a built SPA
+bundle with absolute root-relative asset paths may break under a `/prefix`
+unless the build itself was configured for it. Prefer subdomain routing for
+static apps where possible.
 
 ### Hibernation
 
@@ -189,6 +203,10 @@ Kubernetes resources; images remain in the registry until GC.
 - Default: SQLite on a PVC — fine for small teams, single replica.
 - Production: set `database.url` to PostgreSQL. Migration: the schema is
   created automatically at startup; copy rows with any SQLite→Postgres tool.
+- Schema changes to existing tables (e.g. new columns added by a platform
+  upgrade) are also applied automatically at startup — the control plane
+  checks the live schema against the current model and backfills anything
+  missing before serving traffic. There's no separate migration step to run.
 - Back up either the PVC or the Postgres database; it holds app definitions,
   build history, webhook tokens, and app secrets.
 

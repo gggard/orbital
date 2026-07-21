@@ -1,7 +1,9 @@
 """Shell scripts run inside build Jobs (mounted via ConfigMap).
 
 fetch.sh  - clones the repo at the requested branch/commit (init container, alpine/git)
-detect.sh - detects the Python dependency file per SPEC §4.3 and generates a Dockerfile
+detect.sh - branches on APP_TYPE: for streamlit apps, detects the Python
+            dependency file per SPEC §4.3; for static apps, optionally runs
+            an npm build. Either way, generates a Dockerfile.
 build.sh  - builds and pushes the image with rootless BuildKit (daemonless)
 """
 
@@ -27,7 +29,45 @@ DETECT_SH = r"""#!/bin/sh
 # Priority: uv.lock (+pyproject.toml) > requirements.txt > pyproject.toml.
 set -eu
 SRC_DIR="${SRC_DIR:-/workspace/src}"
+APP_TYPE="${APP_TYPE:-streamlit}"
 cd "$SRC_DIR"
+
+if [ "$APP_TYPE" = "static" ]; then
+  BUILD_COMMAND="${BUILD_COMMAND:-}"
+  OUTPUT_DIR="${OUTPUT_DIR:-.}"
+  DF="$SRC_DIR/Dockerfile.orbital"
+
+  if [ -n "$BUILD_COMMAND" ]; then
+    if [ ! -f package.json ]; then
+      echo "[detect] ERROR: build_command is set but no package.json found in repository root; only npm-based builds are supported"
+      exit 1
+    fi
+    echo "[detect] npm build: $BUILD_COMMAND (output: $OUTPUT_DIR)"
+    {
+      echo "FROM node:20-alpine AS build"
+      echo "WORKDIR /src"
+      echo "COPY . ."
+      echo "RUN npm ci || npm install"
+      printf 'RUN sh -c "%s"\n' "$BUILD_COMMAND"
+      echo "FROM $BASE_IMAGE"
+      echo "COPY --from=build --chown=1000:1000 /src/$OUTPUT_DIR /usr/share/nginx/html"
+    } > "$DF"
+  else
+    if [ ! -d "$OUTPUT_DIR" ]; then
+      echo "[detect] ERROR: output_dir '$OUTPUT_DIR' not found in repository"
+      exit 1
+    fi
+    echo "[detect] serving $OUTPUT_DIR as-is (no build step)"
+    {
+      echo "FROM $BASE_IMAGE"
+      echo "COPY --chown=1000:1000 $OUTPUT_DIR /usr/share/nginx/html"
+    } > "$DF"
+  fi
+
+  echo "[detect] generated Dockerfile:"
+  cat "$DF"
+  exit 0
+fi
 
 if [ ! -f "$MAIN_FILE" ]; then
   echo "[detect] ERROR: main file '$MAIN_FILE' not found in repository"

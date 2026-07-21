@@ -4,17 +4,19 @@ import pytest
 
 from orbital.config import Settings
 from orbital.k8s import resources
-from orbital.models import App
+from orbital.models import App, AppType
 
 
-def make_app(slug="demo") -> App:
+def make_app(slug="demo", app_type=AppType.streamlit) -> App:
     return App(
         id="abc123def456",
         slug=slug,
         repo_url="https://github.com/x/y",
+        app_type=app_type,
         public=True,
         owner_groups=[],
         allowed_groups=[],
+        output_dir=".",
     )
 
 
@@ -77,3 +79,33 @@ def test_path_deployment_base_url(path_mode):
     assert {"name": "STREAMLIT_SERVER_BASE_URL_PATH", "value": "/app/demo"} in c["env"]
     assert c["readinessProbe"]["httpGet"]["path"] == "/app/demo/_stcore/health"
     assert c["livenessProbe"]["httpGet"]["path"] == "/app/demo/_stcore/health"
+
+
+def test_static_subdomain_deployment(subdomain):
+    app = make_app(app_type=AppType.static)
+    c = _container(resources.deployment(app, "img:1", subdomain, "now"))
+    assert c["readinessProbe"]["httpGet"]["path"] == "/"
+    assert not any(e["name"] == "STREAMLIT_SERVER_BASE_URL_PATH" for e in c["env"])
+
+
+def test_static_path_deployment_has_no_base_path_env(path_mode):
+    app = make_app(app_type=AppType.static)
+    c = _container(resources.deployment(app, "img:1", path_mode, "now"))
+    # no generic base-path mechanism exists for static apps (see resources.deployment)
+    assert not any(e["name"] == "STREAMLIT_SERVER_BASE_URL_PATH" for e in c["env"])
+    assert c["readinessProbe"]["httpGet"]["path"] == "/app/demo/"
+
+
+def test_static_ingress_has_no_websocket_timeouts(subdomain):
+    app = make_app(app_type=AppType.static)
+    ing = resources.ingress(app, subdomain)
+    annotations = ing["metadata"]["annotations"]
+    assert "nginx.ingress.kubernetes.io/proxy-read-timeout" not in annotations
+    assert "nginx.ingress.kubernetes.io/proxy-send-timeout" not in annotations
+
+
+def test_streamlit_ingress_has_websocket_timeouts(subdomain):
+    ing = resources.ingress(make_app(), subdomain)
+    annotations = ing["metadata"]["annotations"]
+    assert annotations["nginx.ingress.kubernetes.io/proxy-read-timeout"] == "3600"
+    assert annotations["nginx.ingress.kubernetes.io/proxy-send-timeout"] == "3600"

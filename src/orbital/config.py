@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     python_versions: dict[str, str] = {"3.12": "streamlit-base:py3.12"}
     default_python_version: str = "3.12"
 
+    # Base image for static-site apps, as repo:tag inside the registry.
+    static_base_image: str = "static-base:latest"
+
     # Routing
     # "subdomain": apps at <slug>.<apps_domain> (needs wildcard DNS)
     # "path":      apps at <apps_domain><apps_path_prefix>/<slug> (single host)
@@ -120,6 +123,10 @@ class Settings(BaseSettings):
     def base_image_for(self, python_version: str) -> str:
         """Base image reference as resolvable from inside the cluster (push URL)."""
         return f"{self.registry_push_url}/{self.python_versions[python_version]}"
+
+    def static_base_image_ref(self) -> str:
+        """Static-site base image reference as resolvable from inside the cluster."""
+        return f"{self.registry_push_url}/{self.static_base_image}"
 
     def app_image(self, app_id: str, build_id: str, *, pull: bool) -> str:
         prefix = self.registry_pull_prefix if pull else self.registry_push_url

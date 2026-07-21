@@ -10,7 +10,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from orbital.config import get_settings
-from orbital.models import App, PendingAction
+from orbital.models import App, AppType, PendingAction
 
 
 def make_app(app_id="abc123def456", slug="demo") -> App:
@@ -19,6 +19,7 @@ def make_app(app_id="abc123def456", slug="demo") -> App:
         slug=slug,
         repo_url="https://github.com/x/y",
         branch="main",
+        app_type=AppType.streamlit,
         owner_groups=[],
         allowed_groups=[],
         pending_action=PendingAction.none,

@@ -26,6 +26,27 @@ def run_detect(src: Path, main_file: str = "streamlit_app.py"):
     )
 
 
+STATIC_BASE = "registry.test:80/static-base:latest"
+
+
+def run_detect_static(src: Path, build_command: str = "", output_dir: str = "."):
+    script = src.parent / "detect.sh"
+    script.write_text(DETECT_SH)
+    return subprocess.run(
+        ["sh", str(script)],
+        env={
+            "PATH": "/usr/bin:/bin",
+            "SRC_DIR": str(src),
+            "APP_TYPE": "static",
+            "BUILD_COMMAND": build_command,
+            "OUTPUT_DIR": output_dir,
+            "BASE_IMAGE": STATIC_BASE,
+        },
+        capture_output=True,
+        text=True,
+    )
+
+
 @pytest.fixture
 def repo(tmp_path: Path) -> Path:
     src = tmp_path / "src"
@@ -102,3 +123,46 @@ def test_missing_main_file_fails(repo: Path):
     r = run_detect(repo, main_file="nope.py")
     assert r.returncode == 1
     assert "not found" in r.stdout
+
+
+# -- static app_type ---------------------------------------------------------
+
+
+@pytest.fixture
+def static_repo(tmp_path: Path) -> Path:
+    src = tmp_path / "static-src"
+    src.mkdir()
+    (src / "index.html").write_text("<html></html>\n")
+    return src
+
+
+def test_static_no_build_serves_output_dir_as_is(static_repo: Path):
+    r = run_detect_static(static_repo)
+    assert r.returncode == 0, r.stderr
+    df = dockerfile(static_repo)
+    assert f"FROM {STATIC_BASE}" in df
+    assert "COPY --chown=1000:1000 . /usr/share/nginx/html" in df
+    assert "FROM node" not in df
+
+
+def test_static_no_build_missing_output_dir_fails(static_repo: Path):
+    r = run_detect_static(static_repo, output_dir="dist")
+    assert r.returncode == 1
+    assert "not found" in r.stdout
+
+
+def test_static_npm_build_generates_multistage_dockerfile(static_repo: Path):
+    (static_repo / "package.json").write_text('{"name": "x"}\n')
+    r = run_detect_static(static_repo, build_command="npm run build", output_dir="dist")
+    assert r.returncode == 0, r.stderr
+    df = dockerfile(static_repo)
+    assert "FROM node:20-alpine AS build" in df
+    assert 'RUN sh -c "npm run build"' in df
+    assert f"FROM {STATIC_BASE}" in df
+    assert "COPY --from=build --chown=1000:1000 /src/dist /usr/share/nginx/html" in df
+
+
+def test_static_build_command_without_package_json_fails(static_repo: Path):
+    r = run_detect_static(static_repo, build_command="npm run build", output_dir="dist")
+    assert r.returncode == 1
+    assert "package.json" in r.stdout

@@ -20,6 +20,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import GroupPicker from "@/components/GroupPicker";
 import { createApp, useMe } from "@/lib/api";
+import type { AppType } from "@/lib/types";
 import { mono } from "@/theme";
 
 const SLUG_RE = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
@@ -38,14 +39,18 @@ export default function CreateAppDialog({
   const [slug, setSlug] = useState("");
   const [repoUrl, setRepoUrl] = useState("");
   const [branch, setBranch] = useState("main");
+  const [appType, setAppType] = useState<AppType>("streamlit");
   const [mainFile, setMainFile] = useState("streamlit_app.py");
   const [python, setPython] = useState(PYTHON_VERSIONS[0]);
+  const [buildCommand, setBuildCommand] = useState("");
+  const [outputDir, setOutputDir] = useState(".");
   const [isPublic, setIsPublic] = useState(true);
   const [groups, setGroups] = useState<string[]>([]);
   const [secrets, setSecrets] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
+  const isStatic = appType === "static";
   const slugOk = SLUG_RE.test(slug);
   const canSubmit = slugOk && repoUrl.trim() !== "" && !busy;
 
@@ -58,11 +63,13 @@ export default function CreateAppDialog({
         slug,
         repo_url: repoUrl.trim(),
         branch: branch.trim() || "main",
-        main_file: mainFile.trim() || "streamlit_app.py",
-        python_version: python,
+        app_type: appType,
+        ...(isStatic
+          ? { build_command: buildCommand.trim() || undefined, output_dir: outputDir.trim() || "." }
+          : { main_file: mainFile.trim() || "streamlit_app.py", python_version: python }),
         public: effectivePublic,
         allowed_groups: effectivePublic ? [] : groups,
-        secrets_toml: secrets.trim() || undefined,
+        secrets_toml: isStatic ? undefined : secrets.trim() || undefined,
       });
       onClose();
       router.push(`/apps/${app.id}`);
@@ -107,27 +114,61 @@ export default function CreateAppDialog({
               onChange={(e) => setBranch(e.target.value)}
             />
             <TextField
-              label="Main file"
-              size="small"
-              fullWidth
-              value={mainFile}
-              onChange={(e) => setMainFile(e.target.value)}
-            />
-            <TextField
-              label="Python"
+              label="App type"
               size="small"
               select
-              sx={{ minWidth: 100 }}
-              value={python}
-              onChange={(e) => setPython(e.target.value)}
+              sx={{ minWidth: 140 }}
+              value={appType}
+              onChange={(e) => setAppType(e.target.value as AppType)}
             >
-              {PYTHON_VERSIONS.map((v) => (
-                <MenuItem key={v} value={v}>
-                  {v}
-                </MenuItem>
-              ))}
+              <MenuItem value="streamlit">Streamlit</MenuItem>
+              <MenuItem value="static">Static site</MenuItem>
             </TextField>
           </Stack>
+          {isStatic ? (
+            <Stack direction="row" spacing={2}>
+              <TextField
+                label="Build command (optional)"
+                size="small"
+                fullWidth
+                placeholder="npm run build"
+                value={buildCommand}
+                onChange={(e) => setBuildCommand(e.target.value)}
+                helperText="leave empty to serve the repo's files as-is"
+              />
+              <TextField
+                label="Output directory"
+                size="small"
+                fullWidth
+                value={outputDir}
+                onChange={(e) => setOutputDir(e.target.value)}
+              />
+            </Stack>
+          ) : (
+            <Stack direction="row" spacing={2}>
+              <TextField
+                label="Main file"
+                size="small"
+                fullWidth
+                value={mainFile}
+                onChange={(e) => setMainFile(e.target.value)}
+              />
+              <TextField
+                label="Python"
+                size="small"
+                select
+                sx={{ minWidth: 100 }}
+                value={python}
+                onChange={(e) => setPython(e.target.value)}
+              >
+                {PYTHON_VERSIONS.map((v) => (
+                  <MenuItem key={v} value={v}>
+                    {v}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Stack>
+          )}
           <FormControlLabel
             control={
               <Switch
@@ -152,25 +193,27 @@ export default function CreateAppDialog({
               helperText="type to filter or add a group and press Enter — empty means any signed-in user"
             />
           )}
-          <Accordion variant="outlined" disableGutters>
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-              <Typography variant="body2">Secrets (optional)</Typography>
-            </AccordionSummary>
-            <AccordionDetails>
-              <TextField
-                fullWidth
-                multiline
-                minRows={5}
-                placeholder={'api_key = "..."\n\n[db]\nhost = "..."'}
-                value={secrets}
-                onChange={(e) => setSecrets(e.target.value)}
-                slotProps={{
-                  input: { sx: { fontFamily: mono, fontSize: "0.8rem" } },
-                }}
-                helperText="TOML, exposed to the app via st.secrets"
-              />
-            </AccordionDetails>
-          </Accordion>
+          {!isStatic && (
+            <Accordion variant="outlined" disableGutters>
+              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                <Typography variant="body2">Secrets (optional)</Typography>
+              </AccordionSummary>
+              <AccordionDetails>
+                <TextField
+                  fullWidth
+                  multiline
+                  minRows={5}
+                  placeholder={'api_key = "..."\n\n[db]\nhost = "..."'}
+                  value={secrets}
+                  onChange={(e) => setSecrets(e.target.value)}
+                  slotProps={{
+                    input: { sx: { fontFamily: mono, fontSize: "0.8rem" } },
+                  }}
+                  helperText="TOML, exposed to the app via st.secrets"
+                />
+              </AccordionDetails>
+            </Accordion>
+          )}
         </Stack>
       </DialogContent>
       <DialogActions>

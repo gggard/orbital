@@ -66,11 +66,14 @@ registry:
     enabled: false
     storageSize: 10Gi
 
-# Base images for hosted apps: one per supported Python version.
-# When build.enabled, a post-install Job builds and pushes them with BuildKit.
+# Base images for hosted apps: one per supported Python version, plus one
+# shared image for static-site apps. When build/buildStatic, a post-install
+# Job builds and pushes them with BuildKit.
 baseImages:
   build: true
   pythonVersions: ["3.12"]
+  buildStatic: true
+  staticTag: "static-base:latest"
 
 # Control plane database. Empty url -> SQLite on a PVC (single replica only).
 # For production set a PostgreSQL URL, e.g. postgresql+psycopg://user:pw@host/db

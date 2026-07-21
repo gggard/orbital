@@ -10,6 +10,7 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 import NextLink from "next/link";
+import AppTypeIcon from "@/components/AppTypeIcon";
 import StateChip from "@/components/StateChip";
 import { fmtCpu, fmtMem } from "@/lib/format";
 import type { AdminAppOut } from "@/lib/types";
@@ -26,6 +27,7 @@ export default function AppsTable({ apps }: { apps: AdminAppOut[] }) {
       <Table size="small" stickyHeader>
         <TableHead>
           <TableRow>
+            <TableCell padding="checkbox" />
             <TableCell>Slug</TableCell>
             <TableCell>State</TableCell>
             <TableCell>Owner groups</TableCell>
@@ -37,6 +39,9 @@ export default function AppsTable({ apps }: { apps: AdminAppOut[] }) {
         <TableBody>
           {apps.map((app) => (
             <TableRow key={app.id} hover>
+              <TableCell padding="checkbox">
+                <AppTypeIcon appType={app.app_type} />
+              </TableCell>
               <TableCell>
                 <Link component={NextLink} href={`/apps/${app.id}`} underline="hover">
                   {app.slug}

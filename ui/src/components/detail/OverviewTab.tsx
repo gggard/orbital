@@ -45,10 +45,25 @@ export default function OverviewTab({ app }: { app: AppOut }) {
               <CopyField value={app.repo_url} href={app.repo_url} />
             </Row>
             <Row label="Branch">{app.branch}</Row>
-            <Row label="Main file">
-              <span style={{ fontFamily: mono, fontSize: "0.8rem" }}>{app.main_file}</span>
-            </Row>
-            <Row label="Python">{app.python_version}</Row>
+            {app.app_type === "static" ? (
+              <>
+                <Row label="Output directory">
+                  <span style={{ fontFamily: mono, fontSize: "0.8rem" }}>{app.output_dir}</span>
+                </Row>
+                {app.build_command && (
+                  <Row label="Build command">
+                    <span style={{ fontFamily: mono, fontSize: "0.8rem" }}>{app.build_command}</span>
+                  </Row>
+                )}
+              </>
+            ) : (
+              <>
+                <Row label="Main file">
+                  <span style={{ fontFamily: mono, fontSize: "0.8rem" }}>{app.main_file}</span>
+                </Row>
+                <Row label="Python">{app.python_version}</Row>
+              </>
+            )}
             <Row label="Visibility">
               {app.public
                 ? "public"

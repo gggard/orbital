@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Orbital — self-hosted Streamlit platform</title>
-<meta name="description" content="Self-hosted platform for deploying, running, and managing Streamlit apps on Kubernetes. Point it at a git repo and the app is live minutes later.">
-<meta property="og:title" content="Orbital — self-hosted Streamlit platform">
-<meta property="og:description" content="Point Orbital at a git repo and your Streamlit app is live on its own subdomain minutes later — secrets, logs, automatic redeploys, and hibernation, on your own Kubernetes cluster.">
-<meta property="og:image" content="https://gggard.github.io/orbital/images/console-apps.png">
+<title>Orbital — self-hosted Streamlit &amp; static-site platform</title>
+<meta name="description" content="Self-hosted platform for deploying, running, and managing Streamlit apps and static sites on Kubernetes. Point it at a git repo and the app is live minutes later.">
+<meta property="og:title" content="Orbital — self-hosted Streamlit & static-site platform">
+<meta property="og:description" content="Point Orbital at a git repo — a Streamlit app or a static site — and it's live on its own subdomain minutes later, on your own Kubernetes cluster.">
+<meta property="og:image" content="https://gggard.github.io/orbital/images/apps-dashboard-mixed-types.png">
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="images/favicon.svg" type="image/svg+xml">
@@ -123,7 +123,7 @@
   .step code{font-size:.82em;background:var(--code-bg);padding:1px 6px;border-radius:5px;border:1px solid var(--border)}
 
   /* features */
-  .features{display:grid;grid-template-columns:repeat(4,1fr);gap:20px}
+  .features{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
   .feature{
     background:var(--paper);border:1px solid var(--border);border-radius:14px;padding:22px;
     transition:border-color .15s, transform .15s;
@@ -227,11 +227,11 @@
   <section class="hero">
     <div class="wrap">
       <span class="eyebrow">GPL-3.0 · self-hosted · Kubernetes-native</span>
-      <h1>Streamlit hosting,<br>on <span class="accent">your</span> cluster.</h1>
+      <h1>Streamlit apps and static sites,<br>hosted on <span class="accent">your</span> cluster.</h1>
       <p class="lede">
-        Point Orbital at a git repo and the app is live on its own subdomain
-        minutes later — with secrets, logs, automatic redeploys, and
-        hibernation, all running on infrastructure you control.
+        Point Orbital at a git repo — a Streamlit app or a static site — and
+        it's live on its own subdomain minutes later, with logs, automatic
+        redeploys, and hibernation, all running on infrastructure you control.
       </p>
       <div class="cta-row">
         <a class="btn btn-primary" href="https://github.com/gggard/orbital" target="_blank" rel="noopener">Star on GitHub</a>
@@ -257,7 +257,7 @@
         <div class="step">
           <div class="num">1</div>
           <h3>Point at a repo</h3>
-          <p>Give a git URL, branch, and main file. Orbital resolves dependencies from <code>uv.lock</code>, <code>requirements.txt</code>, or <code>pyproject.toml</code> — whichever the repo has.</p>
+          <p>Give a git URL and branch — Streamlit or static. Streamlit dependencies resolve from <code>uv.lock</code>, <code>requirements.txt</code>, or <code>pyproject.toml</code>; static sites run an optional npm build, or serve the repo as-is.</p>
         </div>
         <div class="step">
           <div class="num">2</div>
@@ -277,7 +277,7 @@
     <div class="wrap">
       <div class="section-head">
         <span class="kicker">Capabilities</span>
-        <h2>Everything a team needs to run Streamlit apps</h2>
+        <h2>Everything a team needs to run Streamlit apps and static sites</h2>
         <p>Not just a deploy button — day-two operations are built in.</p>
       </div>
       <div class="features">
@@ -287,7 +287,15 @@
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
           </div>
           <h3>Deploy from git</h3>
-          <p>Clones the repo, resolves dependencies, builds an immutable container image, and deploys it behind its own subdomain.</p>
+          <p>Clones the repo, builds an immutable container image — resolving Python dependencies or running an npm build as needed — and deploys it behind its own subdomain.</p>
+        </div>
+
+        <div class="feature">
+          <div class="icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          </div>
+          <h3>Static sites, same workflow</h3>
+          <p>A second app type alongside Streamlit: serve a repo's files as-is, or set a build command (e.g. <code>npm run build</code>) and output directory for anything that needs a build step.</p>
         </div>
 
         <div class="feature">
@@ -303,7 +311,7 @@
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
           </div>
           <h3>Secrets management</h3>
-          <p>TOML secrets edited in the dashboard, mounted at <code>.streamlit/secrets.toml</code> so <code>st.secrets</code> works exactly as it does locally.</p>
+          <p>TOML secrets edited in the dashboard, mounted at <code>.streamlit/secrets.toml</code> so <code>st.secrets</code> works exactly as it does locally (Streamlit apps).</p>
         </div>
 
         <div class="feature">
@@ -406,6 +414,22 @@
             <img src="images/console-sharing.png" alt="Orbital console: sharing settings for a private app">
           </div>
         </div>
+
+        <div class="show-row reverse">
+          <div class="show-copy">
+            <h3>Streamlit or static — one deploy flow</h3>
+            <p>Pick the app type when you deploy. Static sites skip the Python fields entirely: an optional build command and an output directory are all they need.</p>
+            <ul>
+              <li>No build command — the repo's files are served as-is</li>
+              <li>Or set one (e.g. <code class="mono">npm run build</code>) with an output directory for anything built, like a Vite or React app</li>
+              <li>Same subdomain, hibernation, and redeploy-on-push as Streamlit apps</li>
+            </ul>
+          </div>
+          <div class="show-media frame">
+            <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+            <img src="images/static-app-create-dialog.png" alt="Orbital console: deploying a static site with a build command and output directory">
+          </div>
+        </div>
       </div>
     </div>
   </section>
@@ -423,7 +447,7 @@
         </p>
         <ul class="arch-list">
           <li><span class="dot2"></span><div><b>FastAPI control plane</b><span>Reconciles desired state (in the database) against the cluster — the single brain that owns every Kubernetes write.</span></div></li>
-          <li><span class="dot2"></span><div><b>BuildKit in a Job</b><span>Each build runs isolated in the <code class="mono">streamlit-builds</code> namespace, non-root, with cache-mount speedups for pip/uv.</span></div></li>
+          <li><span class="dot2"></span><div><b>BuildKit in a Job</b><span>Each build runs isolated in the <code class="mono">streamlit-builds</code> namespace, non-root — cache-mount speedups for pip/uv, or an npm build stage for static sites.</span></div></li>
           <li><span class="dot2"></span><div><b>Hardened app Deployments</b><span>One namespace for all apps, per-pod isolation: non-root, read-only rootfs, no service-account token.</span></div></li>
           <li><span class="dot2"></span><div><b>oauth2-proxy + your IdP</b><span>Private apps and the console itself sit behind OIDC login; roles and allowlists resolve from group claims.</span></div></li>
         </ul>
@@ -491,7 +515,7 @@
         <a href="https://github.com/gggard/orbital/issues" target="_blank" rel="noopener">Issues</a>
       </div>
     </div>
-    <p class="footer-note">Self-hosted platform for Streamlit apps on Kubernetes. Licensed under GPL-3.0.</p>
+    <p class="footer-note">Self-hosted platform for Streamlit apps and static sites on Kubernetes. Licensed under GPL-3.0.</p>
   </div>
 </footer>
 
