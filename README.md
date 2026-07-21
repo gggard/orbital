@@ -3,9 +3,9 @@
 # Orbital
 
 Self-hosted platform for deploying, running, and managing [Streamlit](https://streamlit.io)
-apps on Kubernetes. Point it at a git repository and the app is live on its
-own subdomain minutes later, with secrets management, logs, automatic
-redeploys on push, and hibernation of idle apps.
+apps — and plain static sites — on Kubernetes. Point it at a git repository
+and the app is live on its own subdomain minutes later, with secrets
+management, logs, automatic redeploys on push, and hibernation of idle apps.
 
 **[orbital project site →](https://gggard.github.io/orbital/)**
 
@@ -20,6 +20,10 @@ redeploys on push, and hibernation of idle apps.
   `pyproject.toml`), builds an immutable container image, and deploys it
   behind `https://<slug>.<apps-domain>`. Build/deploy status and logs stream
   live to the dashboard.
+- **Static sites too** — deploy a plain static site (or an npm-built SPA)
+  the same way, as a second app type alongside Streamlit. No build step
+  needed by default; set a build command (e.g. `npm run build`) and output
+  directory for anything that needs one.
 - **Automatic redeploys** — a per-app webhook (GitHub, GitLab, Gitea, or
   generic) triggers a rebuild on push; unchanged dependencies reuse the
   cached layer for fast rebuilds.

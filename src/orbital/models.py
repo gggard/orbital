@@ -24,6 +24,11 @@ def ensure_aware(dt: datetime) -> datetime:
     return dt if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
 
 
+class AppType(str, enum.Enum):
+    streamlit = "streamlit"
+    static = "static"
+
+
 class AppState(str, enum.Enum):
     created = "created"
     building = "building"
@@ -60,8 +65,16 @@ class App(Base):
     slug: Mapped[str] = mapped_column(String(63), unique=True, index=True)
     repo_url: Mapped[str] = mapped_column(String(500))
     branch: Mapped[str] = mapped_column(String(200), default="main")
-    main_file: Mapped[str] = mapped_column(String(500), default="streamlit_app.py")
-    python_version: Mapped[str] = mapped_column(String(10), default="3.12")
+    # Immutable after creation - changing type requires delete+recreate.
+    app_type: Mapped[AppType] = mapped_column(Enum(AppType), default=AppType.streamlit)
+    main_file: Mapped[str | None] = mapped_column(String(500), default=None)
+    python_version: Mapped[str | None] = mapped_column(String(10), default=None)
+    # static apps only: shell command run in an npm build stage; None means
+    # no build step, serve output_dir from the repo as-is
+    build_command: Mapped[str | None] = mapped_column(String(500), default=None)
+    # static apps only: directory served (repo-relative, or build-stage
+    # output-relative when build_command is set)
+    output_dir: Mapped[str] = mapped_column(String(500), default=".")
     public: Mapped[bool] = mapped_column(default=True)
     # OIDC groups allowed to open a private app; empty = any authenticated user
     allowed_groups: Mapped[list | None] = mapped_column(JSON, default=list)

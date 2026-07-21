@@ -1,7 +1,7 @@
 """Build Job and supporting ConfigMap manifests."""
 
 from ..config import Settings
-from ..models import App, Build
+from ..models import App, AppType, Build
 from . import scripts
 
 SUPPORT_CONFIGMAP = "orbital-build-support"
@@ -27,7 +27,11 @@ def build_support_configmap(settings: Settings) -> dict:
 
 def build_job(app: App, build: Build, settings: Settings) -> dict:
     push_image = settings.app_image(app.id, build.id, pull=False)
-    base_image = settings.base_image_for(app.python_version)
+    base_image = (
+        settings.static_base_image_ref()
+        if app.app_type == AppType.static
+        else settings.base_image_for(app.python_version)
+    )
     labels = {
         "app.orbital.io/managed-by": "control-plane",
         "app.orbital.io/app-id": app.id,
@@ -84,7 +88,10 @@ def build_job(app: App, build: Build, settings: Settings) -> dict:
                                 {"name": "REPO_URL", "value": app.repo_url},
                                 {"name": "BRANCH", "value": app.branch},
                                 {"name": "COMMIT_SHA", "value": build.commit_sha or ""},
-                                {"name": "MAIN_FILE", "value": app.main_file},
+                                {"name": "APP_TYPE", "value": app.app_type.value},
+                                {"name": "MAIN_FILE", "value": app.main_file or ""},
+                                {"name": "BUILD_COMMAND", "value": app.build_command or ""},
+                                {"name": "OUTPUT_DIR", "value": app.output_dir or "."},
                                 {"name": "BASE_IMAGE", "value": base_image},
                                 {"name": "SRC_DIR", "value": "/workspace/src"},
                             ],

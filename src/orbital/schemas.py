@@ -1,9 +1,9 @@
 import re
 from datetime import datetime
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
-from .models import AppState, BuildPhase
+from .models import AppState, AppType, BuildPhase
 
 SLUG_RE = re.compile(r"^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$")
 
@@ -12,8 +12,11 @@ class AppCreate(BaseModel):
     slug: str = Field(min_length=1, max_length=63)
     repo_url: str
     branch: str = "main"
-    main_file: str = "streamlit_app.py"
-    python_version: str | None = None
+    app_type: AppType = AppType.streamlit
+    main_file: str | None = None  # streamlit only; defaults to "streamlit_app.py"
+    python_version: str | None = None  # streamlit only
+    build_command: str | None = None  # static only; None = serve output_dir as-is
+    output_dir: str = "."  # static only
     public: bool = True
     allowed_groups: list[str] = []
     owner_groups: list[str] | None = None  # default: the creator's groups
@@ -30,11 +33,31 @@ class AppCreate(BaseModel):
             raise ValueError("slug must be lowercase DNS-safe: [a-z0-9-]")
         return v
 
+    @model_validator(mode="after")
+    def _type_specific_fields(self) -> "AppCreate":
+        if self.app_type == AppType.streamlit:
+            if self.main_file is None:
+                self.main_file = "streamlit_app.py"
+            if self.build_command is not None:
+                raise ValueError("build_command is only valid for static apps")
+            if self.output_dir != ".":
+                raise ValueError("output_dir is only valid for static apps")
+        else:
+            if self.main_file is not None:
+                raise ValueError("main_file is only valid for streamlit apps")
+            if self.python_version is not None:
+                raise ValueError("python_version is only valid for streamlit apps")
+            if self.secrets_toml:
+                raise ValueError("secrets_toml is not supported for static apps")
+        return self
+
 
 class AppUpdate(BaseModel):
     branch: str | None = None
     main_file: str | None = None
     python_version: str | None = None
+    build_command: str | None = None
+    output_dir: str | None = None
     public: bool | None = None
     allowed_groups: list[str] | None = None
     owner_groups: list[str] | None = None
@@ -62,8 +85,11 @@ class AppOut(BaseModel):
     slug: str
     repo_url: str
     branch: str
-    main_file: str
-    python_version: str
+    app_type: AppType
+    main_file: str | None
+    python_version: str | None
+    build_command: str | None
+    output_dir: str
     public: bool
     allowed_groups: list[str]
     owner_groups: list[str]

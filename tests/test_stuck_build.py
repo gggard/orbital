@@ -9,7 +9,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from orbital.config import get_settings
-from orbital.models import App, AppState, Build, BuildPhase, PendingAction
+from orbital.models import App, AppState, AppType, Build, BuildPhase, PendingAction
 
 
 def make_app(state=AppState.building, current_build_id="bld000000001") -> App:
@@ -18,6 +18,7 @@ def make_app(state=AppState.building, current_build_id="bld000000001") -> App:
         slug="demo",
         repo_url="https://github.com/x/y",
         branch="main",
+        app_type=AppType.streamlit,
         state=state,
         owner_groups=[],
         allowed_groups=[],

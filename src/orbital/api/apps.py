@@ -10,7 +10,7 @@ from .. import analytics
 from ..config import Settings, get_settings
 from ..db import get_db
 from ..k8s import inspect, metrics
-from ..models import App, AppState, Build, PendingAction
+from ..models import App, AppState, AppType, Build, PendingAction
 from ..schemas import (
     AnalyticsOut,
     AppCreate,
@@ -55,8 +55,11 @@ def to_app_out(app: App, settings: Settings) -> AppOut:
         slug=app.slug,
         repo_url=app.repo_url,
         branch=app.branch,
+        app_type=app.app_type,
         main_file=app.main_file,
         python_version=app.python_version,
+        build_command=app.build_command,
+        output_dir=app.output_dir,
         public=app.public,
         allowed_groups=app.allowed_groups or [],
         owner_groups=app.owner_groups or [],
@@ -118,13 +121,15 @@ def create_app(
         )
     if db.scalar(select(App).where(App.slug == payload.slug)):
         raise HTTPException(409, f"slug {payload.slug!r} already in use")
-    python_version = payload.python_version or settings.default_python_version
-    if python_version not in settings.python_versions:
-        raise HTTPException(
-            422,
-            f"unsupported python version {python_version!r}; "
-            f"supported: {sorted(settings.python_versions)}",
-        )
+    python_version = None
+    if payload.app_type == AppType.streamlit:
+        python_version = payload.python_version or settings.default_python_version
+        if python_version not in settings.python_versions:
+            raise HTTPException(
+                422,
+                f"unsupported python version {python_version!r}; "
+                f"supported: {sorted(settings.python_versions)}",
+            )
     if payload.secrets_toml:
         _validate_toml(payload.secrets_toml)
     _validate_poll_interval(payload.poll_interval_seconds, settings)
@@ -133,8 +138,11 @@ def create_app(
         slug=payload.slug,
         repo_url=payload.repo_url,
         branch=payload.branch,
+        app_type=payload.app_type,
         main_file=payload.main_file,
         python_version=python_version,
+        build_command=payload.build_command,
+        output_dir=payload.output_dir,
         public=payload.public,
         allowed_groups=payload.allowed_groups,
         owner_groups=owner_groups,
@@ -183,7 +191,16 @@ def update_app(
 ):
     app = _managed(db, app_id, user)
     needs_rebuild = False
-    for field in ("branch", "main_file", "python_version"):
+    if app.app_type == AppType.streamlit:
+        type_fields = ("main_file", "python_version")
+        other_type_fields = ("build_command", "output_dir")
+    else:
+        type_fields = ("build_command", "output_dir")
+        other_type_fields = ("main_file", "python_version")
+    for field in other_type_fields:
+        if getattr(payload, field) is not None:
+            raise HTTPException(422, f"{field} does not apply to {app.app_type.value} apps")
+    for field in ("branch", *type_fields):
         value = getattr(payload, field)
         if value is not None and value != getattr(app, field):
             if field == "python_version" and value not in settings.python_versions:

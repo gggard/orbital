@@ -78,7 +78,11 @@ export default function AppCard({
             {app.repo_url.replace(/^https?:\/\//, "")}
           </Typography>
           <Typography variant="caption" color="text.secondary" noWrap>
-            {app.branch} · {app.main_file} · py{app.python_version}
+            {app.app_type === "static"
+              ? [app.branch, app.output_dir, app.build_command && `build: ${app.build_command}`]
+                  .filter(Boolean)
+                  .join(" · ")
+              : `${app.branch} · ${app.main_file} · py${app.python_version}`}
           </Typography>
           <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
             <Typography variant="caption" color="text.secondary" noWrap sx={{ flexGrow: 1 }}>

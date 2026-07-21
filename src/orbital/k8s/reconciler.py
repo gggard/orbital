@@ -14,7 +14,7 @@ from sqlalchemy import select
 from ..config import get_settings
 from ..db import session_scope
 from ..gitutil import GitError, resolve_branch_head
-from ..models import App, AppState, Build, BuildPhase, PendingAction, ensure_aware
+from ..models import App, AppState, AppType, Build, BuildPhase, PendingAction, ensure_aware
 from . import builder, client, metrics, resources
 from .inspect import build_log_tail
 
@@ -407,7 +407,15 @@ class Reconciler:
             )
 
     def _ensure_base_path(self, app: App):
-        """Converge the pod's Streamlit baseUrlPath when routing_mode changes."""
+        """Converge the pod's Streamlit baseUrlPath when routing_mode changes.
+
+        Static apps have no equivalent env var (see resources.deployment),
+        so there's nothing to converge - and without this guard they'd look
+        like a permanent mismatch (env absent vs. desired path set) and get
+        redeployed on every tick in path-routing mode.
+        """
+        if app.app_type != AppType.streamlit:
+            return
         dep = _not_found_ok(
             client.apps_v1().read_namespaced_deployment,
             resources.name_for(app),

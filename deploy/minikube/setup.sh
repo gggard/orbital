@@ -18,16 +18,19 @@ minikube -p "$PROFILE" addons enable ingress
 # per-app CPU/memory monitoring in the console
 minikube -p "$PROFILE" addons enable metrics-server
 
-echo ">> building base image (python $PYVER)"
+echo ">> building base images (python $PYVER, static)"
 LOCAL_TAG="localhost:45000/streamlit-base:py${PYVER}"
 docker build -t "$LOCAL_TAG" --build-arg "PYTHON_VERSION=${PYVER}" deploy/base-image
+STATIC_LOCAL_TAG="localhost:45000/static-base:latest"
+docker build -t "$STATIC_LOCAL_TAG" deploy/base-image/static
 
-echo ">> pushing base image into the cluster registry"
+echo ">> pushing base images into the cluster registry"
 kubectl --context "$PROFILE" -n kube-system port-forward svc/registry 45000:80 >/dev/null 2>&1 &
 PF_PID=$!
 trap 'kill $PF_PID 2>/dev/null || true' EXIT
 for i in $(seq 1 20); do curl -sf http://localhost:45000/v2/ >/dev/null && break; sleep 0.5; done
 docker push "$LOCAL_TAG"
+docker push "$STATIC_LOCAL_TAG"
 
 IP="$(minikube -p "$PROFILE" ip)"
 cat > .env <<EOF

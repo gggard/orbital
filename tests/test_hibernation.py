@@ -10,7 +10,7 @@ from kubernetes.client import ApiException
 
 from orbital.config import Settings, get_settings
 from orbital.k8s import resources
-from orbital.models import App, AppState
+from orbital.models import App, AppState, AppType
 
 
 def make_app(
@@ -24,6 +24,7 @@ def make_app(
         id="abc123def456",
         slug=slug,
         repo_url="https://github.com/x/y",
+        app_type=AppType.streamlit,
         public=public,
         state=state,
         owner_groups=[],

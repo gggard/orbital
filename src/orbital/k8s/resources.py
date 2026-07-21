@@ -1,7 +1,7 @@
 """Per-app runtime manifests: Deployment, Service, Ingress, Secret (SPEC §5.3)."""
 
 from ..config import Settings
-from ..models import App, AppState
+from ..models import App, AppState, AppType
 
 MANAGED_BY = {"app.orbital.io/managed-by": "control-plane"}
 
@@ -38,12 +38,17 @@ def secret(app: App, settings: Settings) -> dict:
 
 def deployment(app: App, image: str, settings: Settings, restarted_at: str) -> dict:
     base_path = settings.base_url_path(app.slug)
-    health_path = f"{base_path}/_stcore/health"
     env = [{"name": "HOME", "value": "/home/appuser"}]
-    if base_path:
-        # path routing: Streamlit serves under the prefix (env var, no rebuild;
-        # CLI flags in the image CMD don't set baseUrlPath so env wins)
-        env.append({"name": "STREAMLIT_SERVER_BASE_URL_PATH", "value": base_path})
+    if app.app_type == AppType.streamlit:
+        health_path = f"{base_path}/_stcore/health"
+        if base_path:
+            # path routing: Streamlit serves under the prefix (env var, no rebuild;
+            # CLI flags in the image CMD don't set baseUrlPath so env wins)
+            env.append({"name": "STREAMLIT_SERVER_BASE_URL_PATH", "value": base_path})
+    else:
+        # static apps have no generic base-path mechanism (best-effort under
+        # path routing - see docs/ADMIN.md); nginx just serves at "/"
+        health_path = f"{base_path}/" if base_path else "/"
     volume_mounts = [
         {"name": "tmp", "mountPath": "/tmp"},
         {"name": "home", "mountPath": "/home/appuser"},
@@ -52,7 +57,7 @@ def deployment(app: App, image: str, settings: Settings, restarted_at: str) -> d
         {"name": "tmp", "emptyDir": {"sizeLimit": "1Gi"}},
         {"name": "home", "emptyDir": {"sizeLimit": "1Gi"}},
     ]
-    if app.secrets_toml:
+    if app.app_type == AppType.streamlit and app.secrets_toml:
         volume_mounts.append(
             {
                 "name": "secrets",
@@ -191,12 +196,12 @@ def ingress(app: App, settings: Settings) -> dict:
     else:
         host = f"{app.slug}.{settings.apps_domain}"
         path = "/"
-    annotations = {
-        # Streamlit needs long-lived websockets
-        "nginx.ingress.kubernetes.io/proxy-read-timeout": "3600",
-        "nginx.ingress.kubernetes.io/proxy-send-timeout": "3600",
-        "nginx.ingress.kubernetes.io/proxy-body-size": "200m",
-    }
+    annotations = {"nginx.ingress.kubernetes.io/proxy-body-size": "200m"}
+    if app.app_type == AppType.streamlit:
+        # Streamlit needs long-lived websockets; static apps get ingress
+        # defaults, which is more correct (no reason to hang for an hour).
+        annotations["nginx.ingress.kubernetes.io/proxy-read-timeout"] = "3600"
+        annotations["nginx.ingress.kubernetes.io/proxy-send-timeout"] = "3600"
     if not app.public and settings.auth_enabled:
         # nginx auth_request -> control plane authz (session + group check),
         # 401 -> redirect the browser to oauth2-proxy sign-in (SPEC §5.5).

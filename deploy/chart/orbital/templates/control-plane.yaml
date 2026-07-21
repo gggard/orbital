@@ -63,6 +63,8 @@ spec:
               value: {{ .Values.registry.pullPrefix | quote }}
             - name: ORBITAL_PYTHON_VERSIONS
               value: {{ include "orbital.pythonVersionsJson" . | quote }}
+            - name: ORBITAL_STATIC_BASE_IMAGE
+              value: {{ .Values.baseImages.staticTag | quote }}
             - name: ORBITAL_BUILDKIT_ROOTLESS
               value: {{ .Values.builds.rootless | quote }}
             - name: ORBITAL_BUILD_TIMEOUT_SECONDS

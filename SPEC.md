@@ -66,7 +66,7 @@ Developers and Admins authenticate to the dashboard via the organization's OIDC 
 
 ### 4.1 App deployment
 
-- **FR-1.1** An app is defined by: git URL, git credentials (optional), branch, main file path, Python version, subdomain slug, secrets, sharing settings, resource tier.
+- **FR-1.1** An app is defined by: git URL, git credentials (optional), branch, app type (`streamlit` or `static`), subdomain slug, secrets, sharing settings, resource tier, plus type-specific fields: `streamlit` apps take a main file path and Python version; `static` apps take an optional build command and an output directory (§4.3a).
 - **FR-1.2** The main file path is interpreted relative to the repository root. The app's working directory at runtime is the repository root.
 - **FR-1.3** Deploys are asynchronous; the dashboard shows the state machine (§7.2) and streams build logs.
 - **FR-1.4** Redeploying the same app replaces the running version with zero-config rollover (new pods must be Ready before old pods terminate).
@@ -92,9 +92,15 @@ Developers and Admins authenticate to the dashboard via the organization's OIDC 
 - **FR-3.5** Streamlit is preinstalled in the base image at a platform-pinned version; an app's dependency file may override it with its own pinned `streamlit==x.y.z`.
 - **FR-3.6** Supported Python versions: the set of CPython minor versions currently receiving security updates (admin-configurable list; one base image per version). Default: latest supported.
 
+### 4.3a Static site builds
+
+- **FR-3a.1** `static` apps have no Python dependency resolution (§4.3 does not apply). With no `build_command` set, the app's `output_dir` (default the repository root) is served as-is.
+- **FR-3a.2** If `build_command` is set, it requires a `package.json` at the repository root (npm-based builds only in v1 - Hugo/Jekyll/other generators are out of scope, extensible later) and runs in an isolated `node` build stage; the resulting `output_dir` is what gets served.
+- **FR-3a.3** Static apps are served by a shared platform-maintained static-file-server base image (nginx), analogous to the Streamlit base image (§5.2), with the app's files layered on top at build time.
+
 ### 4.4 Secrets management
 
-- **FR-4.1** Each app has a secrets blob in TOML format, edited in the dashboard (create/view/update), validated as TOML on save.
+- **FR-4.1** Each `streamlit` app has a secrets blob in TOML format, edited in the dashboard (create/view/update), validated as TOML on save. `static` apps have no runtime process to consume secrets and reject them (422).
 - **FR-4.2** Secrets are stored as a Kubernetes `Secret` and mounted into the app container at `<repo-root>/.streamlit/secrets.toml`, so `st.secrets` works exactly as it does locally.
 - **FR-4.3** Secret updates do **not** require a rebuild. Saving secrets triggers a rolling restart of the app pods (propagation within ~1 minute).
 - **FR-4.4** A `secrets.toml` committed to the repository is ignored (the mounted secret shadows it) and a build warning is emitted.
@@ -202,11 +208,12 @@ The single stateful brain of the platform.
 
 ### 5.2 Build system
 
-- **Base images**: one platform-maintained image per supported Python version: Debian-slim + CPython + `uv` + pinned Streamlit + a small curated set of common system libraries (e.g. `libgomp`, CA certs). Admins rebuild/update base images on their own cadence; the tag is pinned per app build for reproducibility.
+- **Base images**: one platform-maintained image per supported Python version (Debian-slim + CPython + `uv` + pinned Streamlit + a small curated set of common system libraries, e.g. `libgomp`, CA certs), plus one shared static-site base image (nginx, non-root, §4.3a). Admins rebuild/update base images on their own cadence; the tag is pinned per app build for reproducibility.
 - **Builder**: a Kubernetes `Job` per build in the `streamlit-builds` namespace running **BuildKit** (rootless) — chosen over Kaniko because BuildKit is actively maintained and has robust cache-mount support for pip/uv caches. The job:
   1. Clones the repo at the target commit (token/deploy-key from a build-scoped secret).
-  2. Detects the dependency file (§4.3) and generates a Dockerfile from a platform template:
-     `FROM base:pyX.Y` → copy dependency file → `uv pip install` (cache mount) → copy app code → set entrypoint `streamlit run <main file>`.
+  2. Generates a Dockerfile from a platform template, branching on app type:
+     - `streamlit`: detects the dependency file (§4.3) — `FROM base:pyX.Y` → copy dependency file → `uv pip install` (cache mount) → copy app code → set entrypoint `streamlit run <main file>`.
+     - `static`: with a `build_command` — a `node` build stage runs it, then `FROM static-base` copies the build output; with no `build_command` — `FROM static-base` copies `output_dir` directly (§4.3a).
   3. Pushes the image to the internal registry, tagged `apps/<app-id>:<commit-sha>`.
 - **Registry**: an in-cluster registry (e.g. `registry:2` or Harbor) or any registry the operator configures. Retention: keep the last N images per app (FR-1.5); a garbage-collection job prunes the rest.
 - **Isolation**: build jobs run as non-root, with no cluster credentials beyond registry push and the app's read-only git credential; NetworkPolicy allows egress only to git hosts and the registry.
@@ -217,16 +224,16 @@ Per app, in the shared `streamlit-apps` namespace (one namespace for all apps �
 
 | Object | Purpose |
 |---|---|
-| `Deployment` (1 replica) | Runs the app image; `streamlit run <main file>` |
+| `Deployment` (1 replica) | Runs the app image; `streamlit run <main file>` (static: nginx serving `output_dir`) |
 | `Service` | ClusterIP for the pods |
 | `Ingress` | `<slug>.<apps-domain>` → Service (or auth proxy for private apps) |
-| `Secret` | The app's `secrets.toml` + git credential |
-| `ConfigMap` | Locked `config.toml` (§4.9) |
+| `Secret` | The app's `secrets.toml` + git credential (`streamlit` apps only) |
+| `ConfigMap` | Locked `config.toml` (§4.9, `streamlit` apps only) |
 | `NetworkPolicy` | Default-deny between app pods (§9) |
 
 - **Resources**: default tier `requests: 500m CPU / 1 GiB`, `limits: 1 CPU / 2 GiB`. Admins define tiers; developers pick from allowed tiers.
 - **Replicas**: 1 by default (Streamlit sessions are sticky to a process; horizontal scaling requires session affinity and is a future-work item — v1 supports 1 replica per app).
-- **Health**: readiness/liveness probes on Streamlit's `/_stcore/health` endpoint.
+- **Health**: readiness/liveness probes on Streamlit's `/_stcore/health` endpoint; static apps probe `/` instead (nginx has no equivalent healthcheck path).
 - **Ephemeral storage**: apps get a writable ephemeral volume (`emptyDir`, size-limited, default 1 GiB); contents do not survive restarts or hibernation.
 
 ### 5.4 Ingress, routing, TLS
@@ -309,7 +316,7 @@ App code is **untrusted**. Controls, in the app runtime:
 - **Quotas**: per-pod CPU/memory limits (tier), `emptyDir` size limits, `ResourceQuota` + `LimitRange` on the apps namespace, PID limits.
 - **Optional stronger sandboxing**: the spec recommends noting gVisor (`RuntimeClass: gvisor`) or Kata Containers as an admin opt-in for hostile-tenant scenarios; not required for v1 trusted-organization use.
 - **Secrets**: app secrets are only mounted into that app's pods; API access restricted to owners/admins; audit log on read-of-value and write. Git credentials for private repos are stored as Kubernetes Secrets, mounted only into build jobs.
-- **Build isolation**: rootless BuildKit, no shared daemon, per-build ephemeral workspace, egress restricted (§5.2).
+- **Build isolation**: rootless BuildKit, no shared daemon, per-build ephemeral workspace, egress restricted (§5.2). A static app's `build_command` runs as an ordinary shell command inside this same isolated build job — the same trust boundary as `uv pip install`/dependency resolution for `streamlit` apps, not a new privilege crossing.
 - **Platform**: XSRF on for apps (locked config), CSRF protection on the dashboard, webhook endpoints validated by per-app token and optional provider HMAC signature.
 
 ---
@@ -323,7 +330,8 @@ App code is **untrusted**. Controls, in the app runtime:
 - Ephemeral storage only; files written by the app do not survive restarts or hibernation.
 - Locked config values (§4.9) override the repo's `config.toml`.
 - Redeploy triggers rate-limited to 5/min per app.
-- Only one `.streamlit/config.toml` (repo root) is honored.
+- Only one `.streamlit/config.toml` (repo root) is honored (`streamlit` apps only).
+- Static apps: npm-based builds only in v1 (§4.3a); no runtime secrets. Under `routing_mode=path`, static apps have no equivalent of Streamlit's base-path env var, so serving under a `/prefix` is best-effort — plain multi-page HTML works, but a built SPA bundle with absolute root-relative asset paths may break unless the build itself is configured for that prefix. Subdomain routing is unaffected.
 
 ---
 

@@ -31,9 +31,12 @@ export default function SettingsTab({
 }) {
   const router = useRouter();
   const { data: me } = useMe();
+  const isStatic = app.app_type === "static";
   const [branch, setBranch] = useState(app.branch);
-  const [mainFile, setMainFile] = useState(app.main_file);
-  const [python, setPython] = useState(app.python_version);
+  const [mainFile, setMainFile] = useState(app.main_file ?? "");
+  const [python, setPython] = useState(app.python_version ?? PYTHON_VERSIONS[0]);
+  const [buildCommand, setBuildCommand] = useState(app.build_command ?? "");
+  const [outputDir, setOutputDir] = useState(app.output_dir);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -52,8 +55,13 @@ export default function SettingsTab({
   const [pollBusy, setPollBusy] = useState(false);
   const [pollError, setPollError] = useState("");
 
-  const dirty =
-    branch !== app.branch || mainFile !== app.main_file || python !== app.python_version;
+  const dirty = isStatic
+    ? branch !== app.branch ||
+      buildCommand !== (app.build_command ?? "") ||
+      outputDir !== app.output_dir
+    : branch !== app.branch ||
+      mainFile !== (app.main_file ?? "") ||
+      python !== (app.python_version ?? "");
   const hibernateDirty =
     hibernateEnabled !== app.hibernate_enabled ||
     (hibernateHours !== "" &&
@@ -79,7 +87,12 @@ export default function SettingsTab({
     setBusy(true);
     setError("");
     try {
-      await patchApp(app.id, { branch, main_file: mainFile, python_version: python });
+      await patchApp(
+        app.id,
+        isStatic
+          ? { branch, build_command: buildCommand || undefined, output_dir: outputDir }
+          : { branch, main_file: mainFile, python_version: python },
+      );
       onSaved("settings saved — rebuild scheduled");
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -141,27 +154,51 @@ export default function SettingsTab({
                 value={branch}
                 onChange={(e) => setBranch(e.target.value)}
               />
-              <TextField
-                label="Main file"
-                size="small"
-                fullWidth
-                value={mainFile}
-                onChange={(e) => setMainFile(e.target.value)}
-              />
-              <TextField
-                label="Python"
-                size="small"
-                select
-                sx={{ minWidth: 100 }}
-                value={python}
-                onChange={(e) => setPython(e.target.value)}
-              >
-                {[...new Set([...PYTHON_VERSIONS, app.python_version])].map((v) => (
-                  <MenuItem key={v} value={v}>
-                    {v}
-                  </MenuItem>
-                ))}
-              </TextField>
+              {isStatic ? (
+                <>
+                  <TextField
+                    label="Build command (optional)"
+                    size="small"
+                    fullWidth
+                    placeholder="npm run build"
+                    value={buildCommand}
+                    onChange={(e) => setBuildCommand(e.target.value)}
+                  />
+                  <TextField
+                    label="Output directory"
+                    size="small"
+                    fullWidth
+                    value={outputDir}
+                    onChange={(e) => setOutputDir(e.target.value)}
+                  />
+                </>
+              ) : (
+                <>
+                  <TextField
+                    label="Main file"
+                    size="small"
+                    fullWidth
+                    value={mainFile}
+                    onChange={(e) => setMainFile(e.target.value)}
+                  />
+                  <TextField
+                    label="Python"
+                    size="small"
+                    select
+                    sx={{ minWidth: 100 }}
+                    value={python}
+                    onChange={(e) => setPython(e.target.value)}
+                  >
+                    {[...new Set([...PYTHON_VERSIONS, app.python_version ?? PYTHON_VERSIONS[0]])].map(
+                      (v) => (
+                        <MenuItem key={v} value={v}>
+                          {v}
+                        </MenuItem>
+                      ),
+                    )}
+                  </TextField>
+                </>
+              )}
             </Stack>
             <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
               <Button variant="contained" startIcon={<SaveIcon />} disabled={!dirty} loading={busy} onClick={save}>

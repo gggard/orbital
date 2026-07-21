@@ -159,7 +159,7 @@ export default function AppsOverview() {
             </Box>
             <Typography>
               {canCreate
-                ? "No apps yet — deploy your first Streamlit app from a git repository."
+                ? "No apps yet — deploy your first Streamlit app or static site from a git repository."
                 : "No apps are shared with your groups yet."}
             </Typography>
             {canCreate && (

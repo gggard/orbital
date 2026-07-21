@@ -68,6 +68,11 @@ export default function AppDetail() {
 
   if (isLoading || !app) return <Skeleton variant="rounded" height={320} />;
 
+  // static apps have no runtime secrets mechanism (nginx serves static
+  // files, no st.secrets equivalent) - the API rejects secrets_toml for them
+  const visibleTabs =
+    app.app_type === "static" ? tabs.filter((t) => t !== "Secrets") : tabs;
+
   return (
     <>
       <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", mb: 0.5 }}>
@@ -145,27 +150,29 @@ export default function AppDetail() {
       )}
 
       <Tabs
-        value={Math.min(tab, tabs.length - 1)}
+        value={Math.min(tab, visibleTabs.length - 1)}
         onChange={(_, v) => setTab(v)}
         sx={{ borderBottom: 1, borderColor: "divider", mb: 3 }}
       >
-        {tabs.map((t) => (
+        {visibleTabs.map((t) => (
           <Tab key={t} label={t} />
         ))}
       </Tabs>
 
-      {tabs[Math.min(tab, tabs.length - 1)] === "Overview" && <OverviewTab app={app} />}
-      {tabs[tab] === "Metrics" && <MetricsTab appId={app.id} />}
-      {tabs[tab] === "Analytics" && <AnalyticsTab appId={app.id} />}
-      {tabs[tab] === "Logs" && <LogsTab appId={app.id} />}
-      {tabs[tab] === "Builds" && <BuildsTab appId={app.id} />}
-      {tabs[tab] === "Secrets" && (
+      {visibleTabs[Math.min(tab, visibleTabs.length - 1)] === "Overview" && (
+        <OverviewTab app={app} />
+      )}
+      {visibleTabs[tab] === "Metrics" && <MetricsTab appId={app.id} />}
+      {visibleTabs[tab] === "Analytics" && <AnalyticsTab appId={app.id} />}
+      {visibleTabs[tab] === "Logs" && <LogsTab appId={app.id} />}
+      {visibleTabs[tab] === "Builds" && <BuildsTab appId={app.id} />}
+      {visibleTabs[tab] === "Secrets" && (
         <SecretsTab appId={app.id} onSaved={() => setSnack("secrets saved — app restarting")} />
       )}
-      {tabs[tab] === "Sharing" && (
+      {visibleTabs[tab] === "Sharing" && (
         <SharingTab app={app} onSaved={() => { setSnack("sharing updated"); mutate(); }} />
       )}
-      {tabs[tab] === "Settings" && (
+      {visibleTabs[tab] === "Settings" && (
         <SettingsTab app={app} onSaved={(m) => { setSnack(m); mutate(); }} />
       )}
 

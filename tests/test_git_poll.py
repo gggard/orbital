@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 
 from orbital.config import Settings, get_settings
 from orbital.gitutil import GitError
-from orbital.models import App, AppState, Build, BuildPhase, PendingAction
+from orbital.models import App, AppState, AppType, Build, BuildPhase, PendingAction
 
 
 def make_app(
@@ -24,6 +24,7 @@ def make_app(
         slug=slug,
         repo_url="https://github.com/x/y",
         branch="main",
+        app_type=AppType.streamlit,
         state=state,
         owner_groups=[],
         allowed_groups=[],

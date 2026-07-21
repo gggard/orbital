@@ -57,9 +57,18 @@ app moves through `building → deploying → running` (poll `GET /apps/{id}` or
 tail logs to watch it, see [Monitoring](#monitoring-an-app) below).
 
 **Request body** (`AppCreate`): `slug` (DNS-safe, e.g. `my-app`), `repo_url`,
-`branch` (default `main`), `main_file` (default `streamlit_app.py`),
-`python_version`, `public` (default `true`), `allowed_groups`,
-`secrets_toml`, `hibernate_enabled`, `hibernate_after_seconds`.
+`branch` (default `main`), `app_type` (`streamlit` or `static`, default
+`streamlit`), `public` (default `true`), `allowed_groups`, `secrets_toml`,
+`hibernate_enabled`, `hibernate_after_seconds`.
+
+Two more fields depend on `app_type` and are rejected for the other type:
+
+- **`streamlit`**: `main_file` (default `streamlit_app.py`), `python_version`.
+- **`static`**: `build_command` (optional; unset serves the repo as-is,
+  otherwise runs an npm build - requires a `package.json`), `output_dir`
+  (default `.`; the directory served, or the build output directory when
+  `build_command` is set). `secrets_toml` is not supported for static apps
+  (rejected with 422) - there's no runtime process to consume it.
 
 ### Shell
 
@@ -115,6 +124,24 @@ const resp = await fetch(`${BASE}/apps`, {
 if (!resp.ok) throw new Error(`create failed: ${resp.status}`);
 const app = await resp.json();
 console.log(app.id, app.state, app.url);
+```
+
+### Deploying a static site
+
+Same endpoint, `app_type: "static"` instead. With no `build_command`, the
+repo's files are served as-is; with one, it runs in an npm build stage
+(requires `package.json`) before the `output_dir` is served.
+
+```bash
+curl -sX POST "$BASE/apps" \
+  -H 'Content-Type: application/json' \
+  -d '{
+        "slug": "my-static-site",
+        "repo_url": "https://github.com/org/my-static-site",
+        "app_type": "static",
+        "build_command": "npm run build",
+        "output_dir": "dist"
+      }'
 ```
 
 ### Redeploying, rebooting, waking
