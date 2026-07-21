@@ -131,6 +131,7 @@ def test_migrate_apps_table_adds_missing_columns_idempotently(tmp_path):
     assert "app_type" in columns
     assert "build_command" in columns
     assert "output_dir" in columns
+    assert "tags" in columns
     assert columns["main_file"]["nullable"]
     assert columns["python_version"]["nullable"]
 
@@ -141,6 +142,7 @@ def test_migrate_apps_table_adds_missing_columns_idempotently(tmp_path):
         assert row.slug == "demo"
         assert row.app_type.value == "streamlit"  # column default applied by rebuild
         assert row.output_dir == "."
+        assert row.tags == []
 
     # second call is a no-op (doesn't error, doesn't lose data)
     db.init_engine(url)

@@ -14,6 +14,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import CopyField from "@/components/CopyField";
+import TagPicker from "@/components/TagPicker";
 import { deleteApp, patchApp, useMe } from "@/lib/api";
 import type { AppOut } from "@/lib/types";
 
@@ -40,6 +41,11 @@ export default function SettingsTab({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const [tags, setTags] = useState<string[]>(app.tags);
+  const [tagsError, setTagsError] = useState("");
+  const [tagsBusy, setTagsBusy] = useState(false);
+  const tagsDirty = JSON.stringify(tags) !== JSON.stringify(app.tags);
 
   const [hibernateEnabled, setHibernateEnabled] = useState(app.hibernate_enabled);
   const [hibernateHours, setHibernateHours] = useState(
@@ -101,6 +107,19 @@ export default function SettingsTab({
     }
   };
 
+  const saveTags = async () => {
+    setTagsBusy(true);
+    setTagsError("");
+    try {
+      await patchApp(app.id, { tags });
+      onSaved("tags saved");
+    } catch (e) {
+      setTagsError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setTagsBusy(false);
+    }
+  };
+
   const saveHibernation = async () => {
     setHibernateBusy(true);
     setHibernateError("");
@@ -135,6 +154,37 @@ export default function SettingsTab({
 
   return (
     <Stack spacing={3} sx={{ maxWidth: 640 }}>
+      <Card>
+        <CardContent>
+          <Typography variant="h6" gutterBottom>
+            Tags
+          </Typography>
+          {tagsError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {tagsError}
+            </Alert>
+          )}
+          <Stack spacing={2}>
+            <TagPicker
+              value={tags}
+              onChange={setTags}
+              helperText="type to search existing tags or add a new one and press Enter"
+            />
+            <Stack direction="row">
+              <Button
+                variant="contained"
+                startIcon={<SaveIcon />}
+                disabled={!tagsDirty}
+                loading={tagsBusy}
+                onClick={saveTags}
+              >
+                Save
+              </Button>
+            </Stack>
+          </Stack>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardContent>
           <Typography variant="h6" gutterBottom>

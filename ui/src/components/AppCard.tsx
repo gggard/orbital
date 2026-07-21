@@ -7,6 +7,7 @@ import ReplayIcon from "@mui/icons-material/Replay";
 import Box from "@mui/material/Box";
 import Card from "@mui/material/Card";
 import CardActionArea from "@mui/material/CardActionArea";
+import Chip from "@mui/material/Chip";
 import IconButton from "@mui/material/IconButton";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
@@ -96,6 +97,13 @@ export default function AppCard({
               </Typography>
             )}
           </Stack>
+          {app.tags.length > 0 && (
+            <Stack direction="row" spacing={0.5} sx={{ flexWrap: "wrap", rowGap: 0.5 }}>
+              {app.tags.map((tag) => (
+                <Chip key={tag} size="small" variant="outlined" label={tag} />
+              ))}
+            </Stack>
+          )}
           {app.error && (
             <Tooltip title={app.error}>
               <Typography variant="caption" color="error" noWrap>

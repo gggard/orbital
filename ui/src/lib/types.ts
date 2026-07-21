@@ -25,6 +25,7 @@ export interface AppOut {
   public: boolean;
   allowed_groups: string[];
   owner_groups: string[];
+  tags: string[];
   state: AppState;
   error: string | null;
   current_build_id: string | null;
@@ -62,6 +63,7 @@ export interface AppCreate {
   output_dir?: string; // static only; defaults to "."
   public: boolean;
   allowed_groups: string[];
+  tags?: string[];
   secrets_toml?: string;
   hibernate_enabled?: boolean;
   hibernate_after_seconds?: number;
@@ -145,6 +147,7 @@ export interface AppUpdate {
   public?: boolean;
   allowed_groups?: string[];
   owner_groups?: string[];
+  tags?: string[];
   hibernate_enabled?: boolean;
   hibernate_after_seconds?: number;
   poll_enabled?: boolean;
