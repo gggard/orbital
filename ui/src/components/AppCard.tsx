@@ -15,6 +15,7 @@ import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import AppTypeIcon from "@/components/AppTypeIcon";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import StateChip from "@/components/StateChip";
 import { deleteApp, deployApp, rebootApp } from "@/lib/api";
@@ -52,6 +53,7 @@ export default function AppCard({
       >
         <Stack spacing={1}>
           <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+            <AppTypeIcon appType={app.app_type} />
             <Typography variant="subtitle1" noWrap sx={{ fontWeight: 700 }}>
               {app.slug}
             </Typography>
