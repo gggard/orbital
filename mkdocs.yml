@@ -1,5 +1,9 @@
 site_name: Orbital
 site_url: https://gggard.github.io/orbital/
+site_description: >-
+  Self-hosted platform for deploying, running, and managing Streamlit apps
+  and static sites on Kubernetes.
+site_author: Orbital contributors
 repo_url: https://github.com/gggard/orbital
 repo_name: gggard/orbital
 edit_uri: edit/main/docs/
@@ -7,6 +11,9 @@ edit_uri: edit/main/docs/
 docs_dir: docs
 site_dir: _site
 use_directory_urls: true
+
+hooks:
+  - hooks.py
 
 theme:
   name: material
@@ -59,6 +66,24 @@ markdown_extensions:
 plugins:
   - search
   - include-markdown
+  - llmstxt:
+      markdown_description: >-
+        Orbital is a self-hosted platform for deploying, running, and
+        managing Streamlit apps — and plain static sites — on Kubernetes.
+        Point it at a git repository and the app is live on its own
+        subdomain minutes later.
+      full_output: llms-full.txt
+      sections:
+        Guides:
+          - INSTALL.md: Install the Helm chart on a real Kubernetes cluster.
+          - USER.md: Deploy and manage your own apps as an Orbital user.
+          - ADMIN.md: Operate the platform — roles, RBAC, upgrades.
+          - DEVELOPMENT.md: Contribute to Orbital — local dev on minikube.
+        Reference:
+          - API.md: Deploy and monitor apps via the REST API.
+          - UI-SPEC.md: UI specification for the management console.
+          - SPEC.md: Full functional specification and architecture.
+          - CONTRIBUTING.md: PR and issue workflow.
 
 # These docs are written to be read both on GitHub (root-relative links like
 # ../SPEC.md, ../.github/workflows/ci.yml) and built into this site; such
