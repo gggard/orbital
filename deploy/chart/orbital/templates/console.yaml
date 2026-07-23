@@ -17,6 +17,9 @@ spec:
         app.kubernetes.io/component: console
         {{- include "orbital.labels" . | nindent 8 }}
     spec:
+      # the console only ever talks to the control plane over HTTP - it
+      # never touches the Kubernetes API, so it doesn't need a token mounted
+      automountServiceAccountToken: false
       containers:
         - name: console
           image: "{{ .Values.image.console.repository }}:{{ .Values.image.console.tag }}"
