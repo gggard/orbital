@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://gggard.github.io/orbital/sitemap.xml
