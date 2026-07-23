@@ -47,6 +47,23 @@ def test_login_disabled_redirects_straight_to_next(tmp_path, monkeypatch):
     get_settings.cache_clear()
 
 
+def test_login_disabled_rejects_external_next(tmp_path, monkeypatch):
+    monkeypatch.setenv("ORBITAL_DATABASE_URL", f"sqlite:///{tmp_path}/t.db")
+    monkeypatch.setenv("ORBITAL_RECONCILER_ENABLED", "false")
+    monkeypatch.setenv("ORBITAL_UI_AUTH_ENABLED", "false")
+    get_settings.cache_clear()
+    from orbital import db
+    from orbital.main import app
+
+    db.init_engine(f"sqlite:///{tmp_path}/t.db")
+    with TestClient(app, follow_redirects=False) as c:
+        for evil in ("https://evil.example.com/steal", "//evil.example.com", "/\\evil.example.com"):
+            r = c.get(f"/api/auth/login?next={evil}")
+            assert r.status_code in (302, 307)
+            assert r.headers["location"] == "/"
+    get_settings.cache_clear()
+
+
 def test_login_redirects_to_idp_with_state(client):
     r = client.get("/api/auth/login?next=/dashboard")
     assert r.status_code in (302, 307)
