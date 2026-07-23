@@ -2,7 +2,6 @@
 
 import RefreshIcon from "@mui/icons-material/Refresh";
 import Box from "@mui/material/Box";
-import Chip from "@mui/material/Chip";
 import Collapse from "@mui/material/Collapse";
 import IconButton from "@mui/material/IconButton";
 import Link from "@mui/material/Link";
@@ -20,17 +19,9 @@ import NextLink from "next/link";
 import { useState } from "react";
 import SeverityChip from "@/components/SeverityChip";
 import StateChip from "@/components/StateChip";
+import VulnerabilityTable from "@/components/VulnerabilityTable";
 import { useAdminScanVulnerabilities, useAdminScans } from "@/lib/api";
-import type { Severity } from "@/lib/types";
 import { mono } from "@/theme";
-
-const SEVERITY_COLOR: Record<Severity, "error" | "warning" | "default"> = {
-  critical: "error",
-  high: "error",
-  medium: "warning",
-  low: "default",
-  unknown: "default",
-};
 
 export default function FleetScansTab() {
   const { data: scans, mutate } = useAdminScans();
@@ -108,59 +99,7 @@ export default function FleetScansTab() {
       </TableContainer>
 
       <Collapse in={!!selected} unmountOnExit>
-        {vulnerabilities && vulnerabilities.length === 0 && (
-          <Typography variant="body2" color="text.secondary">
-            no vulnerabilities found
-          </Typography>
-        )}
-        {vulnerabilities && vulnerabilities.length > 0 && (
-          <TableContainer component={Paper} variant="outlined">
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>CVE</TableCell>
-                  <TableCell>Package</TableCell>
-                  <TableCell>Installed</TableCell>
-                  <TableCell>Fixed in</TableCell>
-                  <TableCell>Severity</TableCell>
-                  <TableCell>Title</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {vulnerabilities.map((v, i) => (
-                  <TableRow key={`${v.vuln_id}-${i}`}>
-                    <TableCell sx={{ fontFamily: mono, fontSize: "0.75rem" }}>
-                      {v.vuln_id}
-                    </TableCell>
-                    <TableCell sx={{ fontFamily: mono, fontSize: "0.75rem" }}>
-                      {v.pkg_name}
-                    </TableCell>
-                    <TableCell sx={{ fontFamily: mono, fontSize: "0.75rem" }}>
-                      {v.installed_version}
-                    </TableCell>
-                    <TableCell sx={{ fontFamily: mono, fontSize: "0.75rem" }}>
-                      {v.fixed_version ?? "—"}
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        size="small"
-                        variant="outlined"
-                        color={SEVERITY_COLOR[v.severity]}
-                        label={v.severity}
-                        sx={{ textTransform: "capitalize", fontWeight: 600 }}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" color="text.secondary">
-                        {v.title ?? "—"}
-                      </Typography>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        )}
+        <VulnerabilityTable vulnerabilities={vulnerabilities} />
       </Collapse>
     </Stack>
   );
