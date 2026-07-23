@@ -39,7 +39,7 @@ function hibernationLabel(app: AppOut, hibernateHours: number | null): string {
   return "sleeps after the platform default idle";
 }
 
-function DefinitionFields({ app }: { app: AppOut }) {
+function DefinitionFields({ app }: Readonly<{ app: AppOut }>) {
   if (app.app_type === "static") {
     return (
       <>

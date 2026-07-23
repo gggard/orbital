@@ -38,7 +38,7 @@ function AppsListBody({
   onCreate,
   onClearFilters,
   onAction,
-}: {
+}: Readonly<{
   loading: boolean;
   allApps: AdminAppOut[];
   filteredApps: AdminAppOut[];
@@ -48,7 +48,7 @@ function AppsListBody({
   onCreate: () => void;
   onClearFilters: () => void;
   onAction: (msg: string) => void;
-}) {
+}>) {
   const gridSx = {
     display: "grid",
     gap: 2,

@@ -11,7 +11,7 @@ log = logging.getLogger(__name__)
 # Mount path inside the scan Job's own dedicated emptyDir volume, not the
 # host's /tmp - isolated per-pod, so the shared-directory risk S5443 warns
 # about doesn't apply here.
-_TRIVY_CACHE_DIR = "/tmp/trivy-cache"  # NOSONAR(python:S5443)
+_TRIVY_CACHE_DIR = "/tmp/trivy-cache"  # NOSONAR
 
 
 def scan_job(app: App, scan: ScanResult, settings: Settings) -> dict:

@@ -9,7 +9,7 @@ APP_ID_LABEL = "app.orbital.io/app-id"
 # Mount path inside the app's own dedicated emptyDir volume (readOnlyRootFilesystem
 # needs a writable /tmp), not the host's - isolated per-pod, so the shared-directory
 # risk S5443 warns about doesn't apply here.
-_APP_TMP_DIR = "/tmp"  # NOSONAR(python:S5443)
+_APP_TMP_DIR = "/tmp"  # NOSONAR
 
 # in-namespace ExternalName Service that lets the apps-namespace Ingress
 # objects reach the control plane (a different namespace) as the wake proxy

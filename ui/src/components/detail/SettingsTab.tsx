@@ -77,7 +77,7 @@ function SourceFields({
   setBuildCommand,
   outputDir,
   setOutputDir,
-}: {
+}: Readonly<{
   app: AppOut;
   isStatic: boolean;
   branch: string;
@@ -90,7 +90,7 @@ function SourceFields({
   setBuildCommand: (v: string) => void;
   outputDir: string;
   setOutputDir: (v: string) => void;
-}) {
+}>) {
   return (
     <>
       <TextField
