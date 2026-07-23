@@ -62,6 +62,7 @@ spec:
             {{- else }}
             privileged: true
             {{- end }}
+          resources: {{- toYaml $.Values.builds.resources | nindent 12 }}
           volumeMounts:
             - name: ctx
               mountPath: /ctx
@@ -144,6 +145,7 @@ spec:
             {{- else }}
             privileged: true
             {{- end }}
+          resources: {{- toYaml .Values.builds.resources | nindent 12 }}
           volumeMounts:
             - name: ctx
               mountPath: /ctx

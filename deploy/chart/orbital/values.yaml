@@ -53,6 +53,12 @@ builds:
   # user-namespace support (builds then run privileged)
   rootless: true
   timeoutSeconds: 900
+  # BuildKit resources for the one-off post-install base-image build Jobs
+  # (baseImages.build/buildStatic below) - per-app builds (builder.py) size
+  # their own Job resources independently.
+  resources:
+    requests: {cpu: 250m, memory: 512Mi}
+    limits: {cpu: "2", memory: 2Gi}
 
 # Container registry used for app images.
 # pushUrl:    registry endpoint reachable from build pods (in-cluster DNS ok)
@@ -132,5 +138,5 @@ controlPlane:
   replicas: 1
   reconcileInterval: 3
   resources:
-    requests: {cpu: 100m, memory: 256Mi}
-    limits: {cpu: "1", memory: 512Mi}
+    requests: {cpu: 100m, memory: 256Mi, ephemeral-storage: 256Mi}
+    limits: {cpu: "1", memory: 512Mi, ephemeral-storage: 1Gi}

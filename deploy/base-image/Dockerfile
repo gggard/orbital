@@ -7,7 +7,7 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     UV_NO_CACHE=1
 
-RUN pip install uv streamlit \
+RUN pip install --only-binary :all: uv==0.11.31 streamlit==1.60.0 \
     && useradd -m -u 1000 -U appuser
 
 ENV HOME=/home/appuser
