@@ -14,9 +14,20 @@ from sqlalchemy import select
 from ..config import get_settings
 from ..db import session_scope
 from ..gitutil import GitError, resolve_branch_head
-from ..models import App, AppState, AppType, Build, BuildPhase, PendingAction, ensure_aware
-from . import builder, client, metrics, resources
-from .inspect import build_log_tail
+from ..models import (
+    App,
+    AppState,
+    AppType,
+    Build,
+    BuildPhase,
+    PendingAction,
+    ScanResult,
+    ScanStatus,
+    Severity,
+    ensure_aware,
+)
+from . import builder, client, metrics, resources, scanner
+from .inspect import build_log_tail, scan_log
 
 log = logging.getLogger(__name__)
 
@@ -36,6 +47,10 @@ _RECONCILER_ERROR_PREFIX = "reconciler error:"
 # a namespace-wide list on every 3s tick would be wasteful, and this is a
 # slow-drift safety net rather than something that needs tight latency.
 _GC_INTERVAL_SECONDS = 60.0
+
+# Same grace-period reasoning as _BUILD_TIMEOUT_GRACE_SECONDS, applied to
+# scan jobs' own activeDeadlineSeconds.
+_SCAN_TIMEOUT_GRACE_SECONDS = 60
 
 _APP_ID_LABEL = "app.orbital.io/app-id"
 
@@ -94,6 +109,8 @@ class Reconciler:
     def ensure_setup(self):
         client.ensure_namespace(self.settings.apps_namespace)
         client.ensure_namespace(self.settings.builds_namespace)
+        if self.settings.scan_enabled:
+            client.ensure_namespace(self.settings.scans_namespace)
         cm = builder.build_support_configmap(self.settings)
         _apply(
             client.core().create_namespaced_config_map,
@@ -238,6 +255,7 @@ class Reconciler:
             AppState.deleting,
         ):
             self._maybe_poll_git(session, app)
+            self._maybe_scan(session, app)
 
     # -- build -------------------------------------------------------------
 
@@ -500,6 +518,126 @@ class Reconciler:
             log.info("git poll found new commit for %s: %s -> %s", app.slug, deployed_sha, head)
             app.pending_action = PendingAction.deploy
 
+    # -- vulnerability scanning ---------------------------------------------
+
+    def _maybe_scan(self, session, app: App):
+        if not (self.settings.scan_enabled and app.current_image):
+            return
+        last_scan = session.get(ScanResult, app.last_scan_id) if app.last_scan_id else None
+        if last_scan and last_scan.status in (ScanStatus.pending, ScanStatus.running):
+            self._check_scan(session, last_scan)
+        else:
+            on_demand = app.scan_requested_at is not None
+            due = (
+                last_scan is None
+                or last_scan.image != app.current_image
+                or (
+                    last_scan.finished_at is not None
+                    and (datetime.now(UTC) - ensure_aware(last_scan.finished_at)).total_seconds()
+                    >= self.settings.scan_interval_seconds
+                )
+            )
+            if on_demand or due:
+                self._start_scan(session, app)
+        self._prune_old_scans(session, app.id)
+
+    def _start_scan(self, session, app: App):
+        scan = ScanResult(
+            app_id=app.id,
+            build_id=app.current_build_id,
+            image=app.current_image,
+            status=ScanStatus.running,
+        )
+        session.add(scan)
+        session.flush()
+
+        job = scanner.scan_job(app, scan, self.settings)
+        client.batch().create_namespaced_job(self.settings.scans_namespace, job)
+
+        app.last_scan_id = scan.id
+        app.scan_requested_at = None
+        log.info("scan %s started for app %s (image=%s)", scan.id, app.slug, scan.image)
+
+    def _check_scan(self, session, scan: ScanResult):
+        job = _not_found_ok(
+            client.batch().read_namespaced_job,
+            f"scan-{scan.id}",
+            self.settings.scans_namespace,
+        )
+        if job is None:
+            self._fail_scan(scan, "scan job not found (expired or deleted)")
+            return
+
+        for cond in (job.status.conditions or []):
+            if cond.type == "Complete" and cond.status == "True":
+                self._finish_scan(session, scan)
+                return
+            if cond.type == "Failed" and cond.status == "True":
+                self._fail_scan(scan, cond.message or "scan failed")
+                return
+
+        # same rationale as _check_build: status.succeeded/failed lag less
+        # than the Job conditions do.
+        if (job.status.succeeded or 0) >= 1:
+            self._finish_scan(session, scan)
+            return
+        if (job.status.failed or 0) >= 1:
+            self._fail_scan(scan, "scan job failed")
+            return
+
+        elapsed = (datetime.now(UTC) - ensure_aware(scan.created_at)).total_seconds()
+        timeout = self.settings.scan_timeout_seconds + _SCAN_TIMEOUT_GRACE_SECONDS
+        if elapsed > timeout:
+            self._fail_scan(
+                scan,
+                f"scan timed out after {int(elapsed)}s with no terminal status "
+                "from the scan job",
+            )
+
+    def _finish_scan(self, session, scan: ScanResult):
+        raw = scan_log(scan.id, self.settings)
+        counts, vulnerabilities = scanner.parse_report(raw)
+        for vuln in vulnerabilities:
+            vuln.scan_result_id = scan.id
+            session.add(vuln)
+
+        scan.critical_count = counts[Severity.critical]
+        scan.high_count = counts[Severity.high]
+        scan.medium_count = counts[Severity.medium]
+        scan.low_count = counts[Severity.low]
+        scan.unknown_count = counts[Severity.unknown]
+        scan.trivy_version = self.settings.trivy_image.rsplit(":", 1)[-1]
+        scan.status = ScanStatus.succeeded
+        scan.finished_at = datetime.now(UTC)
+        log.info(
+            "scan %s finished for app %s: %d critical, %d high, %d medium, %d low",
+            scan.id, scan.app_id, scan.critical_count, scan.high_count,
+            scan.medium_count, scan.low_count,
+        )
+
+    def _fail_scan(self, scan: ScanResult, message: str):
+        scan.status = ScanStatus.failed
+        scan.error = message
+        scan.finished_at = datetime.now(UTC)
+        log.warning("scan %s failed for app %s: %s", scan.id, scan.app_id, message)
+
+    def _prune_old_scans(self, session, app_id: str):
+        """Keep only the most recent scan_retention_per_app completed scans
+        for an app; cascade-deletes their Vulnerability rows.
+        """
+        limit = self.settings.scan_retention_per_app
+        stale = session.scalars(
+            select(ScanResult)
+            .where(
+                ScanResult.app_id == app_id,
+                ScanResult.status.in_((ScanStatus.succeeded, ScanStatus.failed)),
+            )
+            .order_by(ScanResult.created_at.desc())
+            .offset(limit)
+        ).all()
+        for scan in stale:
+            session.delete(scan)
+
     def _restart(self, app: App):
         patch = {
             "spec": {
@@ -555,17 +693,18 @@ class Reconciler:
         _not_found_ok(
             client.core().delete_namespaced_secret, resources.secret_name(app), s.apps_namespace
         )
-        jobs = client.batch().list_namespaced_job(
-            s.builds_namespace,
-            label_selector=f"app.orbital.io/app-id={app.id}",
-        )
-        for job in jobs.items:
-            _not_found_ok(
-                client.batch().delete_namespaced_job,
-                job.metadata.name,
-                s.builds_namespace,
-                propagation_policy="Background",
+        for jobs_namespace in (s.builds_namespace, s.scans_namespace):
+            jobs = client.batch().list_namespaced_job(
+                jobs_namespace,
+                label_selector=f"app.orbital.io/app-id={app.id}",
             )
+            for job in jobs.items:
+                _not_found_ok(
+                    client.batch().delete_namespaced_job,
+                    job.metadata.name,
+                    jobs_namespace,
+                    propagation_policy="Background",
+                )
         metrics.store.drop(app.id)
         log.info("deleted app %s (%s)", app.slug, app.id)
         session.delete(app)

@@ -3,7 +3,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
-from .models import AppState, AppType, BuildPhase
+from .models import AppState, AppType, BuildPhase, ScanStatus, Severity
 
 SLUG_RE = re.compile(r"^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$")
 
@@ -82,6 +82,37 @@ class BuildOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class VulnerabilityOut(BaseModel):
+    vuln_id: str
+    pkg_name: str
+    installed_version: str
+    fixed_version: str | None
+    severity: Severity
+    title: str | None
+    target: str | None
+
+    model_config = {"from_attributes": True}
+
+
+class ScanOut(BaseModel):
+    id: str
+    app_id: str
+    build_id: str | None
+    image: str
+    status: ScanStatus
+    trivy_version: str | None
+    critical_count: int
+    high_count: int
+    medium_count: int
+    low_count: int
+    unknown_count: int
+    error: str | None
+    created_at: datetime
+    finished_at: datetime | None
+
+    model_config = {"from_attributes": True}
+
+
 class AppOut(BaseModel):
     id: str
     slug: str
@@ -99,6 +130,7 @@ class AppOut(BaseModel):
     state: AppState
     error: str | None
     current_build_id: str | None
+    latest_scan: ScanOut | None
     url: str
     webhook_path: str
     hibernate_enabled: bool
@@ -148,6 +180,10 @@ class AnalyticsViewer(BaseModel):
 class AdminAppOut(AppOut):
     cpu: float | None  # cores, latest sample (None: no metrics yet)
     mem: float | None  # bytes, latest sample
+
+
+class AdminScanOut(ScanOut):
+    slug: str
 
 
 class AdminTotals(BaseModel):

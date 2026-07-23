@@ -43,6 +43,14 @@ if [ "$APP_TYPE" = "static" ]; then
       exit 1
     fi
     echo "[detect] npm build: $BUILD_COMMAND (output: $OUTPUT_DIR)"
+    # carry the manifest into the final image (outside the nginx webroot, so
+    # it's never served) purely so the vulnerability scanner can see npm
+    # dependency versions - the multi-stage build otherwise discards
+    # node_modules/package-lock.json along with the rest of the build stage.
+    LOCKFILE=""
+    for f in package-lock.json yarn.lock pnpm-lock.yaml; do
+      if [ -f "$f" ]; then LOCKFILE="$f"; break; fi
+    done
     {
       echo "FROM node:20-alpine AS build"
       echo "WORKDIR /src"
@@ -51,6 +59,10 @@ if [ "$APP_TYPE" = "static" ]; then
       printf 'RUN sh -c "%s"\n' "$BUILD_COMMAND"
       echo "FROM $BASE_IMAGE"
       echo "COPY --from=build --chown=1000:1000 /src/$OUTPUT_DIR /usr/share/nginx/html"
+      echo "COPY --from=build /src/package.json /opt/app-manifest/package.json"
+      if [ -n "$LOCKFILE" ]; then
+        echo "COPY --from=build /src/$LOCKFILE /opt/app-manifest/$LOCKFILE"
+      fi
     } > "$DF"
   else
     if [ ! -d "$OUTPUT_DIR" ]; then

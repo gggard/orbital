@@ -35,6 +35,8 @@ _APPS_NEW_COLUMNS = [
     ("build_command", "VARCHAR(500)", None),
     ("output_dir", "VARCHAR(500) NOT NULL DEFAULT '.'", "'.'"),
     ("tags", "JSON NOT NULL DEFAULT '[]'", "'[]'"),
+    ("last_scan_id", "VARCHAR(12)", None),
+    ("scan_requested_at", "DATETIME", None),
 ]
 # Columns that used to be NOT NULL (streamlit-only fields, now optional so
 # static apps can leave them unset).

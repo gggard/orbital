@@ -6,6 +6,7 @@ import LaunchIcon from "@mui/icons-material/Launch";
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
 import ReplayIcon from "@mui/icons-material/Replay";
 import RestartAltIcon from "@mui/icons-material/RestartAlt";
+import SecurityIcon from "@mui/icons-material/Security";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -29,13 +30,23 @@ import LogsTab from "@/components/detail/LogsTab";
 import MetricsTab from "@/components/detail/MetricsTab";
 import OverviewTab from "@/components/detail/OverviewTab";
 import SecretsTab from "@/components/detail/SecretsTab";
+import SecurityTab from "@/components/detail/SecurityTab";
 import SettingsTab from "@/components/detail/SettingsTab";
 import SharingTab from "@/components/detail/SharingTab";
-import { deployApp, rebootApp, useApp, useMe, wakeApp } from "@/lib/api";
+import { deployApp, rebootApp, requestScan, useApp, useMe, wakeApp } from "@/lib/api";
 
-const ALL_TABS =
-  ["Overview", "Metrics", "Analytics", "Logs", "Builds", "Secrets", "Sharing", "Settings"] as const;
-const VIEWER_TABS = ["Overview", "Metrics", "Analytics", "Logs", "Builds"] as const;
+const ALL_TABS = [
+  "Overview",
+  "Metrics",
+  "Analytics",
+  "Logs",
+  "Builds",
+  "Security",
+  "Secrets",
+  "Sharing",
+  "Settings",
+] as const;
+const VIEWER_TABS = ["Overview", "Metrics", "Analytics", "Logs", "Builds", "Security"] as const;
 
 export default function AppDetail() {
   const { id } = useParams<{ id: string }>();
@@ -132,6 +143,18 @@ export default function AppDetail() {
             >
               Reboot
             </Button>
+            <Button
+              size="small"
+              startIcon={<SecurityIcon />}
+              disabled={
+                !app.current_build_id ||
+                app.latest_scan?.status === "pending" ||
+                app.latest_scan?.status === "running"
+              }
+              onClick={() => act(() => requestScan(app.id), "scan scheduled")}
+            >
+              Rescan
+            </Button>
           </>
         )}
       </Stack>
@@ -166,6 +189,7 @@ export default function AppDetail() {
       {visibleTabs[tab] === "Analytics" && <AnalyticsTab appId={app.id} />}
       {visibleTabs[tab] === "Logs" && <LogsTab appId={app.id} />}
       {visibleTabs[tab] === "Builds" && <BuildsTab appId={app.id} />}
+      {visibleTabs[tab] === "Security" && <SecurityTab appId={app.id} />}
       {visibleTabs[tab] === "Secrets" && (
         <SecretsTab appId={app.id} onSaved={() => setSnack("secrets saved — app restarting")} />
       )}

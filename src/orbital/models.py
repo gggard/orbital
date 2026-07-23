@@ -54,6 +54,21 @@ class BuildPhase(str, enum.Enum):
     failed = "failed"
 
 
+class ScanStatus(str, enum.Enum):
+    pending = "pending"
+    running = "running"
+    succeeded = "succeeded"
+    failed = "failed"
+
+
+class Severity(str, enum.Enum):
+    critical = "critical"
+    high = "high"
+    medium = "medium"
+    low = "low"
+    unknown = "unknown"
+
+
 class Base(DeclarativeBase):
     pass
 
@@ -101,6 +116,14 @@ class App(Base):
     current_build_id: Mapped[str | None] = mapped_column(String(12), default=None)
     current_image: Mapped[str | None] = mapped_column(String(500), default=None)
 
+    # Vulnerability scanning: pointer to the most recent scan *attempt*
+    # (mirrors current_build_id); scan_requested_at is an on-demand-rescan
+    # trigger flag (mirrors wake_requested_at), consumed by the reconciler.
+    last_scan_id: Mapped[str | None] = mapped_column(String(12), default=None)
+    scan_requested_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), default=None
+    )
+
     # Hibernation (SPEC §4.8): per-app opt-out and timeout override. None
     # timeout means "use the platform default" (Settings.hibernation_timeout_seconds).
     hibernate_enabled: Mapped[bool] = mapped_column(default=True)
@@ -136,6 +159,9 @@ class App(Base):
     views: Mapped[list["ViewEvent"]] = relationship(
         back_populates="app", cascade="all, delete-orphan"
     )
+    scan_results: Mapped[list["ScanResult"]] = relationship(
+        back_populates="app", cascade="all, delete-orphan", order_by="ScanResult.created_at"
+    )
 
 
 class Build(Base):
@@ -153,6 +179,56 @@ class Build(Base):
     )
 
     app: Mapped[App] = relationship(back_populates="builds")
+
+
+class ScanResult(Base):
+    """One Trivy image-vulnerability scan attempt against an app's image."""
+
+    __tablename__ = "scan_results"
+
+    id: Mapped[str] = mapped_column(String(12), primary_key=True, default=_uuid)
+    app_id: Mapped[str] = mapped_column(ForeignKey("apps.id"), index=True)
+    build_id: Mapped[str | None] = mapped_column(ForeignKey("builds.id"), default=None)
+    image: Mapped[str] = mapped_column(String(500))
+    status: Mapped[ScanStatus] = mapped_column(Enum(ScanStatus), default=ScanStatus.pending)
+    trivy_version: Mapped[str | None] = mapped_column(String(50), default=None)
+    # denormalized severity counts, so dashboards don't need to aggregate raw
+    # Vulnerability rows on every request (same reasoning as AdminTotals)
+    critical_count: Mapped[int] = mapped_column(default=0)
+    high_count: Mapped[int] = mapped_column(default=0)
+    medium_count: Mapped[int] = mapped_column(default=0)
+    low_count: Mapped[int] = mapped_column(default=0)
+    unknown_count: Mapped[int] = mapped_column(default=0)
+    error: Mapped[str | None] = mapped_column(Text, default=None)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    finished_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), default=None
+    )
+
+    app: Mapped[App] = relationship(back_populates="scan_results")
+    vulnerabilities: Mapped[list["Vulnerability"]] = relationship(
+        back_populates="scan_result", cascade="all, delete-orphan"
+    )
+
+
+class Vulnerability(Base):
+    """A single CVE/GHSA finding within a ScanResult."""
+
+    __tablename__ = "vulnerabilities"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    scan_result_id: Mapped[str] = mapped_column(ForeignKey("scan_results.id"), index=True)
+    vuln_id: Mapped[str] = mapped_column(String(50))
+    pkg_name: Mapped[str] = mapped_column(String(255))
+    installed_version: Mapped[str] = mapped_column(String(100))
+    fixed_version: Mapped[str | None] = mapped_column(String(100), default=None)
+    severity: Mapped[Severity] = mapped_column(Enum(Severity), default=Severity.unknown)
+    title: Mapped[str | None] = mapped_column(Text, default=None)
+    # Trivy's "Target" - which layer/component this came from (OS package
+    # list vs a Python site-packages scan), useful context in the UI
+    target: Mapped[str | None] = mapped_column(String(500), default=None)
+
+    scan_result: Mapped[ScanResult] = relationship(back_populates="vulnerabilities")
 
 
 class ApiToken(Base):

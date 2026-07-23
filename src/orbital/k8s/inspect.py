@@ -15,13 +15,13 @@ def _pods_for(namespace: str, selector: str):
     return client.core().list_namespaced_pod(namespace, label_selector=selector).items
 
 
-def _read_log(pod: str, namespace: str, tail: int, container: str | None = None) -> str:
+def _read_log(pod: str, namespace: str, tail: int | None, container: str | None = None) -> str:
     # _preload_content=False + decode: the client otherwise returns a bytes repr
     resp = client.core().read_namespaced_pod_log(
         pod,
         namespace,
-        tail_lines=tail,
         _preload_content=False,
+        **({"tail_lines": tail} if tail is not None else {}),
         **({"container": container} if container else {}),
     )
     try:
@@ -73,3 +73,17 @@ def build_log_tail(build_id: str, settings: Settings, tail: int = 200) -> str:
             except ApiException as e:
                 chunks.append(f"--- {container} --- [unavailable: {e.reason}]")
     return "\n".join(chunks)
+
+
+def scan_log(scan_id: str, settings: Settings) -> str:
+    """Full (untruncated) stdout of a scan Job's trivy container - Trivy
+    writes its JSON report to stdout, so this is the report itself, not a
+    human log to tail.
+    """
+    pods = _pods_for(settings.scans_namespace, f"app.orbital.io/scan-id={scan_id}")
+    if not pods:
+        return ""
+    try:
+        return _read_log(pods[0].metadata.name, settings.scans_namespace, tail=None)
+    except ApiException as e:
+        return f"[unavailable: {e.reason}]"

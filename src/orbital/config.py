@@ -80,6 +80,18 @@ class Settings(BaseSettings):
     build_ttl_seconds: int = 3600
     build_timeout_seconds: int = 900
 
+    # Vulnerability scanning: periodic Trivy image scans of deployed apps.
+    scan_enabled: bool = True
+    scans_namespace: str = "streamlit-scans"
+    trivy_image: str = "aquasec/trivy:0.56.2"
+    # How often a given image gets re-scanned once it has a completed scan.
+    scan_interval_seconds: int = 24 * 3600
+    scan_timeout_seconds: int = 600
+    scan_ttl_seconds: int = 3600
+    # How many completed ScanResults to retain per app; older ones (and
+    # their vulnerabilities) are pruned during the periodic sweep.
+    scan_retention_per_app: int = 10
+
     # App runtime defaults
     app_cpu_request: str = "250m"
     app_cpu_limit: str = "1"

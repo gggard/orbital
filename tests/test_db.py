@@ -132,6 +132,8 @@ def test_migrate_apps_table_adds_missing_columns_idempotently(tmp_path):
     assert "build_command" in columns
     assert "output_dir" in columns
     assert "tags" in columns
+    assert "last_scan_id" in columns
+    assert "scan_requested_at" in columns
     assert columns["main_file"]["nullable"]
     assert columns["python_version"]["nullable"]
 

@@ -13,6 +13,7 @@ import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 import NextLink from "next/link";
 import AppTypeIcon from "@/components/AppTypeIcon";
+import SeverityChip from "@/components/SeverityChip";
 import StateChip from "@/components/StateChip";
 import { fmtCpu, fmtMem } from "@/lib/format";
 import type { AdminAppOut } from "@/lib/types";
@@ -34,6 +35,7 @@ export default function AppsTable({ apps }: { apps: AdminAppOut[] }) {
             <TableCell>State</TableCell>
             <TableCell>Owner groups</TableCell>
             <TableCell>Tags</TableCell>
+            <TableCell>Vulnerabilities</TableCell>
             <TableCell align="right">CPU</TableCell>
             <TableCell align="right">Memory</TableCell>
             <TableCell>Updated</TableCell>
@@ -70,6 +72,9 @@ export default function AppsTable({ apps }: { apps: AdminAppOut[] }) {
                     —
                   </Typography>
                 )}
+              </TableCell>
+              <TableCell>
+                <SeverityChip scan={app.latest_scan} />
               </TableCell>
               <TableCell align="right" sx={{ fontFamily: mono }}>
                 {app.cpu === null ? "—" : fmtCpu(app.cpu)}

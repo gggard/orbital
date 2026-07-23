@@ -3,6 +3,7 @@
 import useSWR from "swr";
 import type {
   AdminOverviewOut,
+  AdminScanOut,
   AnalyticsOut,
   AppCreate,
   AppOut,
@@ -10,9 +11,11 @@ import type {
   BuildOut,
   Me,
   MetricsOut,
+  ScanOut,
   TokenCreate,
   TokenCreated,
   TokenOut,
+  VulnerabilityOut,
 } from "./types";
 
 export class ApiError extends Error {
@@ -141,6 +144,29 @@ export const useAdminOverview = (enabled = true) =>
     keepPreviousData: true,
   });
 
+export const useAppScans = (id: string) =>
+  useSWR<ScanOut[]>(`/api/v1/apps/${id}/scans`, jsonFetcher, {
+    refreshInterval: 5000,
+  });
+
+export const useScanVulnerabilities = (appId: string, scanId: string | null) =>
+  useSWR<VulnerabilityOut[]>(
+    scanId ? `/api/v1/apps/${appId}/scans/${scanId}/vulnerabilities` : null,
+    jsonFetcher,
+  );
+
+export const useAdminScans = (enabled = true) =>
+  useSWR<AdminScanOut[]>(enabled ? "/api/v1/admin/scans" : null, jsonFetcher, {
+    refreshInterval: 5000,
+    keepPreviousData: true,
+  });
+
+export const useAdminScanVulnerabilities = (scanId: string | null) =>
+  useSWR<VulnerabilityOut[]>(
+    scanId ? `/api/v1/admin/scans/${scanId}/vulnerabilities` : null,
+    jsonFetcher,
+  );
+
 export const useAdminLogs = (tail = 500) =>
   useSWR<string>(`/api/v1/admin/logs?tail=${tail}`, textFetcher, {
     refreshInterval: 4000,
@@ -174,6 +200,9 @@ export const rebootApp = (id: string) =>
 
 export const wakeApp = (id: string) =>
   api(`/api/v1/apps/${id}/wake`, { method: "POST" });
+
+export const requestScan = (id: string) =>
+  api(`/api/v1/apps/${id}/scan`, { method: "POST" });
 
 export const putSecrets = (id: string, secrets_toml: string) =>
   api(`/api/v1/apps/${id}/secrets`, {
