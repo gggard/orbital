@@ -17,6 +17,7 @@ env:
 jobs:
   version:
     runs-on: ubuntu-latest
+    permissions: {}
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:

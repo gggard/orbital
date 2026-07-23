@@ -34,6 +34,18 @@ def _redirect_uri(settings: Settings) -> str:
     return f"{settings.ui_base_url.rstrip('/')}/api/auth/callback"
 
 
+def _safe_next(next: str) -> str:
+    """Restrict post-login redirect targets to same-site relative paths.
+
+    Rejects absolute/protocol-relative URLs (e.g. ``//evil.com`` or
+    ``https://evil.com``) so the ``next`` query param can't be used for
+    open-redirect phishing.
+    """
+    if next.startswith("/") and not next.startswith("//") and not next.startswith("/\\"):
+        return next
+    return "/"
+
+
 def _verify_id_token(id_token: str, settings: Settings) -> dict:
     jwks_url = _endpoints(settings)["jwks"]
     client = _jwks_clients.setdefault(jwks_url, jwt.PyJWKClient(jwks_url))
@@ -50,10 +62,10 @@ def _verify_id_token(id_token: str, settings: Settings) -> dict:
 @router.get("/api/auth/login")
 def login(request: Request, next: str = "/", settings: Settings = Depends(get_settings)):
     if not settings.ui_auth_enabled:
-        return RedirectResponse(next)
+        return RedirectResponse(_safe_next(next))
     state = pysecrets.token_urlsafe(16)
     request.session["oauth_state"] = state
-    request.session["post_login_redirect"] = next if next.startswith("/") else "/"
+    request.session["post_login_redirect"] = _safe_next(next)
     params = {
         "client_id": settings.oidc_client_id,
         "response_type": "code",
