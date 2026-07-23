@@ -10,7 +10,7 @@ from .. import analytics
 from ..config import Settings, get_settings
 from ..db import get_db
 from ..k8s import inspect, metrics
-from ..models import App, AppState, AppType, Build, PendingAction
+from ..models import App, AppState, AppType, Build, PendingAction, ScanResult, ScanStatus
 from ..schemas import (
     AnalyticsOut,
     AppCreate,
@@ -20,7 +20,9 @@ from ..schemas import (
     MetricsLimits,
     MetricsOut,
     MetricsPoint,
+    ScanOut,
     SecretsIn,
+    VulnerabilityOut,
 )
 from .security import (
     User,
@@ -71,6 +73,7 @@ def _managed(db: Session, app_id: str, user: User) -> App:
 
 
 def to_app_out(app: App, settings: Settings) -> AppOut:
+    latest_scan = app.scan_results[-1] if app.scan_results else None
     return AppOut(
         id=app.id,
         slug=app.slug,
@@ -88,6 +91,7 @@ def to_app_out(app: App, settings: Settings) -> AppOut:
         state=app.state,
         error=app.error,
         current_build_id=app.current_build_id,
+        latest_scan=ScanOut.model_validate(latest_scan) if latest_scan else None,
         url=settings.app_url(app.slug),
         webhook_path=f"/webhooks/apps/{app.id}/{app.webhook_token}",
         hibernate_enabled=app.hibernate_enabled,
@@ -445,3 +449,49 @@ def put_secrets(
     app.secrets_toml = payload.secrets_toml
     app.secrets_dirty = True
     return {"status": "secrets updated; app will restart"}
+
+
+@router.get("/apps/{app_id}/scans", response_model=list[ScanOut])
+def list_scans(
+    app_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    app = _visible(db, app_id, user)
+    return list(reversed(app.scan_results))
+
+
+def _get_scan(db: Session, app_id: str, scan_id: str) -> ScanResult:
+    scan = db.get(ScanResult, scan_id)
+    if scan is None or scan.app_id != app_id:
+        raise HTTPException(404, "scan not found")
+    return scan
+
+
+@router.get(
+    "/apps/{app_id}/scans/{scan_id}/vulnerabilities", response_model=list[VulnerabilityOut]
+)
+def scan_vulnerabilities(
+    app_id: str,
+    scan_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    _visible(db, app_id, user)
+    return list(_get_scan(db, app_id, scan_id).vulnerabilities)
+
+
+@router.post("/apps/{app_id}/scan", status_code=202)
+def request_scan(
+    app_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    app = _managed(db, app_id, user)
+    if not app.current_image:
+        raise HTTPException(409, "app has no deployed image yet")
+    latest = app.scan_results[-1] if app.scan_results else None
+    if latest and latest.status in (ScanStatus.pending, ScanStatus.running):
+        raise HTTPException(409, "a scan is already in progress")
+    app.scan_requested_at = datetime.now(UTC)
+    return {"status": "scan scheduled"}

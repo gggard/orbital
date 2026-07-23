@@ -2,7 +2,7 @@
 
 import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
-import type { AppState, BuildPhase } from "@/lib/types";
+import type { AppState, BuildPhase, ScanStatus } from "@/lib/types";
 
 type ChipColor = "success" | "warning" | "error" | "info" | "default";
 
@@ -25,7 +25,7 @@ export default function StateChip({
   state,
   size = "small",
 }: {
-  state: AppState | BuildPhase;
+  state: AppState | BuildPhase | ScanStatus;
   size?: "small" | "medium";
 }) {
   const s = STYLES[state] ?? { color: "default" as ChipColor };

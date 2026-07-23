@@ -166,3 +166,38 @@ def test_static_build_command_without_package_json_fails(static_repo: Path):
     r = run_detect_static(static_repo, build_command="npm run build", output_dir="dist")
     assert r.returncode == 1
     assert "package.json" in r.stdout
+
+
+def test_static_npm_build_carries_manifest_for_scanning(static_repo: Path):
+    """The multi-stage build otherwise discards node_modules/package-lock.json
+    along with the rest of the build stage - copy the manifest into a
+    non-served path so the vulnerability scanner can still see npm deps."""
+    (static_repo / "package.json").write_text('{"name": "x"}\n')
+    (static_repo / "package-lock.json").write_text("{}\n")
+    r = run_detect_static(static_repo, build_command="npm run build", output_dir="dist")
+    assert r.returncode == 0, r.stderr
+    df = dockerfile(static_repo)
+    # destination is /opt/app-manifest, outside /usr/share/nginx/html (the
+    # nginx webroot) - never publicly served
+    assert "COPY --from=build /src/package.json /opt/app-manifest/package.json" in df
+    assert "COPY --from=build /src/package-lock.json /opt/app-manifest/package-lock.json" in df
+
+
+def test_static_npm_build_prefers_lockfile_present(static_repo: Path):
+    (static_repo / "package.json").write_text('{"name": "x"}\n')
+    (static_repo / "yarn.lock").write_text("")
+    r = run_detect_static(static_repo, build_command="npm run build", output_dir="dist")
+    assert r.returncode == 0, r.stderr
+    df = dockerfile(static_repo)
+    assert "COPY --from=build /src/yarn.lock /opt/app-manifest/yarn.lock" in df
+
+
+def test_static_npm_build_without_lockfile_still_copies_package_json(static_repo: Path):
+    (static_repo / "package.json").write_text('{"name": "x"}\n')
+    r = run_detect_static(static_repo, build_command="npm run build", output_dir="dist")
+    assert r.returncode == 0, r.stderr
+    df = dockerfile(static_repo)
+    assert "COPY --from=build /src/package.json /opt/app-manifest/package.json" in df
+    assert "package-lock.json" not in df
+    assert "yarn.lock" not in df
+    assert "pnpm-lock.yaml" not in df

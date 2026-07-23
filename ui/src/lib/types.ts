@@ -12,6 +12,41 @@ export type BuildPhase = "pending" | "running" | "succeeded" | "failed";
 
 export type AppType = "streamlit" | "static";
 
+export type ScanStatus = "pending" | "running" | "succeeded" | "failed";
+
+export type Severity = "critical" | "high" | "medium" | "low" | "unknown";
+
+export interface ScanOut {
+  id: string;
+  app_id: string;
+  build_id: string | null;
+  image: string;
+  status: ScanStatus;
+  trivy_version: string | null;
+  critical_count: number;
+  high_count: number;
+  medium_count: number;
+  low_count: number;
+  unknown_count: number;
+  error: string | null;
+  created_at: string;
+  finished_at: string | null;
+}
+
+export interface AdminScanOut extends ScanOut {
+  slug: string;
+}
+
+export interface VulnerabilityOut {
+  vuln_id: string;
+  pkg_name: string;
+  installed_version: string;
+  fixed_version: string | null;
+  severity: Severity;
+  title: string | null;
+  target: string | null;
+}
+
 export interface AppOut {
   id: string;
   slug: string;
@@ -29,6 +64,7 @@ export interface AppOut {
   state: AppState;
   error: string | null;
   current_build_id: string | null;
+  latest_scan: ScanOut | null;
   url: string;
   webhook_path: string;
   hibernate_enabled: boolean;
