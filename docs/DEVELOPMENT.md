@@ -35,13 +35,23 @@ main file `streamlit_app.py`. (A minimal fallback dashboard also exists at
 http://localhost:8000.) Node.js ≥ 20 is required for the console; on this dev
 host it is installed at `~/.local/node/bin`.
 
-Over VS Code Remote-SSH, forward port **3000** as well — the console proxies
-all API calls to the control plane, so no extra configuration is needed.
-
 ### Working over VS Code Remote-SSH
 
-App URLs are host-routed through the minikube ingress, which is only reachable
-on the remote host. To browse apps from your local machine:
+Everything (control plane, console, minikube ingress) binds/runs on the
+*remote* host. VS Code's **Ports** panel forwards remote ports to
+`localhost` on your local machine, tunneled over the same SSH connection —
+no separate SSH `-L` flags needed. Forward these three:
+
+| Remote port | What it is | Local URL |
+|---|---|---|
+| `3000` | console (Next.js) — proxies all API calls to the control plane itself | `http://localhost:3000` |
+| `8000` | control plane's own dashboard/API | `http://localhost:8000` |
+| `8090` | minikube ingress (apps) — see below | `http://<slug>.127.0.0.1.nip.io:8090` |
+
+Port 8090 needs two extra steps first, because app URLs are normally
+host-routed through the minikube ingress using the minikube node's own IP
+(`<slug>.<minikube-ip>.nip.io`), which isn't reachable from your local
+machine — only from the remote host itself:
 
 1. In `.env` set the domain to loopback nip.io and pick a tunnel port, then
    restart the control plane (running apps' ingresses converge automatically):
@@ -58,13 +68,49 @@ on the remote host. To browse apps from your local machine:
      port-forward svc/ingress-nginx-controller 8090:80
    ```
 
-3. In VS Code's **Ports** panel, forward `8000` (dashboard) and `8090`
-   (apps) — keep the local port numbers identical.
-
-Now `http://localhost:8000` opens the dashboard and every app link
+Then forward `8090` in VS Code's Ports panel too (keep the local port number
+identical to the remote one for all three). Now `http://localhost:8000` opens
+the dashboard, `http://localhost:3000` opens the console, and every app link
 (`http://<slug>.127.0.0.1.nip.io:8090`) resolves to your machine's loopback,
 goes through the VS Code tunnel, and is routed by hostname on the ingress —
-websockets included.
+websockets included. `ORBITAL_APPS_URL_PORT`/`ORBITAL_CONTROL_PLANE_SERVICE_HOST`
+are independent settings — changing the apps domain/port for remote-SSH
+browsing doesn't affect the gateway IP the cluster uses to reach the host (see
+below).
+
+### Troubleshooting: nested Docker / LXC dev hosts
+
+Running minikube's docker driver inside an already-containerized dev host
+(LXC, an unprivileged sandbox, etc.) hits two issues that don't show up on a
+bare VM or a normal workstation. `make setup-minikube` (as of this doc)
+handles both automatically — this section is for understanding *why*, or for
+fixing a `.env`/cluster that predates the fix.
+
+- **`minikube start` fails, control-plane pods crash-loop.** Symptom:
+  `kubeadm init` times out waiting for `kube-apiserver`/`scheduler`/
+  `controller-manager` to become healthy, and `docker run`/`docker logs`
+  inside the minikube node shows `error setting rlimit type 7: operation not
+  permitted` for *every* container, not just Kubernetes ones. Cause: the
+  outer host has a lower open-files ceiling (`ulimit -Hn`) than minikube's
+  inner dockerd's default (`--default-ulimit=nofile=1048576:1048576`) — and a
+  process can't raise its own hard rlimit past what the host enforces, even
+  as root. Fix: start minikube with
+  `--docker-opt='default-ulimit=nofile=<host ulimit -Hn>:<same>'` so the
+  inner daemon's default matches what the host actually allows.
+
+- **Deployed apps return HTTP 500 through their ingress URL — any app, not
+  just hibernated ones.** The reconciler always points the ingress's
+  activity-tracking `auth-url` at the in-cluster
+  `orbital-control-plane.orbital-platform.svc.cluster.local` Service, which
+  only exists in the production Helm-chart topology. In local dev the
+  control plane runs on the *host* (`make run`), so that DNS name resolves to
+  nothing inside the cluster and nginx's `auth_request` 502s, turning every
+  app view into a 500. Fix: set `ORBITAL_CONTROL_PLANE_SERVICE_HOST` in
+  `.env` to the minikube docker-bridge gateway IP (one below the minikube
+  node IP, e.g. node `192.168.49.2` → gateway `192.168.49.1`) and restart the
+  control plane — the same technique `deploy/auth/setup-auth.sh` already uses
+  for the OIDC callback URL. `make setup-minikube` writes this for you now;
+  if apps 500 on an older `.env`, add the line and restart.
 
 ## Authentication (public vs. private apps)
 
