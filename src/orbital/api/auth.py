@@ -2,7 +2,7 @@
 
 import logging
 import secrets as pysecrets
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 
 import httpx
 import jwt
@@ -37,13 +37,22 @@ def _redirect_uri(settings: Settings) -> str:
 def _safe_next(next: str) -> str:
     """Restrict post-login redirect targets to same-site relative paths.
 
-    Rejects absolute/protocol-relative URLs (e.g. ``//evil.com`` or
-    ``https://evil.com``) so the ``next`` query param can't be used for
-    open-redirect phishing.
+    Browsers treat backslashes as forward slashes in URLs and collapse a
+    run of leading slashes/backslashes right after the first character
+    into a network-path (authority) reference - e.g. ``///evil.com`` or
+    ``/\\evil.com`` still navigate off-site even though urlparse() alone
+    sees an empty netloc for those, so that run is rejected outright
+    rather than trusted to urlparse(). The scheme/netloc check on top
+    rules out absolute URLs (``https://evil.com``); together they mean
+    the ``next`` query param can't be used for open-redirect phishing.
     """
-    if next.startswith("/") and not next.startswith("//") and not next.startswith("/\\"):
-        return next
-    return "/"
+    normalized = next.replace("\\", "/")
+    if not normalized.startswith("/") or normalized.startswith("//"):
+        return "/"
+    parsed = urlparse(normalized)
+    if parsed.scheme or parsed.netloc:
+        return "/"
+    return normalized
 
 
 def _verify_id_token(id_token: str, settings: Settings) -> dict:
