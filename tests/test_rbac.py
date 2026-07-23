@@ -107,6 +107,23 @@ def test_visibility_scoped_by_owner_groups(client):
     assert client.get(f"/api/v1/apps/{a1}").status_code == 200
 
 
+def test_tags_endpoint_scoped_by_owner_groups(client):
+    as_user(client, ADMIN)
+    a1 = make_app(client, "one", ["data-team"]).json()["id"]
+    a2 = make_app(client, "two", ["viewers"]).json()["id"]
+    client.patch(f"/api/v1/apps/{a1}", json={"tags": ["ml"]})
+    client.patch(f"/api/v1/apps/{a2}", json={"tags": ["web"]})
+
+    as_user(client, CREATOR)
+    assert client.get("/api/v1/tags").json()["tags"] == ["ml"]
+
+    as_user(client, VIEWER)
+    assert client.get("/api/v1/tags").json()["tags"] == ["web"]
+
+    as_user(client, ADMIN)
+    assert client.get("/api/v1/tags").json()["tags"] == ["ml", "web"]
+
+
 # -- public sharing policy -------------------------------------------------
 
 

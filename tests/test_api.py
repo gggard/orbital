@@ -99,3 +99,76 @@ def test_delete_marks_deleting(client):
     app_id = make_app(client).json()["id"]
     assert client.delete(f"/api/v1/apps/{app_id}").status_code == 202
     assert client.get(f"/api/v1/apps/{app_id}").json()["state"] == "deleting"
+
+
+# -- tags -------------------------------------------------------------------
+
+
+def test_create_app_with_tags(client):
+    r = client.post(
+        "/api/v1/apps",
+        json={
+            "slug": "tagged",
+            "repo_url": "https://github.com/x/y",
+            "tags": ["ml", "internal"],
+        },
+    )
+    assert r.status_code == 201, r.text
+    assert r.json()["tags"] == ["ml", "internal"]
+
+
+def test_tags_are_trimmed_and_deduped_case_insensitively(client):
+    r = client.post(
+        "/api/v1/apps",
+        json={
+            "slug": "dedup",
+            "repo_url": "https://x",
+            "tags": [" ml ", "ML", "", "  ", "ml", "prod"],
+        },
+    )
+    assert r.status_code == 201, r.text
+    # first casing seen wins; blanks dropped; exact re-add ignored
+    assert r.json()["tags"] == ["ml", "prod"]
+
+
+def test_tag_too_long_rejected(client):
+    r = client.post(
+        "/api/v1/apps",
+        json={"slug": "longtag", "repo_url": "https://x", "tags": ["x" * 41]},
+    )
+    assert r.status_code == 422
+
+
+def test_too_many_tags_rejected(client):
+    r = client.post(
+        "/api/v1/apps",
+        json={"slug": "manytags", "repo_url": "https://x", "tags": [f"t{i}" for i in range(21)]},
+    )
+    assert r.status_code == 422
+
+
+def test_update_app_tags(client):
+    app_id = make_app(client).json()["id"]
+    assert client.get(f"/api/v1/apps/{app_id}").json()["tags"] == []
+    r = client.patch(f"/api/v1/apps/{app_id}", json={"tags": ["a", "b"]})
+    assert r.status_code == 200, r.text
+    assert r.json()["tags"] == ["a", "b"]
+    # omitting tags on a later patch leaves them untouched
+    r = client.patch(f"/api/v1/apps/{app_id}", json={"branch": "dev"})
+    assert r.json()["tags"] == ["a", "b"]
+    # explicit empty list clears them
+    r = client.patch(f"/api/v1/apps/{app_id}", json={"tags": []})
+    assert r.json()["tags"] == []
+
+
+def test_tags_endpoint_collects_distinct_tags(client):
+    make_app(client, "app1").json()
+    client.patch(f"/api/v1/apps/{make_app(client, 'app2').json()['id']}", json={"tags": ["ml", "prod"]})
+    client.patch(f"/api/v1/apps/{make_app(client, 'app3').json()['id']}", json={"tags": ["prod", "web"]})
+    assert client.get("/api/v1/tags").json() == {"tags": ["ml", "prod", "web"]}
+
+
+def test_tags_endpoint_filters_by_substring(client):
+    client.patch(f"/api/v1/apps/{make_app(client).json()['id']}", json={"tags": ["ml", "web"]})
+    assert client.get("/api/v1/tags?q=ml").json()["tags"] == ["ml"]
+    assert client.get("/api/v1/tags?q=nope").json()["tags"] == []

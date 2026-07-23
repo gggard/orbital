@@ -1,7 +1,9 @@
 "use client";
 
 import Card from "@mui/material/Card";
+import Chip from "@mui/material/Chip";
 import Link from "@mui/material/Link";
+import Stack from "@mui/material/Stack";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
@@ -31,6 +33,7 @@ export default function AppsTable({ apps }: { apps: AdminAppOut[] }) {
             <TableCell>Slug</TableCell>
             <TableCell>State</TableCell>
             <TableCell>Owner groups</TableCell>
+            <TableCell>Tags</TableCell>
             <TableCell align="right">CPU</TableCell>
             <TableCell align="right">Memory</TableCell>
             <TableCell>Updated</TableCell>
@@ -54,6 +57,19 @@ export default function AppsTable({ apps }: { apps: AdminAppOut[] }) {
                 <Typography variant="body2" color="text.secondary">
                   {app.owner_groups.join(", ") || "—"}
                 </Typography>
+              </TableCell>
+              <TableCell>
+                {app.tags.length > 0 ? (
+                  <Stack direction="row" spacing={0.5} sx={{ flexWrap: "wrap", rowGap: 0.5 }}>
+                    {app.tags.map((tag) => (
+                      <Chip key={tag} size="small" variant="outlined" label={tag} />
+                    ))}
+                  </Stack>
+                ) : (
+                  <Typography variant="body2" color="text.secondary">
+                    —
+                  </Typography>
+                )}
               </TableCell>
               <TableCell align="right" sx={{ fontFamily: mono }}>
                 {app.cpu === null ? "—" : fmtCpu(app.cpu)}

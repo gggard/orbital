@@ -81,6 +81,9 @@ class App(Base):
     # management RBAC: groups whose members can see (and, with the creator
     # role, manage) this app; admins always see everything
     owner_groups: Mapped[list | None] = mapped_column(JSON, default=list)
+    # free-form labels for organizing/filtering the app list (SPEC-adjacent
+    # feature, not RBAC - any value is accepted, see apps._normalize_tags)
+    tags: Mapped[list] = mapped_column(JSON, default=list)
 
     state: Mapped[AppState] = mapped_column(Enum(AppState), default=AppState.created)
     pending_action: Mapped[PendingAction] = mapped_column(

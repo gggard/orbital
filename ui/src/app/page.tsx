@@ -55,6 +55,8 @@ export default function AppsOverview() {
     setFilter({ ...filter, states: filter.states.filter((x) => x !== s) });
   const removeOwner = (o: string) =>
     setFilter({ ...filter, owners: filter.owners.filter((x) => x !== o) });
+  const removeTag = (t: string) =>
+    setFilter({ ...filter, tags: filter.tags.filter((x) => x !== t) });
 
   return (
     <>
@@ -119,6 +121,9 @@ export default function AppsOverview() {
           ))}
           {filter.owners.map((o) => (
             <Chip key={o} size="small" label={o} onDelete={() => removeOwner(o)} />
+          ))}
+          {filter.tags.map((t) => (
+            <Chip key={t} size="small" label={t} onDelete={() => removeTag(t)} />
           ))}
           <Chip
             size="small"

@@ -19,6 +19,7 @@ import Typography from "@mui/material/Typography";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import GroupPicker from "@/components/GroupPicker";
+import TagPicker from "@/components/TagPicker";
 import { createApp, useMe } from "@/lib/api";
 import type { AppType } from "@/lib/types";
 import { mono } from "@/theme";
@@ -46,6 +47,7 @@ export default function CreateAppDialog({
   const [outputDir, setOutputDir] = useState(".");
   const [isPublic, setIsPublic] = useState(true);
   const [groups, setGroups] = useState<string[]>([]);
+  const [tags, setTags] = useState<string[]>([]);
   const [secrets, setSecrets] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -69,6 +71,7 @@ export default function CreateAppDialog({
           : { main_file: mainFile.trim() || "streamlit_app.py", python_version: python }),
         public: effectivePublic,
         allowed_groups: effectivePublic ? [] : groups,
+        tags,
         secrets_toml: isStatic ? undefined : secrets.trim() || undefined,
       });
       onClose();
@@ -169,6 +172,11 @@ export default function CreateAppDialog({
               </TextField>
             </Stack>
           )}
+          <TagPicker
+            value={tags}
+            onChange={setTags}
+            helperText="type to search existing tags or add a new one and press Enter"
+          />
           <FormControlLabel
             control={
               <Switch

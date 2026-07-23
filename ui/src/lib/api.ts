@@ -82,6 +82,20 @@ export const useGroups = (q = "") =>
     },
   );
 
+// known tag directory for tag pickers, collected from apps visible to the
+// current user (GET /api/v1/tags); advisory — free-typed tags are still
+// allowed. q narrows server-side (case-insensitive substring).
+export const useTags = (q = "") =>
+  useSWR<{ tags: string[] }>(
+    `/api/v1/tags${q ? `?q=${encodeURIComponent(q)}` : ""}`,
+    jsonFetcher,
+    {
+      revalidateOnFocus: false,
+      dedupingInterval: 60000,
+      keepPreviousData: true,
+    },
+  );
+
 export const useApps = () =>
   useSWR<AppOut[]>("/api/v1/apps", jsonFetcher, { refreshInterval: 4000 });
 

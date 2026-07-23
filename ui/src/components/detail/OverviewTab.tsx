@@ -2,6 +2,7 @@
 
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
+import Chip from "@mui/material/Chip";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import CopyField from "@/components/CopyField";
@@ -72,6 +73,15 @@ export default function OverviewTab({ app }: { app: AppOut }) {
             <Row label="Owned by">
               {app.owner_groups.length ? app.owner_groups.join(", ") : "admins only"}
             </Row>
+            {app.tags.length > 0 && (
+              <Row label="Tags">
+                <Stack direction="row" spacing={0.5} sx={{ flexWrap: "wrap", rowGap: 0.5 }}>
+                  {app.tags.map((tag) => (
+                    <Chip key={tag} size="small" variant="outlined" label={tag} />
+                  ))}
+                </Stack>
+              </Row>
+            )}
             <Row label="Hibernation">
               {app.hibernate_enabled
                 ? app.hibernate_after_seconds

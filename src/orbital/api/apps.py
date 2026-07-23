@@ -33,6 +33,27 @@ from .security import (
 
 router = APIRouter(prefix="/api/v1", tags=["apps"])
 
+MAX_TAGS = 20
+MAX_TAG_LENGTH = 40
+
+
+def _normalize_tags(tags: list[str]) -> list[str]:
+    """Trim whitespace, drop empties, and dedupe case-insensitively (first
+    casing seen wins) - free-typed tags otherwise accumulate near-duplicates
+    like "ml" / "ML" / " ml " with no autocomplete stopping them.
+    """
+    seen: dict[str, str] = {}
+    for raw in tags:
+        t = raw.strip()
+        if not t:
+            continue
+        if len(t) > MAX_TAG_LENGTH:
+            raise HTTPException(422, f"tag {t!r} exceeds {MAX_TAG_LENGTH} characters")
+        seen.setdefault(t.lower(), t)
+    if len(seen) > MAX_TAGS:
+        raise HTTPException(422, f"at most {MAX_TAGS} tags allowed per app")
+    return list(seen.values())
+
 
 def _get_app(db: Session, app_id: str) -> App:
     app = db.get(App, app_id)
@@ -63,6 +84,7 @@ def to_app_out(app: App, settings: Settings) -> AppOut:
         public=app.public,
         allowed_groups=app.allowed_groups or [],
         owner_groups=app.owner_groups or [],
+        tags=app.tags or [],
         state=app.state,
         error=app.error,
         current_build_id=app.current_build_id,
@@ -146,6 +168,7 @@ def create_app(
         public=payload.public,
         allowed_groups=payload.allowed_groups,
         owner_groups=owner_groups,
+        tags=_normalize_tags(payload.tags),
         secrets_toml=payload.secrets_toml,
         state=AppState.created,
         pending_action=PendingAction.deploy,
@@ -169,6 +192,28 @@ def list_apps(
 
     apps = db.scalars(select(App).order_by(App.created_at)).all()
     return [to_app_out(a, settings) for a in apps if can_see(user, a)]
+
+
+@router.get("/tags")
+def list_tags(
+    q: str = "",
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Known tags for the console's tag pickers (create/edit forms, filter
+    bar), collected from apps visible to the current user. ``q`` filters by
+    case-insensitive substring; ``limit`` caps the response. Advisory only -
+    free-typed tags are still accepted everywhere.
+    """
+    from .security import can_see
+
+    apps = db.scalars(select(App)).all()
+    names = {t for a in apps if can_see(user, a) for t in (a.tags or [])}
+    if q:
+        needle = q.lower()
+        names = {n for n in names if needle in n.lower()}
+    return {"tags": sorted(names)[: max(1, min(limit, 1000))]}
 
 
 @router.get("/apps/{app_id}", response_model=AppOut)
@@ -231,6 +276,8 @@ def update_app(
                     "(ask an admin to transfer ownership entirely)",
                 )
         app.owner_groups = payload.owner_groups
+    if payload.tags is not None:
+        app.tags = _normalize_tags(payload.tags)
     if payload.hibernate_enabled is not None:
         app.hibernate_enabled = payload.hibernate_enabled
     if payload.hibernate_after_seconds is not None:

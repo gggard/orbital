@@ -34,6 +34,7 @@ _APPS_NEW_COLUMNS = [
     ("app_type", "VARCHAR(20) NOT NULL DEFAULT 'streamlit'", "'streamlit'"),
     ("build_command", "VARCHAR(500)", None),
     ("output_dir", "VARCHAR(500) NOT NULL DEFAULT '.'", "'.'"),
+    ("tags", "JSON NOT NULL DEFAULT '[]'", "'[]'"),
 ]
 # Columns that used to be NOT NULL (streamlit-only fields, now optional so
 # static apps can leave them unset).

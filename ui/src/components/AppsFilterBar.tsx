@@ -15,12 +15,15 @@ export interface AppsFilter {
   search: string;
   states: AppState[];
   owners: string[];
+  tags: string[];
 }
 
-export const EMPTY_FILTER: AppsFilter = { search: "", states: [], owners: [] };
+export const EMPTY_FILTER: AppsFilter = { search: "", states: [], owners: [], tags: [] };
 
 export function filterCount(filter: AppsFilter): number {
-  return (filter.search ? 1 : 0) + filter.states.length + filter.owners.length;
+  return (
+    (filter.search ? 1 : 0) + filter.states.length + filter.owners.length + filter.tags.length
+  );
 }
 
 export function applyFilter(apps: AdminAppOut[], filter: AppsFilter): AdminAppOut[] {
@@ -30,6 +33,7 @@ export function applyFilter(apps: AdminAppOut[], filter: AppsFilter): AdminAppOu
     if (filter.states.length && !filter.states.includes(app.state)) return false;
     if (filter.owners.length && !app.owner_groups.some((g) => filter.owners.includes(g)))
       return false;
+    if (filter.tags.length && !app.tags.some((t) => filter.tags.includes(t))) return false;
     return true;
   });
 }
@@ -51,6 +55,7 @@ export default function AppsFilterBar({
     () => [...new Set(apps.flatMap((a) => a.owner_groups))].sort(),
     [apps],
   );
+  const tagOptions = useMemo(() => [...new Set(apps.flatMap((a) => a.tags))].sort(), [apps]);
 
   return (
     <Card variant="outlined" sx={{ p: 1.5, mb: 2 }}>
@@ -97,6 +102,17 @@ export default function AppsFilterBar({
           onChange={(_, v) => onChange({ ...filter, owners: v })}
           renderInput={(params) => (
             <TextField {...params} label="Owner" placeholder={filter.owners.length ? undefined : "Any"} />
+          )}
+          sx={{ minWidth: 180, flex: "1 1 180px" }}
+        />
+        <Autocomplete
+          multiple
+          size="small"
+          options={tagOptions}
+          value={filter.tags}
+          onChange={(_, v) => onChange({ ...filter, tags: v })}
+          renderInput={(params) => (
+            <TextField {...params} label="Tags" placeholder={filter.tags.length ? undefined : "Any"} />
           )}
           sx={{ minWidth: 180, flex: "1 1 180px" }}
         />

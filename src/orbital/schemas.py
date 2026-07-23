@@ -20,6 +20,7 @@ class AppCreate(BaseModel):
     public: bool = True
     allowed_groups: list[str] = []
     owner_groups: list[str] | None = None  # default: the creator's groups
+    tags: list[str] = []
     secrets_toml: str | None = None
     hibernate_enabled: bool = True
     hibernate_after_seconds: int | None = Field(default=None, gt=0)
@@ -61,6 +62,7 @@ class AppUpdate(BaseModel):
     public: bool | None = None
     allowed_groups: list[str] | None = None
     owner_groups: list[str] | None = None
+    tags: list[str] | None = None
     hibernate_enabled: bool | None = None
     hibernate_after_seconds: int | None = Field(default=None, gt=0)
     poll_enabled: bool | None = None
@@ -93,6 +95,7 @@ class AppOut(BaseModel):
     public: bool
     allowed_groups: list[str]
     owner_groups: list[str]
+    tags: list[str]
     state: AppState
     error: str | None
     current_build_id: str | None
