@@ -12,15 +12,16 @@ COPY pyproject.toml uv.lock README.md ./
 COPY src ./src
 
 # Install the exact, locked dependency set from uv.lock as prebuilt wheels
-# only - reproducible, and rules out arbitrary sdist build-script execution
-# for third-party deps during install. orbital itself has no wheel to fetch
-# (it's this same checkout being packaged), so it's built from source here -
-# that's just our own setup.py running, not an untrusted download.
+# only - reproducible, and rules out a third-party sdist running an
+# arbitrary build script during install. orbital itself has no published
+# wheel (it's this same checkout), so it's wheel-built locally first with
+# `pip wheel` - packaging our own trusted source, not fetching one - and
+# then installed the same binary-only way as everything else.
 RUN pip install --no-cache-dir --only-binary :all: uv==0.11.31 \
-    && uv export --frozen --no-dev --no-emit-project --no-hashes -o requirements.lock.txt \
-    && uv pip install --system --no-cache --only-binary :all: -r requirements.lock.txt \
-    && uv pip install --system --no-cache --no-deps . \
-    && rm requirements.lock.txt
+    && uv export --frozen --no-dev --no-emit-project --no-hashes -o requirements.txt \
+    && pip wheel --no-cache-dir --no-deps --wheel-dir /tmp/wheels . \
+    && pip install --no-cache-dir --only-binary :all: -r requirements.txt /tmp/wheels/orbital-*.whl \
+    && rm -rf requirements.txt /tmp/wheels
 
 USER 1000
 EXPOSE 8000
