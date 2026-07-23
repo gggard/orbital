@@ -57,7 +57,13 @@ def test_login_disabled_rejects_external_next(tmp_path, monkeypatch):
 
     db.init_engine(f"sqlite:///{tmp_path}/t.db")
     with TestClient(app, follow_redirects=False) as c:
-        for evil in ("https://evil.example.com/steal", "//evil.example.com", "/\\evil.example.com"):
+        for evil in (
+            "https://evil.example.com/steal",
+            "//evil.example.com",
+            "/\\evil.example.com",
+            "///evil.example.com",
+            "/\\/evil.example.com",
+        ):
             r = c.get(f"/api/auth/login?next={evil}")
             assert r.status_code in (302, 307)
             assert r.headers["location"] == "/"
