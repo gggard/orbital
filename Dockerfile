@@ -8,20 +8,17 @@ RUN sed -i 's|http://deb.debian.org|https://deb.debian.org|g' /etc/apt/sources.l
     && useradd -m -u 1000 app
 
 WORKDIR /srv
+ENV UV_PROJECT_ENVIRONMENT=/usr/local
 COPY pyproject.toml uv.lock README.md ./
 COPY src ./src
 
-# Install the exact, locked dependency set from uv.lock as prebuilt wheels
-# only - reproducible, and rules out a third-party sdist running an
-# arbitrary build script during install. orbital itself has no published
-# wheel (it's this same checkout), so it's wheel-built locally first with
-# `pip wheel` - packaging our own trusted source, not fetching one - and
-# then installed the same binary-only way as everything else.
+# Sync the exact, locked dependency set from uv.lock straight into the
+# system site-packages - reproducible, and every third-party package comes
+# from a resolved, pinned lockfile entry rather than an unpinned "whatever
+# pip finds today". uv itself is removed afterward; it's only needed here.
 RUN pip install --no-cache-dir --only-binary :all: uv==0.11.31 \
-    && uv export --frozen --no-dev --no-emit-project --no-hashes -o requirements.txt \
-    && pip wheel --no-cache-dir --no-deps --wheel-dir /tmp/wheels . \
-    && pip install --no-cache-dir --only-binary :all: -r requirements.txt /tmp/wheels/orbital-*.whl \
-    && rm -rf requirements.txt /tmp/wheels
+    && uv sync --locked --no-dev --no-cache --no-editable \
+    && pip uninstall -y --no-input uv
 
 USER 1000
 EXPOSE 8000
