@@ -77,6 +77,27 @@ def _apply(create_fn, replace_fn, name: str, namespace: str, body: dict):
         replace_fn(name, namespace, body)
 
 
+def _job_outcome(job) -> tuple[str, str | None]:
+    """Classify a build Job's status as "running", "succeeded", or "failed".
+
+    Job conditions are set on a separate controller reconcile from the one
+    that observes the pod's terminal state, and can lag behind it.
+    status.succeeded/status.failed are bumped as soon as the pod itself
+    finishes, so they're checked as a more timely fallback rather than
+    waiting on "Complete"/"Failed" conditions to show up.
+    """
+    for cond in job.status.conditions or []:
+        if cond.type == "Complete" and cond.status == "True":
+            return "succeeded", None
+        if cond.type == "Failed" and cond.status == "True":
+            return "failed", cond.message or "build failed"
+    if (job.status.succeeded or 0) >= 1:
+        return "succeeded", None
+    if (job.status.failed or 0) >= 1:
+        return "failed", "build job failed"
+    return "running", None
+
+
 class Reconciler:
     def __init__(self):
         self.settings = get_settings()
@@ -299,26 +320,13 @@ class Reconciler:
             self._fail_build(build, app, "build job not found (expired or deleted)")
             return
 
-        for cond in (job.status.conditions or []):
-            if cond.type == "Complete" and cond.status == "True":
-                self._succeed_build(build, app)
-                return
-            if cond.type == "Failed" and cond.status == "True":
-                tail = build_log_tail(build.id, self.settings)
-                self._fail_build(build, app, cond.message or "build failed", tail)
-                return
-
-        # Job conditions are set on a separate controller reconcile from the
-        # one that observes the pod's terminal state, and can lag behind it.
-        # status.succeeded/status.failed are bumped as soon as the pod itself
-        # finishes, so use them as a more timely fallback rather than waiting
-        # on "Complete"/"Failed" to show up.
-        if (job.status.succeeded or 0) >= 1:
+        outcome, message = _job_outcome(job)
+        if outcome == "succeeded":
             self._succeed_build(build, app)
             return
-        if (job.status.failed or 0) >= 1:
+        if outcome == "failed":
             tail = build_log_tail(build.id, self.settings)
-            self._fail_build(build, app, "build job failed", tail)
+            self._fail_build(build, app, message, tail)
             return
 
         # Last-resort safety net: if the Job has reported no terminal signal

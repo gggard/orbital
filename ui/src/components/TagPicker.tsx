@@ -35,7 +35,9 @@ export default function TagPicker({
   const [input, setInput] = useState("");
   const q = useDebounced(input, 250);
   const { data } = useTags(q);
-  const options = [...new Set([...(data?.tags ?? []), ...value])].sort();
+  const options = [...new Set([...(data?.tags ?? []), ...value])].sort((a, b) =>
+    a.localeCompare(b),
+  );
 
   return (
     <Autocomplete

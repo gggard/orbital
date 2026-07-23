@@ -36,7 +36,9 @@ export default function GroupPicker({
   const [input, setInput] = useState("");
   const q = useDebounced(input, 250);
   const { data } = useGroups(q);
-  const options = [...new Set([...(data?.groups ?? []), ...extraOptions])].sort();
+  const options = [...new Set([...(data?.groups ?? []), ...extraOptions])].sort((a, b) =>
+    a.localeCompare(b),
+  );
 
   return (
     <Autocomplete

@@ -24,6 +24,46 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   );
 }
 
+function visibilityLabel(app: AppOut): string {
+  if (app.public) return "public";
+  const scope = app.allowed_groups.length ? app.allowed_groups.join(", ") : "any signed-in user";
+  return `private — ${scope}`;
+}
+
+function hibernationLabel(app: AppOut, hibernateHours: number | null): string {
+  if (!app.hibernate_enabled) return "disabled";
+  if (app.hibernate_after_seconds) return `sleeps after ${hibernateHours!.toFixed(1)}h idle`;
+  if (hibernateHours !== null) {
+    return `sleeps after ${hibernateHours.toFixed(1)}h (platform default) idle`;
+  }
+  return "sleeps after the platform default idle";
+}
+
+function DefinitionFields({ app }: { app: AppOut }) {
+  if (app.app_type === "static") {
+    return (
+      <>
+        <Row label="Output directory">
+          <span style={{ fontFamily: mono, fontSize: "0.8rem" }}>{app.output_dir}</span>
+        </Row>
+        {app.build_command && (
+          <Row label="Build command">
+            <span style={{ fontFamily: mono, fontSize: "0.8rem" }}>{app.build_command}</span>
+          </Row>
+        )}
+      </>
+    );
+  }
+  return (
+    <>
+      <Row label="Main file">
+        <span style={{ fontFamily: mono, fontSize: "0.8rem" }}>{app.main_file}</span>
+      </Row>
+      <Row label="Python">{app.python_version}</Row>
+    </>
+  );
+}
+
 export default function OverviewTab({ app }: { app: AppOut }) {
   const { data: builds } = useBuilds(app.id);
   const { data: me } = useMe();
@@ -46,30 +86,8 @@ export default function OverviewTab({ app }: { app: AppOut }) {
               <CopyField value={app.repo_url} href={app.repo_url} />
             </Row>
             <Row label="Branch">{app.branch}</Row>
-            {app.app_type === "static" ? (
-              <>
-                <Row label="Output directory">
-                  <span style={{ fontFamily: mono, fontSize: "0.8rem" }}>{app.output_dir}</span>
-                </Row>
-                {app.build_command && (
-                  <Row label="Build command">
-                    <span style={{ fontFamily: mono, fontSize: "0.8rem" }}>{app.build_command}</span>
-                  </Row>
-                )}
-              </>
-            ) : (
-              <>
-                <Row label="Main file">
-                  <span style={{ fontFamily: mono, fontSize: "0.8rem" }}>{app.main_file}</span>
-                </Row>
-                <Row label="Python">{app.python_version}</Row>
-              </>
-            )}
-            <Row label="Visibility">
-              {app.public
-                ? "public"
-                : `private — ${app.allowed_groups.length ? app.allowed_groups.join(", ") : "any signed-in user"}`}
-            </Row>
+            <DefinitionFields app={app} />
+            <Row label="Visibility">{visibilityLabel(app)}</Row>
             <Row label="Owned by">
               {app.owner_groups.length ? app.owner_groups.join(", ") : "admins only"}
             </Row>
@@ -82,15 +100,7 @@ export default function OverviewTab({ app }: { app: AppOut }) {
                 </Stack>
               </Row>
             )}
-            <Row label="Hibernation">
-              {app.hibernate_enabled
-                ? app.hibernate_after_seconds
-                  ? `sleeps after ${hibernateHours!.toFixed(1)}h idle`
-                  : hibernateHours !== null
-                    ? `sleeps after ${hibernateHours.toFixed(1)}h (platform default) idle`
-                    : "sleeps after the platform default idle"
-                : "disabled"}
-            </Row>
+            <Row label="Hibernation">{hibernationLabel(app, hibernateHours)}</Row>
             {app.state !== "sleeping" && (
               <Row label="Last active">{new Date(app.last_active_at).toLocaleString()}</Row>
             )}

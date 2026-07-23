@@ -23,6 +23,130 @@ const PYTHON_VERSIONS = ["3.12"];
 // trims to at most 1 decimal, e.g. 10 -> "10", 0.5 -> "0.5"
 const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
 
+function computeDirty(
+  app: AppOut,
+  isStatic: boolean,
+  fields: { branch: string; mainFile: string; python: string; buildCommand: string; outputDir: string },
+): boolean {
+  if (isStatic) {
+    return (
+      fields.branch !== app.branch ||
+      fields.buildCommand !== (app.build_command ?? "") ||
+      fields.outputDir !== app.output_dir
+    );
+  }
+  return (
+    fields.branch !== app.branch ||
+    fields.mainFile !== (app.main_file ?? "") ||
+    fields.python !== (app.python_version ?? "")
+  );
+}
+
+function computeHibernateDirty(app: AppOut, hibernateEnabled: boolean, hibernateHours: string): boolean {
+  return (
+    hibernateEnabled !== app.hibernate_enabled ||
+    (hibernateHours !== "" && Number(hibernateHours) * 3600 !== app.hibernate_after_seconds)
+  );
+}
+
+function computePollDirty(app: AppOut, pollEnabled: boolean, pollMinutes: string): boolean {
+  return (
+    pollEnabled !== app.poll_enabled ||
+    (pollMinutes !== "" && Number(pollMinutes) * 60 !== app.poll_interval_seconds)
+  );
+}
+
+// Shared helper text for the poll-interval and hibernate-timeout fields: an
+// error message when the value is out of range, otherwise the platform
+// default/limit (or a generic hint if neither is known yet).
+function intervalHelperText(outOfRange: string | false, hints: (string | false)[]): string {
+  if (outOfRange) return outOfRange;
+  return hints.filter(Boolean).join(" · ") || "leave blank to use the platform default";
+}
+
+function SourceFields({
+  app,
+  isStatic,
+  branch,
+  setBranch,
+  mainFile,
+  setMainFile,
+  python,
+  setPython,
+  buildCommand,
+  setBuildCommand,
+  outputDir,
+  setOutputDir,
+}: {
+  app: AppOut;
+  isStatic: boolean;
+  branch: string;
+  setBranch: (v: string) => void;
+  mainFile: string;
+  setMainFile: (v: string) => void;
+  python: string;
+  setPython: (v: string) => void;
+  buildCommand: string;
+  setBuildCommand: (v: string) => void;
+  outputDir: string;
+  setOutputDir: (v: string) => void;
+}) {
+  return (
+    <>
+      <TextField
+        label="Branch"
+        size="small"
+        fullWidth
+        value={branch}
+        onChange={(e) => setBranch(e.target.value)}
+      />
+      {isStatic ? (
+        <>
+          <TextField
+            label="Build command (optional)"
+            size="small"
+            fullWidth
+            placeholder="npm run build"
+            value={buildCommand}
+            onChange={(e) => setBuildCommand(e.target.value)}
+          />
+          <TextField
+            label="Output directory"
+            size="small"
+            fullWidth
+            value={outputDir}
+            onChange={(e) => setOutputDir(e.target.value)}
+          />
+        </>
+      ) : (
+        <>
+          <TextField
+            label="Main file"
+            size="small"
+            fullWidth
+            value={mainFile}
+            onChange={(e) => setMainFile(e.target.value)}
+          />
+          <TextField
+            label="Python"
+            size="small"
+            select
+            sx={{ minWidth: 100 }}
+            value={python}
+            onChange={(e) => setPython(e.target.value)}
+          >
+            {[...new Set([...PYTHON_VERSIONS, app.python_version ?? PYTHON_VERSIONS[0]])].map((v) => (
+              <MenuItem key={v} value={v}>
+                {v}
+              </MenuItem>
+            ))}
+          </TextField>
+        </>
+      )}
+    </>
+  );
+}
+
 export default function SettingsTab({
   app,
   onSaved,
@@ -61,20 +185,9 @@ export default function SettingsTab({
   const [pollBusy, setPollBusy] = useState(false);
   const [pollError, setPollError] = useState("");
 
-  const dirty = isStatic
-    ? branch !== app.branch ||
-      buildCommand !== (app.build_command ?? "") ||
-      outputDir !== app.output_dir
-    : branch !== app.branch ||
-      mainFile !== (app.main_file ?? "") ||
-      python !== (app.python_version ?? "");
-  const hibernateDirty =
-    hibernateEnabled !== app.hibernate_enabled ||
-    (hibernateHours !== "" &&
-      Number(hibernateHours) * 3600 !== app.hibernate_after_seconds);
-  const pollDirty =
-    pollEnabled !== app.poll_enabled ||
-    (pollMinutes !== "" && Number(pollMinutes) * 60 !== app.poll_interval_seconds);
+  const dirty = computeDirty(app, isStatic, { branch, mainFile, python, buildCommand, outputDir });
+  const hibernateDirty = computeHibernateDirty(app, hibernateEnabled, hibernateHours);
+  const pollDirty = computePollDirty(app, pollEnabled, pollMinutes);
 
   const pollDefaultMinutes = me ? me.git_poll_default_interval_seconds / 60 : null;
   const pollMinMinutes = me ? me.git_poll_min_interval_seconds / 60 : null;
@@ -197,58 +310,20 @@ export default function SettingsTab({
           )}
           <Stack spacing={2}>
             <Stack direction="row" spacing={2}>
-              <TextField
-                label="Branch"
-                size="small"
-                fullWidth
-                value={branch}
-                onChange={(e) => setBranch(e.target.value)}
+              <SourceFields
+                app={app}
+                isStatic={isStatic}
+                branch={branch}
+                setBranch={setBranch}
+                mainFile={mainFile}
+                setMainFile={setMainFile}
+                python={python}
+                setPython={setPython}
+                buildCommand={buildCommand}
+                setBuildCommand={setBuildCommand}
+                outputDir={outputDir}
+                setOutputDir={setOutputDir}
               />
-              {isStatic ? (
-                <>
-                  <TextField
-                    label="Build command (optional)"
-                    size="small"
-                    fullWidth
-                    placeholder="npm run build"
-                    value={buildCommand}
-                    onChange={(e) => setBuildCommand(e.target.value)}
-                  />
-                  <TextField
-                    label="Output directory"
-                    size="small"
-                    fullWidth
-                    value={outputDir}
-                    onChange={(e) => setOutputDir(e.target.value)}
-                  />
-                </>
-              ) : (
-                <>
-                  <TextField
-                    label="Main file"
-                    size="small"
-                    fullWidth
-                    value={mainFile}
-                    onChange={(e) => setMainFile(e.target.value)}
-                  />
-                  <TextField
-                    label="Python"
-                    size="small"
-                    select
-                    sx={{ minWidth: 100 }}
-                    value={python}
-                    onChange={(e) => setPython(e.target.value)}
-                  >
-                    {[...new Set([...PYTHON_VERSIONS, app.python_version ?? PYTHON_VERSIONS[0]])].map(
-                      (v) => (
-                        <MenuItem key={v} value={v}>
-                          {v}
-                        </MenuItem>
-                      ),
-                    )}
-                  </TextField>
-                </>
-              )}
             </Stack>
             <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
               <Button variant="contained" startIcon={<SaveIcon />} disabled={!dirty} loading={busy} onClick={save}>
@@ -307,16 +382,13 @@ export default function SettingsTab({
                 onChange={(e) => setPollMinutes(e.target.value)}
                 error={pollBelowMin}
                 slotProps={{ htmlInput: { min: pollMinMinutes ?? undefined } }}
-                helperText={
-                  pollBelowMin
-                    ? `must be at least ${fmt(pollMinMinutes!)} min (platform minimum)`
-                    : [
-                        pollDefaultMinutes !== null && `platform default: ${fmt(pollDefaultMinutes)} min`,
-                        pollMinMinutes !== null && `minimum: ${fmt(pollMinMinutes)} min`,
-                      ]
-                        .filter(Boolean)
-                        .join(" · ") || "leave blank to use the platform default"
-                }
+                helperText={intervalHelperText(
+                  pollBelowMin && `must be at least ${fmt(pollMinMinutes!)} min (platform minimum)`,
+                  [
+                    pollDefaultMinutes !== null && `platform default: ${fmt(pollDefaultMinutes)} min`,
+                    pollMinMinutes !== null && `minimum: ${fmt(pollMinMinutes)} min`,
+                  ],
+                )}
               />
             )}
             <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
@@ -365,16 +437,13 @@ export default function SettingsTab({
                 onChange={(e) => setHibernateHours(e.target.value)}
                 error={hibernateAboveMax}
                 slotProps={{ htmlInput: { max: hibernateMaxHours ?? undefined } }}
-                helperText={
-                  hibernateAboveMax
-                    ? `must be at most ${fmt(hibernateMaxHours!)}h (platform maximum)`
-                    : [
-                        hibernateDefaultHours !== null && `platform default: ${fmt(hibernateDefaultHours)}h`,
-                        hibernateMaxHours !== null && `maximum: ${fmt(hibernateMaxHours)}h`,
-                      ]
-                        .filter(Boolean)
-                        .join(" · ") || "leave blank to use the platform default"
-                }
+                helperText={intervalHelperText(
+                  hibernateAboveMax && `must be at most ${fmt(hibernateMaxHours!)}h (platform maximum)`,
+                  [
+                    hibernateDefaultHours !== null && `platform default: ${fmt(hibernateDefaultHours)}h`,
+                    hibernateMaxHours !== null && `maximum: ${fmt(hibernateMaxHours)}h`,
+                  ],
+                )}
               />
             )}
             <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>

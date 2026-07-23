@@ -230,16 +230,8 @@ def get_app(
     return to_app_out(_visible(db, app_id, user), settings)
 
 
-@router.patch("/apps/{app_id}", response_model=AppOut)
-def update_app(
-    app_id: str,
-    payload: AppUpdate,
-    db: Session = Depends(get_db),
-    settings: Settings = Depends(get_settings),
-    user: User = Depends(get_current_user),
-):
-    app = _managed(db, app_id, user)
-    needs_rebuild = False
+def _apply_rebuild_fields(app: App, payload: AppUpdate, settings: Settings) -> bool:
+    """Update the fields that require a rebuild when changed; returns whether one is needed."""
     if app.app_type == AppType.streamlit:
         type_fields = ("main_file", "python_version")
         other_type_fields = ("build_command", "output_dir")
@@ -249,6 +241,8 @@ def update_app(
     for field in other_type_fields:
         if getattr(payload, field) is not None:
             raise HTTPException(422, f"{field} does not apply to {app.app_type.value} apps")
+
+    needs_rebuild = False
     for field in ("branch", *type_fields):
         value = getattr(payload, field)
         if value is not None and value != getattr(app, field):
@@ -256,6 +250,28 @@ def update_app(
                 raise HTTPException(422, f"unsupported python version {value!r}")
             setattr(app, field, value)
             needs_rebuild = True
+    return needs_rebuild
+
+
+def _apply_owner_groups(app: App, owner_groups: list[str], user: User) -> None:
+    if not user.is_admin:
+        # owners may share ownership with other groups, but must keep at
+        # least one of their own groups: no self-lockout, and full
+        # transfers away require an admin
+        if not owner_groups:
+            raise HTTPException(
+                422, "owner_groups cannot be empty (the app would become admins-only)"
+            )
+        if not set(owner_groups) & set(user.groups):
+            raise HTTPException(
+                403,
+                "owner_groups must keep at least one of your own groups "
+                "(ask an admin to transfer ownership entirely)",
+            )
+    app.owner_groups = owner_groups
+
+
+def _apply_access_control(app: App, payload: AppUpdate, user: User, settings: Settings) -> None:
     # access control changes take effect live (authz reads the DB, the
     # reconciler converges the ingress) - no rebuild needed
     if payload.public is not None:
@@ -265,23 +281,12 @@ def update_app(
     if payload.allowed_groups is not None:
         app.allowed_groups = payload.allowed_groups
     if payload.owner_groups is not None:
-        if not user.is_admin:
-            # owners may share ownership with other groups, but must keep at
-            # least one of their own groups: no self-lockout, and full
-            # transfers away require an admin
-            if not payload.owner_groups:
-                raise HTTPException(
-                    422, "owner_groups cannot be empty (the app would become admins-only)"
-                )
-            if not set(payload.owner_groups) & set(user.groups):
-                raise HTTPException(
-                    403,
-                    "owner_groups must keep at least one of your own groups "
-                    "(ask an admin to transfer ownership entirely)",
-                )
-        app.owner_groups = payload.owner_groups
+        _apply_owner_groups(app, payload.owner_groups, user)
     if payload.tags is not None:
         app.tags = _normalize_tags(payload.tags)
+
+
+def _apply_lifecycle_settings(app: App, payload: AppUpdate, settings: Settings) -> None:
     if payload.hibernate_enabled is not None:
         app.hibernate_enabled = payload.hibernate_enabled
     if payload.hibernate_after_seconds is not None:
@@ -292,6 +297,20 @@ def update_app(
     if payload.poll_interval_seconds is not None:
         _validate_poll_interval(payload.poll_interval_seconds, settings)
         app.poll_interval_seconds = payload.poll_interval_seconds
+
+
+@router.patch("/apps/{app_id}", response_model=AppOut)
+def update_app(
+    app_id: str,
+    payload: AppUpdate,
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+    user: User = Depends(get_current_user),
+):
+    app = _managed(db, app_id, user)
+    needs_rebuild = _apply_rebuild_fields(app, payload, settings)
+    _apply_access_control(app, payload, user, settings)
+    _apply_lifecycle_settings(app, payload, settings)
     if needs_rebuild and app.state != AppState.building:
         app.pending_action = PendingAction.deploy
     return to_app_out(app, settings)
