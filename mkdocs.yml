@@ -1,0 +1,69 @@
+site_name: Orbital
+site_url: https://gggard.github.io/orbital/
+repo_url: https://github.com/gggard/orbital
+repo_name: gggard/orbital
+edit_uri: edit/main/docs/
+
+docs_dir: docs
+site_dir: _site
+use_directory_urls: true
+
+theme:
+  name: material
+  favicon: images/favicon.svg
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.top
+    - content.code.copy
+    - search.suggest
+    - search.highlight
+
+extra_css:
+  - stylesheets/extra.css
+
+nav:
+  - Install: INSTALL.md
+  - User Guide: USER.md
+  - Admin: ADMIN.md
+  - API: API.md
+  - UI Spec: UI-SPEC.md
+  - Development: DEVELOPMENT.md
+  - Contributing: CONTRIBUTING.md
+  - Specification: SPEC.md
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.highlight
+  - pymdownx.superfences
+  - tables
+  - toc:
+      permalink: true
+
+plugins:
+  - search
+  - include-markdown
+
+# These docs are written to be read both on GitHub (root-relative links like
+# ../SPEC.md, ../.github/workflows/ci.yml) and built into this site; such
+# links fall outside docs_dir so MkDocs can't resolve them, but they're
+# intentional and correct on GitHub, so don't fail --strict builds over them.
+validation:
+  links:
+    not_found: info

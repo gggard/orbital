@@ -27,6 +27,15 @@ ui-dev:
 ui:
 	cd ui && npm run build && npm run start -- --port 3000
 
+docs-install: $(VENV)/bin/python
+	uv pip install -p $(VENV)/bin/python -e '.[docs]'
+
+docs-serve:
+	$(VENV)/bin/mkdocs serve
+
+docs-build:
+	$(VENV)/bin/mkdocs build --strict
+
 # Container images for cluster deployment (see docs/INSTALL.md)
 IMAGE_PREFIX ?= localhost:45000/orbital
 TAG ?= 0.1.0
@@ -39,4 +48,4 @@ push-images:
 	docker push $(IMAGE_PREFIX)/control-plane:$(TAG)
 	docker push $(IMAGE_PREFIX)/console:$(TAG)
 
-.PHONY: install run test setup-minikube setup-auth ui-install ui-dev ui images push-images
+.PHONY: install run test setup-minikube setup-auth ui-install ui-dev ui docs-install docs-serve docs-build images push-images

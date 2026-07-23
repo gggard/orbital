@@ -1,0 +1,14 @@
+/* Orbital brand accent, matched to docs/index.html's --accent / --accent-2 */
+[data-md-color-scheme="default"] {
+  --md-primary-fg-color: #d93b2b;
+  --md-primary-fg-color--light: #ff7060;
+  --md-primary-fg-color--dark: #b5301f;
+  --md-accent-fg-color: #d93b2b;
+}
+
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: #ff6b5e;
+  --md-primary-fg-color--light: #ff8a75;
+  --md-primary-fg-color--dark: #d9503f;
+  --md-accent-fg-color: #ff6b5e;
+}
