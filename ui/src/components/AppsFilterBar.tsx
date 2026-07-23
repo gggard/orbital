@@ -50,12 +50,18 @@ export default function AppsFilterBar({
   filter: AppsFilter;
   onChange: (filter: AppsFilter) => void;
 }) {
-  const stateOptions = useMemo(() => [...new Set(apps.map((a) => a.state))].sort(), [apps]);
-  const ownerOptions = useMemo(
-    () => [...new Set(apps.flatMap((a) => a.owner_groups))].sort(),
+  const stateOptions = useMemo(
+    () => [...new Set(apps.map((a) => a.state))].sort((a, b) => a.localeCompare(b)),
     [apps],
   );
-  const tagOptions = useMemo(() => [...new Set(apps.flatMap((a) => a.tags))].sort(), [apps]);
+  const ownerOptions = useMemo(
+    () => [...new Set(apps.flatMap((a) => a.owner_groups))].sort((a, b) => a.localeCompare(b)),
+    [apps],
+  );
+  const tagOptions = useMemo(
+    () => [...new Set(apps.flatMap((a) => a.tags))].sort((a, b) => a.localeCompare(b)),
+    [apps],
+  );
 
   return (
     <Card variant="outlined" sx={{ p: 1.5, mb: 2 }}>

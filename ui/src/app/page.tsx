@@ -28,6 +28,87 @@ import { useAdminOverview, useApps, useMe } from "@/lib/api";
 import { fmtCpu, fmtMem } from "@/lib/format";
 import type { AdminAppOut, AppState } from "@/lib/types";
 
+function AppsListBody({
+  loading,
+  allApps,
+  filteredApps,
+  canCreate,
+  view,
+  readOnly,
+  onCreate,
+  onClearFilters,
+  onAction,
+}: Readonly<{
+  loading: boolean;
+  allApps: AdminAppOut[];
+  filteredApps: AdminAppOut[];
+  canCreate: boolean;
+  view: "cards" | "table";
+  readOnly: boolean;
+  onCreate: () => void;
+  onClearFilters: () => void;
+  onAction: (msg: string) => void;
+}>) {
+  const gridSx = {
+    display: "grid",
+    gap: 2,
+    gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr", md: "1fr 1fr 1fr" },
+  };
+
+  if (loading) {
+    return (
+      <Box sx={gridSx}>
+        {[0, 1, 2].map((i) => (
+          <Skeleton key={i} variant="rounded" height={150} />
+        ))}
+      </Box>
+    );
+  }
+
+  if (allApps.length === 0) {
+    return (
+      <Stack spacing={2} sx={{ alignItems: "center", py: 10, color: "text.secondary" }}>
+        <Box sx={{ opacity: 0.55 }}>
+          <Logo size={64} variant="tile" />
+        </Box>
+        <Typography>
+          {canCreate
+            ? "No apps yet — deploy your first Streamlit app or static site from a git repository."
+            : "No apps are shared with your groups yet."}
+        </Typography>
+        {canCreate && (
+          <Button variant="outlined" startIcon={<AddIcon />} onClick={onCreate}>
+            Deploy your first app
+          </Button>
+        )}
+      </Stack>
+    );
+  }
+
+  if (filteredApps.length === 0) {
+    return (
+      <Stack spacing={1} sx={{ alignItems: "center", py: 8, color: "text.secondary" }}>
+        <Typography>No apps match these filters.</Typography>
+        <Button size="small" onClick={onClearFilters}>
+          Clear filters
+        </Button>
+      </Stack>
+    );
+  }
+
+  if (view === "table") {
+    return <AppsTable apps={filteredApps} />;
+  }
+
+  return (
+    <Box sx={gridSx}>
+      {filteredApps.map((app) => (
+        <AppCard key={app.id} app={app} readOnly={readOnly} onAction={onAction} />
+      ))}
+    </Box>
+  );
+}
+
 export default function AppsOverview() {
   const { data: apps, error, isLoading } = useApps();
   const { data: me } = useMe();
@@ -145,56 +226,17 @@ export default function AppsOverview() {
           <AppsFilterBar apps={allApps} filter={filter} onChange={setFilter} />
         </Collapse>
 
-        {isLoading || waitingForAdminData ? (
-          <Box
-            sx={{
-              display: "grid",
-              gap: 2,
-              gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr", md: "1fr 1fr 1fr" },
-            }}
-          >
-            {[0, 1, 2].map((i) => (
-              <Skeleton key={i} variant="rounded" height={150} />
-            ))}
-          </Box>
-        ) : allApps.length === 0 ? (
-          <Stack spacing={2} sx={{ alignItems: "center", py: 10, color: "text.secondary" }}>
-            <Box sx={{ opacity: 0.55 }}>
-              <Logo size={64} variant="tile" />
-            </Box>
-            <Typography>
-              {canCreate
-                ? "No apps yet — deploy your first Streamlit app or static site from a git repository."
-                : "No apps are shared with your groups yet."}
-            </Typography>
-            {canCreate && (
-              <Button variant="outlined" startIcon={<AddIcon />} onClick={() => setCreateOpen(true)}>
-                Deploy your first app
-              </Button>
-            )}
-          </Stack>
-        ) : filteredApps.length === 0 ? (
-          <Stack spacing={1} sx={{ alignItems: "center", py: 8, color: "text.secondary" }}>
-            <Typography>No apps match these filters.</Typography>
-            <Button size="small" onClick={() => setFilter(EMPTY_FILTER)}>
-              Clear filters
-            </Button>
-          </Stack>
-        ) : view === "cards" ? (
-          <Box
-            sx={{
-              display: "grid",
-              gap: 2,
-              gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr", md: "1fr 1fr 1fr" },
-            }}
-          >
-            {filteredApps.map((app) => (
-              <AppCard key={app.id} app={app} readOnly={readOnly} onAction={setSnack} />
-            ))}
-          </Box>
-        ) : (
-          <AppsTable apps={filteredApps} />
-        )}
+        <AppsListBody
+          loading={isLoading || waitingForAdminData}
+          allApps={allApps}
+          filteredApps={filteredApps}
+          canCreate={canCreate}
+          view={view}
+          readOnly={readOnly}
+          onCreate={() => setCreateOpen(true)}
+          onClearFilters={() => setFilter(EMPTY_FILTER)}
+          onAction={setSnack}
+        />
       </Box>
 
       <CreateAppDialog open={createOpen} onClose={() => setCreateOpen(false)} />

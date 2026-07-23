@@ -8,6 +8,11 @@ from ..models import App, ScanResult, Severity, Vulnerability
 
 log = logging.getLogger(__name__)
 
+# Mount path inside the scan Job's own dedicated emptyDir volume, not the
+# host's /tmp - isolated per-pod, so the shared-directory risk S5443 warns
+# about doesn't apply here.
+_TRIVY_CACHE_DIR = "/tmp/trivy-cache"  # NOSONAR
+
 
 def scan_job(app: App, scan: ScanResult, settings: Settings) -> dict:
     # scan.image mirrors app.current_image (pull form: localhost:5000/...,
@@ -55,7 +60,7 @@ def scan_job(app: App, scan: ScanResult, settings: Settings) -> dict:
                                 "--insecure",
                                 "--quiet",
                                 "--cache-dir",
-                                "/tmp/trivy-cache",
+                                _TRIVY_CACHE_DIR,
                                 "--format",
                                 "json",
                                 "--scanners",
@@ -67,7 +72,7 @@ def scan_job(app: App, scan: ScanResult, settings: Settings) -> dict:
                                 "capabilities": {"drop": ["ALL"]},
                             },
                             "volumeMounts": [
-                                {"name": "cache", "mountPath": "/tmp/trivy-cache"},
+                                {"name": "cache", "mountPath": _TRIVY_CACHE_DIR},
                             ],
                             "resources": {
                                 "requests": {"cpu": "250m", "memory": "512Mi"},

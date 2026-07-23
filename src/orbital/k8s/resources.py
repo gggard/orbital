@@ -4,6 +4,12 @@ from ..config import Settings
 from ..models import App, AppState, AppType
 
 MANAGED_BY = {"app.orbital.io/managed-by": "control-plane"}
+APP_ID_LABEL = "app.orbital.io/app-id"
+
+# Mount path inside the app's own dedicated emptyDir volume (readOnlyRootFilesystem
+# needs a writable /tmp), not the host's - isolated per-pod, so the shared-directory
+# risk S5443 warns about doesn't apply here.
+_APP_TMP_DIR = "/tmp"  # NOSONAR
 
 # in-namespace ExternalName Service that lets the apps-namespace Ingress
 # objects reach the control plane (a different namespace) as the wake proxy
@@ -12,7 +18,7 @@ WAKE_SERVICE_NAME = "sh-wake-proxy"
 
 
 def app_labels(app: App) -> dict:
-    return {**MANAGED_BY, "app.orbital.io/app-id": app.id}
+    return {**MANAGED_BY, APP_ID_LABEL: app.id}
 
 
 def name_for(app: App) -> str:
@@ -50,7 +56,7 @@ def deployment(app: App, image: str, settings: Settings, restarted_at: str) -> d
         # path routing - see docs/ADMIN.md); nginx just serves at "/"
         health_path = f"{base_path}/" if base_path else "/"
     volume_mounts = [
-        {"name": "tmp", "mountPath": "/tmp"},
+        {"name": "tmp", "mountPath": _APP_TMP_DIR},
         {"name": "home", "mountPath": "/home/appuser"},
     ]
     volumes = [
@@ -78,7 +84,7 @@ def deployment(app: App, image: str, settings: Settings, restarted_at: str) -> d
         },
         "spec": {
             "replicas": 1,
-            "selector": {"matchLabels": {"app.orbital.io/app-id": app.id}},
+            "selector": {"matchLabels": {APP_ID_LABEL: app.id}},
             "strategy": {"type": "RollingUpdate"},
             "template": {
                 "metadata": {
@@ -152,7 +158,7 @@ def service(app: App, settings: Settings) -> dict:
             "labels": app_labels(app),
         },
         "spec": {
-            "selector": {"app.orbital.io/app-id": app.id},
+            "selector": {APP_ID_LABEL: app.id},
             "ports": [{"port": 80, "targetPort": settings.app_port}],
         },
     }

@@ -73,6 +73,10 @@ class Base(DeclarativeBase):
     pass
 
 
+_CASCADE_DELETE_ORPHAN = "all, delete-orphan"
+_APPS_FK = "apps.id"
+
+
 class App(Base):
     __tablename__ = "apps"
 
@@ -154,13 +158,13 @@ class App(Base):
     )
 
     builds: Mapped[list["Build"]] = relationship(
-        back_populates="app", cascade="all, delete-orphan", order_by="Build.created_at"
+        back_populates="app", cascade=_CASCADE_DELETE_ORPHAN, order_by="Build.created_at"
     )
     views: Mapped[list["ViewEvent"]] = relationship(
-        back_populates="app", cascade="all, delete-orphan"
+        back_populates="app", cascade=_CASCADE_DELETE_ORPHAN
     )
     scan_results: Mapped[list["ScanResult"]] = relationship(
-        back_populates="app", cascade="all, delete-orphan", order_by="ScanResult.created_at"
+        back_populates="app", cascade=_CASCADE_DELETE_ORPHAN, order_by="ScanResult.created_at"
     )
 
 
@@ -168,7 +172,7 @@ class Build(Base):
     __tablename__ = "builds"
 
     id: Mapped[str] = mapped_column(String(12), primary_key=True, default=_uuid)
-    app_id: Mapped[str] = mapped_column(ForeignKey("apps.id"), index=True)
+    app_id: Mapped[str] = mapped_column(ForeignKey(_APPS_FK), index=True)
     commit_sha: Mapped[str | None] = mapped_column(String(40), default=None)
     image: Mapped[str | None] = mapped_column(String(500), default=None)
     phase: Mapped[BuildPhase] = mapped_column(Enum(BuildPhase), default=BuildPhase.pending)
@@ -187,7 +191,7 @@ class ScanResult(Base):
     __tablename__ = "scan_results"
 
     id: Mapped[str] = mapped_column(String(12), primary_key=True, default=_uuid)
-    app_id: Mapped[str] = mapped_column(ForeignKey("apps.id"), index=True)
+    app_id: Mapped[str] = mapped_column(ForeignKey(_APPS_FK), index=True)
     build_id: Mapped[str | None] = mapped_column(ForeignKey("builds.id"), default=None)
     image: Mapped[str] = mapped_column(String(500))
     status: Mapped[ScanStatus] = mapped_column(Enum(ScanStatus), default=ScanStatus.pending)
@@ -207,7 +211,7 @@ class ScanResult(Base):
 
     app: Mapped[App] = relationship(back_populates="scan_results")
     vulnerabilities: Mapped[list["Vulnerability"]] = relationship(
-        back_populates="scan_result", cascade="all, delete-orphan"
+        back_populates="scan_result", cascade=_CASCADE_DELETE_ORPHAN
     )
 
 
@@ -259,7 +263,7 @@ class ViewEvent(Base):
     __tablename__ = "view_events"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    app_id: Mapped[str] = mapped_column(ForeignKey("apps.id"), index=True)
+    app_id: Mapped[str] = mapped_column(ForeignKey(_APPS_FK), index=True)
     # authenticated viewer email for private apps; None for anonymous public
     # views (SPEC FR-7.2 - public viewers are counted, not identified)
     viewer: Mapped[str | None] = mapped_column(String(255), default=None)
