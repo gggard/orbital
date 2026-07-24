@@ -27,21 +27,28 @@
   .mono { font-family: ui-monospace, monospace; font-size: .8rem; }
   dialog { border: 1px solid #8886; border-radius: 8px; max-width: 80ch; }
   dialog pre { max-height: 60vh; overflow: auto; font-size: .75rem; }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden;
+             clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 </style>
 </head>
 <body>
 <h1><span>&#x1F388;</span> Orbital <small style="font-weight:normal;color:#888">apps at *.{{ apps_domain }}</small></h1>
 
 <form id="create">
-  <input name="slug" placeholder="slug" required pattern="[a-z0-9][a-z0-9-]*" style="grid-column: span 1">
-  <input name="repo_url" placeholder="git repository URL" required style="grid-column: span 2">
-  <input name="branch" placeholder="branch (main)" style="grid-column: span 1">
-  <input name="main_file" placeholder="main file (streamlit_app.py)" style="grid-column: span 1">
+  <label for="slug" class="sr-only">Slug</label>
+  <input id="slug" name="slug" placeholder="slug" required pattern="[a-z0-9][a-z0-9-]*" style="grid-column: span 1">
+  <label for="repo_url" class="sr-only">Git repository URL</label>
+  <input id="repo_url" name="repo_url" placeholder="git repository URL" required style="grid-column: span 2">
+  <label for="branch" class="sr-only">Branch</label>
+  <input id="branch" name="branch" placeholder="branch (main)" style="grid-column: span 1">
+  <label for="main_file" class="sr-only">Main file</label>
+  <input id="main_file" name="main_file" placeholder="main file (streamlit_app.py)" style="grid-column: span 1">
   <button type="submit">Deploy</button>
   <label style="grid-column: span 2; display:flex; align-items:center; gap:.4rem; font-size:.85rem">
     <input type="checkbox" name="private" style="width:auto"> Private app
   </label>
-  <input name="groups" placeholder="allowed groups, comma-separated (empty = any signed-in user)"
+  <label for="groups" class="sr-only">Allowed groups</label>
+  <input id="groups" name="groups" placeholder="allowed groups, comma-separated (empty = any signed-in user)"
          style="grid-column: span 4">
 </form>
 <div id="err"></div>
