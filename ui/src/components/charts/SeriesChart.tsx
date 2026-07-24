@@ -3,6 +3,7 @@
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
+import type { ReactNode } from "react";
 import { useMemo, useRef, useState } from "react";
 import { mono } from "@/theme";
 
@@ -243,7 +244,7 @@ export function ChartStatHeader({
 }: {
   readonly title: string;
   readonly value: string;
-  readonly sub?: string;
+  readonly sub?: ReactNode;
   readonly valueColor?: "warning.main" | "error.main";
 }) {
   return (

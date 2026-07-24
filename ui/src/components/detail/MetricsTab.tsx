@@ -20,7 +20,7 @@ import Typography from "@mui/material/Typography";
 import { useState } from "react";
 import { ChartStatHeader, SeriesChart } from "@/components/charts/SeriesChart";
 import { useAppMetrics } from "@/lib/api";
-import { fmtCpu, fmtMem } from "@/lib/format";
+import { fmtAgo, fmtCpu, fmtMem } from "@/lib/format";
 import type { MetricsPoint } from "@/lib/types";
 import { mono } from "@/theme";
 
@@ -39,11 +39,16 @@ export default function MetricsTab({ appId }: { readonly appId: string }) {
   const hasUsage = data.available && series.length > 0;
 
   const restartsSub =
-    restarts && restarts.count > 0
-      ? `last: ${restarts.last_at ? new Date(restarts.last_at).toLocaleString() : "unknown time"}${
-          restarts.last_reason ? ` · ${restarts.last_reason}` : ""
-        }`
-      : "container restarts across this app's pods";
+    restarts && restarts.count > 0 ? (
+      <Tooltip title={restarts.last_at ? new Date(restarts.last_at).toLocaleString() : ""}>
+        <span>
+          last {restarts.last_at ? fmtAgo(restarts.last_at) : "at an unknown time"}
+          {restarts.last_reason ? ` · ${restarts.last_reason}` : ""}
+        </span>
+      </Tooltip>
+    ) : (
+      "container restarts across this app's pods"
+    );
 
   const restartsCard = (
     <Card sx={{ width: "100%" }}>
