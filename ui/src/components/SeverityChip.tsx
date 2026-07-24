@@ -25,7 +25,11 @@ function summarize(scan: ScanOut | null | undefined): {
 /** Small chip summarizing an app's latest vulnerability scan, in order of
  * severity (critical > high > medium > low > clean).
  */
-export default function SeverityChip({ scan }: { scan: ScanOut | null | undefined }) {
+export default function SeverityChip({
+  scan,
+}: {
+  readonly scan: ScanOut | null | undefined;
+}) {
   const { label, color, busy } = summarize(scan);
   return (
     <Chip

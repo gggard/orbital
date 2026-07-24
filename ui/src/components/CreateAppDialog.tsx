@@ -31,8 +31,8 @@ export default function CreateAppDialog({
   open,
   onClose,
 }: {
-  open: boolean;
-  onClose: () => void;
+  readonly open: boolean;
+  readonly onClose: () => void;
 }) {
   const router = useRouter();
   const { data: me } = useMe();

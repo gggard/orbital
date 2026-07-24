@@ -15,8 +15,8 @@ export default function SecretsTab({
   appId,
   onSaved,
 }: {
-  appId: string;
-  onSaved: () => void;
+  readonly appId: string;
+  readonly onSaved: () => void;
 }) {
   const { data: current, isLoading, mutate } = useSecrets(appId);
   const [value, setValue] = useState<string | null>(null);

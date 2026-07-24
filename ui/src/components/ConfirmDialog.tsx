@@ -18,14 +18,14 @@ export default function ConfirmDialog({
   onClose,
   onConfirm,
 }: {
-  open: boolean;
-  title: string;
-  text: string;
-  confirmLabel?: string;
+  readonly open: boolean;
+  readonly title: string;
+  readonly text: string;
+  readonly confirmLabel?: string;
   /** if set, user must type this string to enable the confirm button */
-  requireText?: string;
-  onClose: () => void;
-  onConfirm: () => void;
+  readonly requireText?: string;
+  readonly onClose: () => void;
+  readonly onConfirm: () => void;
 }) {
   const [typed, setTyped] = useState("");
   const blocked = !!requireText && typed !== requireText;

@@ -14,7 +14,7 @@ import GroupPicker from "@/components/GroupPicker";
 import { patchApp, useMe } from "@/lib/api";
 import type { AppOut } from "@/lib/types";
 
-function ViewerAccessCard({ app, onSaved }: { app: AppOut; onSaved: () => void }) {
+function ViewerAccessCard({ app, onSaved }: { readonly app: AppOut; readonly onSaved: () => void }) {
   const { data: me } = useMe();
   const [isPublic, setIsPublic] = useState(app.public);
   const [groups, setGroups] = useState<string[]>(app.allowed_groups);
@@ -86,7 +86,7 @@ function ViewerAccessCard({ app, onSaved }: { app: AppOut; onSaved: () => void }
   );
 }
 
-function OwnershipCard({ app, onSaved }: { app: AppOut; onSaved: () => void }) {
+function OwnershipCard({ app, onSaved }: { readonly app: AppOut; readonly onSaved: () => void }) {
   const { data: me } = useMe();
   const [ownerGroups, setOwnerGroups] = useState<string[]>(app.owner_groups);
   const [error, setError] = useState("");
@@ -160,8 +160,8 @@ export default function SharingTab({
   app,
   onSaved,
 }: {
-  app: AppOut;
-  onSaved: () => void;
+  readonly app: AppOut;
+  readonly onSaved: () => void;
 }) {
   return (
     <Stack spacing={3} sx={{ maxWidth: 560 }}>

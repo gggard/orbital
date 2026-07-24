@@ -9,6 +9,7 @@ Flow for a private app:
 """
 
 import logging
+from typing import Annotated
 
 import httpx
 from fastapi import APIRouter, Depends, Request, Response
@@ -45,8 +46,8 @@ def check_session(auth_url: str, cookie: str) -> tuple[bool, str, list[str]]:
 def authz(
     app_id: str,
     request: Request,
-    db: Session = Depends(get_db),
-    settings: Settings = Depends(get_settings),
+    db: Annotated[Session, Depends(get_db)],
+    settings: Annotated[Settings, Depends(get_settings)],
 ):
     app = db.get(App, app_id)
     if app is None:

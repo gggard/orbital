@@ -46,9 +46,9 @@ export default function AppsFilterBar({
   filter,
   onChange,
 }: {
-  apps: AdminAppOut[];
-  filter: AppsFilter;
-  onChange: (filter: AppsFilter) => void;
+  readonly apps: AdminAppOut[];
+  readonly filter: AppsFilter;
+  readonly onChange: (filter: AppsFilter) => void;
 }) {
   const stateOptions = useMemo(
     () => [...new Set(apps.map((a) => a.state))].sort((a, b) => a.localeCompare(b)),

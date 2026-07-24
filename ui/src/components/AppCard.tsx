@@ -29,9 +29,9 @@ export default function AppCard({
   readOnly,
   onAction,
 }: {
-  app: AdminAppOut;
-  readOnly: boolean;
-  onAction: (msg: string) => void;
+  readonly app: AdminAppOut;
+  readonly readOnly: boolean;
+  readonly onAction: (msg: string) => void;
 }) {
   const router = useRouter();
   const [menuEl, setMenuEl] = useState<null | HTMLElement>(null);

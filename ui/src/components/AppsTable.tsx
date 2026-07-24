@@ -24,7 +24,7 @@ import { mono } from "@/theme";
  * admins (from GET /api/v1/admin/overview); other roles pass apps with those
  * fields set to null and the columns render "—".
  */
-export default function AppsTable({ apps }: { apps: AdminAppOut[] }) {
+export default function AppsTable({ apps }: { readonly apps: AdminAppOut[] }) {
   return (
     <TableContainer component={Card}>
       <Table size="small" stickyHeader>

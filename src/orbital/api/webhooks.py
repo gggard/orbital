@@ -1,5 +1,6 @@
 import hmac
 import logging
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -13,7 +14,7 @@ router = APIRouter(tags=["webhooks"])
 
 
 @router.post("/webhooks/apps/{app_id}/{token}", status_code=202)
-def git_push_webhook(app_id: str, token: str, db: Session = Depends(get_db)):
+def git_push_webhook(app_id: str, token: str, db: Annotated[Session, Depends(get_db)]):
     """Generic push webhook: any POST with the correct per-app token triggers a redeploy.
 
     Works as the target of GitHub/GitLab/Gitea push webhooks (payload is ignored;

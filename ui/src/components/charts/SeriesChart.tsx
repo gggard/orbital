@@ -41,10 +41,10 @@ export interface SeriesPoint {
 }
 
 interface SeriesChartProps {
-  points: SeriesPoint[];
-  fmt: (v: number) => string;
-  ariaLabel: string;
-  fmtTime?: (t: number) => string;
+  readonly points: SeriesPoint[];
+  readonly fmt: (v: number) => string;
+  readonly ariaLabel: string;
+  readonly fmtTime?: (t: number) => string;
 }
 
 export function SeriesChart({ points, fmt, ariaLabel, fmtTime = defaultFmtTime }: SeriesChartProps) {
@@ -239,9 +239,9 @@ export function ChartStatHeader({
   value,
   sub,
 }: {
-  title: string;
-  value: string;
-  sub?: string;
+  readonly title: string;
+  readonly value: string;
+  readonly sub?: string;
 }) {
   return (
     <Stack direction="row" spacing={1.5} sx={{ alignItems: "baseline", mb: 1 }}>

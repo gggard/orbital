@@ -27,11 +27,11 @@ export default function GroupPicker({
   helperText,
   extraOptions = [],
 }: {
-  value: string[];
-  onChange: (groups: string[]) => void;
-  label: string;
-  helperText?: string;
-  extraOptions?: string[];
+  readonly value: string[];
+  readonly onChange: (groups: string[]) => void;
+  readonly label: string;
+  readonly helperText?: string;
+  readonly extraOptions?: string[];
 }) {
   const [input, setInput] = useState("");
   const q = useDebounced(input, 250);

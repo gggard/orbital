@@ -1,6 +1,7 @@
 import hashlib
 import secrets as pysecrets
 from datetime import UTC, datetime, timedelta
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
@@ -18,9 +19,9 @@ router = APIRouter(prefix="/api/v1/me/tokens", tags=["tokens"])
 @router.post("", response_model=TokenCreated, status_code=201)
 def create_token(
     payload: TokenCreate,
-    db: Session = Depends(get_db),
-    settings: Settings = Depends(get_settings),
-    user: User = Depends(get_current_user),
+    db: Annotated[Session, Depends(get_db)],
+    settings: Annotated[Settings, Depends(get_settings)],
+    user: Annotated[User, Depends(get_current_user)],
 ):
     ttl_days = payload.ttl_days or settings.api_token_max_ttl_days
     if ttl_days > settings.api_token_max_ttl_days:
@@ -49,8 +50,8 @@ def create_token(
 
 @router.get("", response_model=list[TokenOut])
 def list_tokens(
-    db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
 ):
     return db.scalars(
         select(ApiToken).where(ApiToken.email == user.email).order_by(ApiToken.created_at.desc())
@@ -60,8 +61,8 @@ def list_tokens(
 @router.delete("/{token_id}", status_code=202)
 def revoke_token(
     token_id: str,
-    db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
 ):
     token = db.get(ApiToken, token_id)
     if token is None or token.email != user.email:

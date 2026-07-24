@@ -9,7 +9,13 @@ import Typography from "@mui/material/Typography";
 import { useState } from "react";
 import { mono } from "@/theme";
 
-export default function CopyField({ value, href }: { value: string; href?: string }) {
+export default function CopyField({
+  value,
+  href,
+}: {
+  readonly value: string;
+  readonly href?: string;
+}) {
   const [copied, setCopied] = useState(false);
   return (
     <Stack direction="row" spacing={0.5} sx={{ alignItems: "center", minWidth: 0 }}>
