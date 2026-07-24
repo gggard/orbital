@@ -38,6 +38,7 @@ def overview(
     running_count = 0
     for app in apps:
         sample = metrics.store.latest(app.id)
+        restarts = metrics.restart_counts.get(app.id)
         if app.state == AppState.running:
             running_count += 1
         if sample is not None:
@@ -48,6 +49,7 @@ def overview(
                 **to_app_out(app, settings).model_dump(),
                 cpu=sample.cpu if sample else None,
                 mem=sample.mem if sample else None,
+                restarts=restarts.count if restarts else None,
             )
         )
 

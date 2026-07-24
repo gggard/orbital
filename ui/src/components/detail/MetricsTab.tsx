@@ -20,9 +20,18 @@ import Typography from "@mui/material/Typography";
 import { useState } from "react";
 import { ChartStatHeader, SeriesChart } from "@/components/charts/SeriesChart";
 import { useAppMetrics } from "@/lib/api";
-import { fmtCpu, fmtMem } from "@/lib/format";
-import type { MetricsPoint } from "@/lib/types";
+import { fmtAgo, fmtCpu, fmtMem } from "@/lib/format";
+import type { MetricsPoint, RestartInfo } from "@/lib/types";
 import { mono } from "@/theme";
+
+// -- pure helpers (unit-tested directly, no rendering needed) --------------
+
+/** Plain-text summary for the Restarts stat's sub-line. */
+export function restartsSummary(restarts: RestartInfo | null): string {
+  if (!restarts || restarts.count === 0) return "container restarts across this app's pods";
+  const when = restarts.last_at ? `last ${fmtAgo(restarts.last_at)}` : "last at an unknown time";
+  return restarts.last_reason ? `${when} · ${restarts.last_reason}` : when;
+}
 
 // -- tab -------------------------------------------------------------------
 
@@ -33,20 +42,48 @@ export default function MetricsTab({ appId }: { readonly appId: string }) {
   if (error) return <Alert severity="error">failed to load metrics: {error.message}</Alert>;
   if (isLoading || !data) return <Skeleton variant="rounded" height={240} />;
 
-  if (!data.available || data.series.length === 0)
-    return (
-      <Alert severity="info">
-        No metrics yet. Samples appear ~15&thinsp;s after the app is running; if this persists,
-        the cluster&apos;s metrics-server may not be installed.
-      </Alert>
-    );
-
-  const { series, current, limits } = data;
+  const { series, current, limits, restarts } = data;
   const cpuPct = current ? Math.round((current.cpu / limits.cpu) * 100) : 0;
   const memPct = current ? Math.round((current.mem / limits.mem) * 100) : 0;
+  const hasUsage = data.available && series.length > 0;
+
+  const restartsSub =
+    restarts && restarts.count > 0 ? (
+      <Tooltip title={restarts.last_at ? new Date(restarts.last_at).toLocaleString() : ""}>
+        <span>{restartsSummary(restarts)}</span>
+      </Tooltip>
+    ) : (
+      restartsSummary(restarts)
+    );
+
+  const restartsCard = (
+    <Card sx={{ width: "100%" }}>
+      <CardContent sx={{ "&:last-child": { pb: 2 } }}>
+        <ChartStatHeader
+          title="Restarts"
+          value={restarts ? restarts.count.toLocaleString() : "—"}
+          sub={restartsSub}
+          valueColor={restarts?.count ? "warning.main" : undefined}
+        />
+      </CardContent>
+    </Card>
+  );
+
+  if (!hasUsage)
+    return (
+      <Stack spacing={2}>
+        {restartsCard}
+        <Alert severity="info">
+          No usage metrics yet. Samples appear ~15&thinsp;s after the app is running; if this
+          persists, the cluster&apos;s metrics-server may not be installed.
+        </Alert>
+      </Stack>
+    );
 
   return (
     <Stack spacing={2}>
+      {restartsCard}
+
       <Stack direction="row" sx={{ justifyContent: "flex-end" }}>
         <ToggleButtonGroup
           size="small"

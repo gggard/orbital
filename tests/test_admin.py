@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 
 from orbital.api.security import User, get_current_user
 from orbital.config import get_settings
-from orbital.k8s.metrics import Sample, store
+from orbital.k8s.metrics import RestartInfo, Sample, restart_counts, store
 
 ADMIN = User(email="carol@example.com", groups=["admins"], role="admin")
 CREATOR = User(email="alice@example.com", groups=["data-team"], role="creator")
@@ -81,6 +81,7 @@ def test_overview_totals_and_rows(client):
 
     store.add(a1, Sample(ts=1.0, cpu=0.1, mem=100 * 2**20))
     store.add(a2, Sample(ts=1.0, cpu=0.2, mem=200 * 2**20))
+    restart_counts.set(a1, RestartInfo(count=4, last_reason="Error", last_at=None))
     try:
         body = client.get("/api/v1/admin/overview").json()
         assert body["totals"]["app_count"] == 2
@@ -90,10 +91,13 @@ def test_overview_totals_and_rows(client):
         rows = {r["slug"]: r for r in body["apps"]}
         assert rows["one"]["cpu"] == pytest.approx(0.1)
         assert rows["one"]["owner_groups"] == ["data-team"]
+        assert rows["one"]["restarts"] == 4
         assert rows["two"]["mem"] == pytest.approx(200 * 2**20)
+        assert rows["two"]["restarts"] is None
     finally:
         store.drop(a1)
         store.drop(a2)
+        restart_counts.drop(a1)
 
 
 def test_overview_app_without_metrics_reports_none(client):
@@ -103,6 +107,7 @@ def test_overview_app_without_metrics_reports_none(client):
     row = body["apps"][0]
     assert row["cpu"] is None
     assert row["mem"] is None
+    assert row["restarts"] is None
 
 
 # -- logs ----------------------------------------------------------------
