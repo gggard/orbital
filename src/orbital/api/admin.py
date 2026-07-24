@@ -1,3 +1,5 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import PlainTextResponse
 from sqlalchemy import select
@@ -24,9 +26,9 @@ router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
 
 @router.get("/overview", response_model=AdminOverviewOut)
 def overview(
-    db: Session = Depends(get_db),
-    settings: Settings = Depends(get_settings),
-    user: User = Depends(get_current_user),
+    db: Annotated[Session, Depends(get_db)],
+    settings: Annotated[Settings, Depends(get_settings)],
+    user: Annotated[User, Depends(get_current_user)],
 ):
     require_admin(user)
     apps = db.scalars(select(App).order_by(App.created_at)).all()
@@ -62,8 +64,8 @@ def overview(
 
 @router.get("/scans", response_model=list[AdminScanOut])
 def scans(
-    db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
 ):
     require_admin(user)
     apps = db.scalars(select(App).order_by(App.slug)).all()
@@ -77,8 +79,8 @@ def scans(
 @router.get("/scans/{scan_id}/vulnerabilities", response_model=list[VulnerabilityOut])
 def scan_vulnerabilities(
     scan_id: str,
-    db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
 ):
     require_admin(user)
     scan = db.get(ScanResult, scan_id)
@@ -89,8 +91,8 @@ def scan_vulnerabilities(
 
 @router.get("/logs", response_class=PlainTextResponse)
 def logs(
+    user: Annotated[User, Depends(get_current_user)],
     tail: int = 500,
-    user: User = Depends(get_current_user),
 ):
     require_admin(user)
     lines = logbuffer.handler.tail(tail)

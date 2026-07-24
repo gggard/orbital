@@ -13,6 +13,7 @@ repointed at — normal, awake traffic never reaches the control plane:
 
 import logging
 from datetime import UTC, datetime
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import HTMLResponse
@@ -56,7 +57,7 @@ INTERSTITIAL = """<!doctype html>
 
 @router.get("/activity/{app_id}")
 @router.post("/activity/{app_id}")
-def activity_ping(app_id: str, request: Request, db: Session = Depends(get_db)):
+def activity_ping(app_id: str, request: Request, db: Annotated[Session, Depends(get_db)]):
     app = db.get(App, app_id)
     if app is not None:
         activity.touch(app)

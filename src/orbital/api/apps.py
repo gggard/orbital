@@ -1,5 +1,6 @@
 import tomllib
 from datetime import UTC, datetime
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import PlainTextResponse, StreamingResponse
@@ -133,9 +134,9 @@ def _validate_hibernate_timeout(value: int | None, settings: Settings) -> None:
 @router.post("/apps", response_model=AppOut, status_code=201)
 def create_app(
     payload: AppCreate,
-    db: Session = Depends(get_db),
-    settings: Settings = Depends(get_settings),
-    user: User = Depends(get_current_user),
+    db: Annotated[Session, Depends(get_db)],
+    settings: Annotated[Settings, Depends(get_settings)],
+    user: Annotated[User, Depends(get_current_user)],
 ):
     require_creator(user)
     if payload.public:
@@ -188,9 +189,9 @@ def create_app(
 
 @router.get("/apps", response_model=list[AppOut])
 def list_apps(
-    db: Session = Depends(get_db),
-    settings: Settings = Depends(get_settings),
-    user: User = Depends(get_current_user),
+    db: Annotated[Session, Depends(get_db)],
+    settings: Annotated[Settings, Depends(get_settings)],
+    user: Annotated[User, Depends(get_current_user)],
 ):
     from .security import can_see
 
@@ -200,10 +201,10 @@ def list_apps(
 
 @router.get("/tags")
 def list_tags(
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
     q: str = "",
     limit: int = 100,
-    db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
 ):
     """Known tags for the console's tag pickers (create/edit forms, filter
     bar), collected from apps visible to the current user. ``q`` filters by
@@ -223,9 +224,9 @@ def list_tags(
 @router.get("/apps/{app_id}", response_model=AppOut)
 def get_app(
     app_id: str,
-    db: Session = Depends(get_db),
-    settings: Settings = Depends(get_settings),
-    user: User = Depends(get_current_user),
+    db: Annotated[Session, Depends(get_db)],
+    settings: Annotated[Settings, Depends(get_settings)],
+    user: Annotated[User, Depends(get_current_user)],
 ):
     return to_app_out(_visible(db, app_id, user), settings)
 
@@ -303,9 +304,9 @@ def _apply_lifecycle_settings(app: App, payload: AppUpdate, settings: Settings) 
 def update_app(
     app_id: str,
     payload: AppUpdate,
-    db: Session = Depends(get_db),
-    settings: Settings = Depends(get_settings),
-    user: User = Depends(get_current_user),
+    db: Annotated[Session, Depends(get_db)],
+    settings: Annotated[Settings, Depends(get_settings)],
+    user: Annotated[User, Depends(get_current_user)],
 ):
     app = _managed(db, app_id, user)
     needs_rebuild = _apply_rebuild_fields(app, payload, settings)
@@ -319,8 +320,8 @@ def update_app(
 @router.delete("/apps/{app_id}", status_code=202)
 def delete_app(
     app_id: str,
-    db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
 ):
     app = _managed(db, app_id, user)
     app.pending_action = PendingAction.delete
@@ -331,8 +332,8 @@ def delete_app(
 @router.post("/apps/{app_id}/deploy", status_code=202)
 def deploy_app(
     app_id: str,
-    db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
 ):
     app = _managed(db, app_id, user)
     if app.state == AppState.building:
@@ -344,8 +345,8 @@ def deploy_app(
 @router.post("/apps/{app_id}/reboot", status_code=202)
 def reboot_app(
     app_id: str,
-    db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
 ):
     app = _managed(db, app_id, user)
     if app.state not in (AppState.running, AppState.deploy_failed):
@@ -357,8 +358,8 @@ def reboot_app(
 @router.post("/apps/{app_id}/wake", status_code=202)
 def wake_app(
     app_id: str,
-    db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
 ):
     # waking requires no more than the app's normal sharing mode (SPEC FR-8.3)
     app = _visible(db, app_id, user)
@@ -371,8 +372,8 @@ def wake_app(
 @router.get("/apps/{app_id}/builds", response_model=list[BuildOut])
 def list_builds(
     app_id: str,
-    db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
 ):
     app = _visible(db, app_id, user)
     return list(app.builds)
@@ -382,9 +383,9 @@ def list_builds(
 def build_logs(
     app_id: str,
     build_id: str,
-    db: Session = Depends(get_db),
-    settings: Settings = Depends(get_settings),
-    user: User = Depends(get_current_user),
+    db: Annotated[Session, Depends(get_db)],
+    settings: Annotated[Settings, Depends(get_settings)],
+    user: Annotated[User, Depends(get_current_user)],
 ):
     _visible(db, app_id, user)
     build = db.get(Build, build_id)
@@ -397,11 +398,11 @@ def build_logs(
 @router.get("/apps/{app_id}/logs")
 def app_logs(
     app_id: str,
+    db: Annotated[Session, Depends(get_db)],
+    settings: Annotated[Settings, Depends(get_settings)],
+    user: Annotated[User, Depends(get_current_user)],
     follow: bool = False,
     tail: int = 500,
-    db: Session = Depends(get_db),
-    settings: Settings = Depends(get_settings),
-    user: User = Depends(get_current_user),
 ):
     _visible(db, app_id, user)
     if follow:
@@ -415,9 +416,9 @@ def app_logs(
 @router.get("/apps/{app_id}/metrics", response_model=MetricsOut)
 def app_metrics(
     app_id: str,
-    db: Session = Depends(get_db),
-    settings: Settings = Depends(get_settings),
-    user: User = Depends(get_current_user),
+    db: Annotated[Session, Depends(get_db)],
+    settings: Annotated[Settings, Depends(get_settings)],
+    user: Annotated[User, Depends(get_current_user)],
 ):
     _visible(db, app_id, user)
     series = [
@@ -438,8 +439,8 @@ def app_metrics(
 @router.get("/apps/{app_id}/analytics", response_model=AnalyticsOut)
 def app_analytics(
     app_id: str,
-    db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
 ):
     # same visibility as Metrics/Logs (SPEC FR-7.3: owner(s) and Admins - only
     # owning groups and admins can see the app at all, see security.can_see)
@@ -450,8 +451,8 @@ def app_analytics(
 @router.get("/apps/{app_id}/secrets", response_class=PlainTextResponse)
 def get_secrets(
     app_id: str,
-    db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
 ):
     return _managed(db, app_id, user).secrets_toml or ""
 
@@ -460,8 +461,8 @@ def get_secrets(
 def put_secrets(
     app_id: str,
     payload: SecretsIn,
-    db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
 ):
     app = _managed(db, app_id, user)
     _validate_toml(payload.secrets_toml)
@@ -473,8 +474,8 @@ def put_secrets(
 @router.get("/apps/{app_id}/scans", response_model=list[ScanOut])
 def list_scans(
     app_id: str,
-    db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
 ):
     app = _visible(db, app_id, user)
     return list(reversed(app.scan_results))
@@ -493,8 +494,8 @@ def _get_scan(db: Session, app_id: str, scan_id: str) -> ScanResult:
 def scan_vulnerabilities(
     app_id: str,
     scan_id: str,
-    db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
 ):
     _visible(db, app_id, user)
     return list(_get_scan(db, app_id, scan_id).vulnerabilities)
@@ -503,8 +504,8 @@ def scan_vulnerabilities(
 @router.post("/apps/{app_id}/scan", status_code=202)
 def request_scan(
     app_id: str,
-    db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
 ):
     app = _managed(db, app_id, user)
     if not app.current_image:

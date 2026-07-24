@@ -2,6 +2,7 @@
 
 import logging
 import secrets as pysecrets
+from typing import Annotated
 from urllib.parse import urlencode, urlparse
 
 import httpx
@@ -69,7 +70,11 @@ def _verify_id_token(id_token: str, settings: Settings) -> dict:
 
 
 @router.get("/api/auth/login")
-def login(request: Request, next: str = "/", settings: Settings = Depends(get_settings)):
+def login(
+    request: Request,
+    settings: Annotated[Settings, Depends(get_settings)],
+    next: str = "/",
+):
     if not settings.ui_auth_enabled:
         return RedirectResponse(_safe_next(next))
     state = pysecrets.token_urlsafe(16)
@@ -88,9 +93,9 @@ def login(request: Request, next: str = "/", settings: Settings = Depends(get_se
 @router.get("/api/auth/callback")
 def callback(
     request: Request,
+    settings: Annotated[Settings, Depends(get_settings)],
     code: str = "",
     state: str = "",
-    settings: Settings = Depends(get_settings),
 ):
     if not code or state != request.session.pop("oauth_state", None):
         raise HTTPException(400, "invalid login callback (state mismatch)")
@@ -124,7 +129,7 @@ def callback(
 
 
 @router.get("/api/auth/logout")
-def logout(request: Request, settings: Settings = Depends(get_settings)):
+def logout(request: Request, settings: Annotated[Settings, Depends(get_settings)]):
     """Browser navigation target: clears the console session AND the IdP SSO
     session (RP-initiated logout), then returns to the console."""
     id_token = request.session.pop("id_token", None)
@@ -142,8 +147,8 @@ def logout(request: Request, settings: Settings = Depends(get_settings)):
 
 @router.get("/api/v1/me")
 def me(
-    user: User = Depends(get_current_user),
-    settings: Settings = Depends(get_settings),
+    user: Annotated[User, Depends(get_current_user)],
+    settings: Annotated[Settings, Depends(get_settings)],
 ):
     return {
         "authenticated": True,
@@ -163,10 +168,10 @@ def me(
 
 @router.get("/api/v1/groups")
 def groups(
+    user: Annotated[User, Depends(get_current_user)],
+    settings: Annotated[Settings, Depends(get_settings)],
     q: str = "",
     limit: int = 100,
-    user: User = Depends(get_current_user),
-    settings: Settings = Depends(get_settings),
 ):
     """Known groups for the console's pickers (viewer access, ownership).
 
