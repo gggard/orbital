@@ -63,6 +63,12 @@ def test_login_disabled_rejects_external_next(tmp_path, monkeypatch):
             "/\\evil.example.com",
             "///evil.example.com",
             "/\\/evil.example.com",
+            # tab/newline/CR are stripped by urllib before parsing, so a
+            # single leading slash followed by one of these can still
+            # collapse into a "//host" network-path reference once parsed.
+            "/%09/evil.example.com",
+            "/%0A/evil.example.com",
+            "/%0D/evil.example.com",
         ):
             r = c.get(f"/api/auth/login?next={evil}")
             assert r.status_code in (302, 307)
