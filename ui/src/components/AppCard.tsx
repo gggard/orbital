@@ -91,6 +91,13 @@ export default function AppCard({
             <Typography variant="caption" color="text.secondary" noWrap sx={{ flexGrow: 1 }}>
               owner: {app.owner_groups.join(", ") || "—"}
             </Typography>
+            {!!app.restarts && (
+              <Tooltip title={`${app.restarts} container restart${app.restarts === 1 ? "" : "s"}`}>
+                <Typography variant="caption" color="warning" noWrap sx={{ fontFamily: mono }}>
+                  ⟳ {app.restarts}
+                </Typography>
+              </Tooltip>
+            )}
             {(app.cpu !== null || app.mem !== null) && (
               <Typography variant="caption" color="text.secondary" noWrap sx={{ fontFamily: mono }}>
                 {app.cpu !== null ? fmtCpu(app.cpu) : "—"} · {app.mem !== null ? fmtMem(app.mem) : "—"}

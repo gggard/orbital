@@ -33,20 +33,46 @@ export default function MetricsTab({ appId }: { readonly appId: string }) {
   if (error) return <Alert severity="error">failed to load metrics: {error.message}</Alert>;
   if (isLoading || !data) return <Skeleton variant="rounded" height={240} />;
 
-  if (!data.available || data.series.length === 0)
-    return (
-      <Alert severity="info">
-        No metrics yet. Samples appear ~15&thinsp;s after the app is running; if this persists,
-        the cluster&apos;s metrics-server may not be installed.
-      </Alert>
-    );
-
-  const { series, current, limits } = data;
+  const { series, current, limits, restarts } = data;
   const cpuPct = current ? Math.round((current.cpu / limits.cpu) * 100) : 0;
   const memPct = current ? Math.round((current.mem / limits.mem) * 100) : 0;
+  const hasUsage = data.available && series.length > 0;
+
+  const restartsSub =
+    restarts && restarts.count > 0
+      ? `last: ${restarts.last_at ? new Date(restarts.last_at).toLocaleString() : "unknown time"}${
+          restarts.last_reason ? ` · ${restarts.last_reason}` : ""
+        }`
+      : "container restarts across this app's pods";
+
+  const restartsCard = (
+    <Card sx={{ width: "100%" }}>
+      <CardContent sx={{ "&:last-child": { pb: 2 } }}>
+        <ChartStatHeader
+          title="Restarts"
+          value={restarts ? restarts.count.toLocaleString() : "—"}
+          sub={restartsSub}
+          valueColor={restarts?.count ? "warning.main" : undefined}
+        />
+      </CardContent>
+    </Card>
+  );
+
+  if (!hasUsage)
+    return (
+      <Stack spacing={2}>
+        {restartsCard}
+        <Alert severity="info">
+          No usage metrics yet. Samples appear ~15&thinsp;s after the app is running; if this
+          persists, the cluster&apos;s metrics-server may not be installed.
+        </Alert>
+      </Stack>
+    );
 
   return (
     <Stack spacing={2}>
+      {restartsCard}
+
       <Stack direction="row" sx={{ justifyContent: "flex-end" }}>
         <ToggleButtonGroup
           size="small"

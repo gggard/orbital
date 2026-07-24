@@ -11,6 +11,7 @@ import threading
 import time
 from collections import deque
 from dataclasses import dataclass
+from datetime import datetime
 
 from kubernetes import client as k8s_client
 from kubernetes.client import ApiException
@@ -110,3 +111,61 @@ class MetricsStore:
 
 
 store = MetricsStore()
+
+
+@dataclass(frozen=True)
+class RestartInfo:
+    count: int  # total container restarts across the app's pods
+    last_reason: str | None  # e.g. "Error", "OOMKilled" (from the container's last termination)
+    last_at: datetime | None  # when that last termination happened; None if never restarted
+
+
+def fetch_pod_restarts(app_id: str, settings: Settings) -> RestartInfo | None:
+    """Restart count, date and reason across an app's pods (SPEC FR-5.6 companion stat).
+
+    Sourced from the Core API (pod status), not the metrics-server, so it's
+    available even in clusters where metrics-server isn't installed. Returns
+    None when the app has no pods yet.
+    """
+    pods = client.core().list_namespaced_pod(
+        settings.apps_namespace,
+        label_selector=f"app.orbital.io/app-id={app_id}",
+    ).items
+    if not pods:
+        return None
+    count = 0
+    last_reason: str | None = None
+    last_at: datetime | None = None
+    for pod in pods:
+        for cs in pod.status.container_statuses or []:
+            count += cs.restart_count
+            terminated = cs.last_state.terminated if cs.last_state else None
+            if terminated and terminated.finished_at:
+                if last_at is None or terminated.finished_at > last_at:
+                    last_at = terminated.finished_at
+                    last_reason = terminated.reason
+    return RestartInfo(count=count, last_reason=last_reason, last_at=last_at)
+
+
+class RestartCounts:
+    """Thread-safe latest known restart info per app (a point-in-time fact,
+    not a series - no ring buffer needed)."""
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._info: dict[str, RestartInfo] = {}
+
+    def set(self, app_id: str, info: RestartInfo) -> None:
+        with self._lock:
+            self._info[app_id] = info
+
+    def get(self, app_id: str) -> RestartInfo | None:
+        with self._lock:
+            return self._info.get(app_id)
+
+    def drop(self, app_id: str) -> None:
+        with self._lock:
+            self._info.pop(app_id, None)
+
+
+restart_counts = RestartCounts()

@@ -21,6 +21,7 @@ from ..schemas import (
     MetricsLimits,
     MetricsOut,
     MetricsPoint,
+    RestartInfo,
     ScanOut,
     SecretsIn,
     VulnerabilityOut,
@@ -425,6 +426,7 @@ def app_metrics(
         MetricsPoint(t=s.ts, cpu=s.cpu, mem=s.mem)
         for s in metrics.store.series(app_id)
     ]
+    restarts = metrics.restart_counts.get(app_id)
     return MetricsOut(
         available=bool(series),
         limits=MetricsLimits(
@@ -433,6 +435,11 @@ def app_metrics(
         ),
         current=series[-1] if series else None,
         series=series,
+        restarts=RestartInfo(
+            count=restarts.count, last_reason=restarts.last_reason, last_at=restarts.last_at
+        )
+        if restarts
+        else None,
     )
 
 

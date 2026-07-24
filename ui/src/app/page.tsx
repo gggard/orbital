@@ -129,7 +129,9 @@ export default function AppsOverview() {
   // role) — both views (cards and table) render from this single list.
   const waitingForAdminData = isAdmin && !overview;
   const allApps: AdminAppOut[] =
-    isAdmin && overview ? overview.apps : (apps ?? []).map((a) => ({ ...a, cpu: null, mem: null }));
+    isAdmin && overview
+      ? overview.apps
+      : (apps ?? []).map((a) => ({ ...a, cpu: null, mem: null, restarts: null }));
   const filteredApps = applyFilter(allApps, filter);
 
   const removeState = (s: AppState) =>

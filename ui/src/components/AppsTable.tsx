@@ -10,6 +10,7 @@ import TableCell from "@mui/material/TableCell";
 import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import NextLink from "next/link";
 import AppTypeIcon from "@/components/AppTypeIcon";
@@ -20,9 +21,9 @@ import type { AdminAppOut } from "@/lib/types";
 import { mono } from "@/theme";
 
 /**
- * Table alternative to the card grid. `cpu`/`mem` are only populated for
- * admins (from GET /api/v1/admin/overview); other roles pass apps with those
- * fields set to null and the columns render "—".
+ * Table alternative to the card grid. `cpu`/`mem`/`restarts` are only
+ * populated for admins (from GET /api/v1/admin/overview); other roles pass
+ * apps with those fields set to null and the columns render "—".
  */
 export default function AppsTable({ apps }: { readonly apps: AdminAppOut[] }) {
   return (
@@ -38,6 +39,7 @@ export default function AppsTable({ apps }: { readonly apps: AdminAppOut[] }) {
             <TableCell>Vulnerabilities</TableCell>
             <TableCell align="right">CPU</TableCell>
             <TableCell align="right">Memory</TableCell>
+            <TableCell align="right">Restarts</TableCell>
             <TableCell>Updated</TableCell>
           </TableRow>
         </TableHead>
@@ -81,6 +83,19 @@ export default function AppsTable({ apps }: { readonly apps: AdminAppOut[] }) {
               </TableCell>
               <TableCell align="right" sx={{ fontFamily: mono }}>
                 {app.mem === null ? "—" : fmtMem(app.mem)}
+              </TableCell>
+              <TableCell align="right" sx={{ fontFamily: mono }}>
+                {app.restarts === null ? (
+                  "—"
+                ) : app.restarts > 0 ? (
+                  <Tooltip title={`${app.restarts} container restart${app.restarts === 1 ? "" : "s"}`}>
+                    <Typography component="span" color="warning" sx={{ fontFamily: mono }}>
+                      {app.restarts}
+                    </Typography>
+                  </Tooltip>
+                ) : (
+                  app.restarts
+                )}
               </TableCell>
               <TableCell>
                 <Typography variant="body2" color="text.secondary">

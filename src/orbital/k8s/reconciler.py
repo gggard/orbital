@@ -185,9 +185,18 @@ class Reconciler:
                 sample = metrics.fetch_app_usage(app.id, self.settings)
             except Exception:
                 log.exception("metrics sampling failed for app %s", app.slug)
-                continue
-            if sample is not None:
-                metrics.store.add(app.id, sample)
+            else:
+                if sample is not None:
+                    metrics.store.add(app.id, sample)
+            # independent of the metrics-server-backed usage sample above, so
+            # a missing metrics-server doesn't also hide restart counts
+            try:
+                restarts = metrics.fetch_pod_restarts(app.id, self.settings)
+            except Exception:
+                log.exception("restart-count sampling failed for app %s", app.slug)
+            else:
+                if restarts is not None:
+                    metrics.restart_counts.set(app.id, restarts)
 
     def _gc_orphaned_resources(self, apps: list[App]):
         """Delete apps_namespace Deployment/Service/Ingress/Secret objects
@@ -714,6 +723,7 @@ class Reconciler:
                     propagation_policy="Background",
                 )
         metrics.store.drop(app.id)
+        metrics.restart_counts.drop(app.id)
         log.info("deleted app %s (%s)", app.slug, app.id)
         session.delete(app)
 

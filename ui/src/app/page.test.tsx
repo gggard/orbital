@@ -38,6 +38,7 @@ function app(overrides: Partial<AdminAppOut>): AdminAppOut {
     updated_at: "",
     cpu: null,
     mem: null,
+    restarts: null,
     ...overrides,
   };
 }
@@ -150,5 +151,55 @@ describe("AppsListBody", () => {
     );
     expect(screen.getByText("my-app")).toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
+  });
+
+  it("shows a restart badge on cards only when restarts > 0", () => {
+    const { rerender } = render(
+      <AppsListBody
+        loading={false}
+        allApps={[app({})]}
+        filteredApps={[app({ slug: "healthy", restarts: 0 })]}
+        canCreate={false}
+        view="cards"
+        readOnly={false}
+        onCreate={noop}
+        onClearFilters={noop}
+        onAction={noop}
+      />,
+    );
+    expect(screen.queryByText(/⟳/)).not.toBeInTheDocument();
+
+    rerender(
+      <AppsListBody
+        loading={false}
+        allApps={[app({})]}
+        filteredApps={[app({ slug: "flaky", restarts: 5 })]}
+        canCreate={false}
+        view="cards"
+        readOnly={false}
+        onCreate={noop}
+        onClearFilters={noop}
+        onAction={noop}
+      />,
+    );
+    expect(screen.getByText("⟳ 5")).toBeInTheDocument();
+  });
+
+  it("shows a Restarts column in the table view", () => {
+    render(
+      <AppsListBody
+        loading={false}
+        allApps={[app({})]}
+        filteredApps={[app({ slug: "flaky", restarts: 3 })]}
+        canCreate={false}
+        view="table"
+        readOnly={false}
+        onCreate={noop}
+        onClearFilters={noop}
+        onAction={noop}
+      />,
+    );
+    expect(screen.getByRole("columnheader", { name: "Restarts" })).toBeInTheDocument();
+    expect(screen.getByText("3")).toBeInTheDocument();
   });
 });

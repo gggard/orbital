@@ -83,8 +83,9 @@ export function SeriesChart({ points, fmt, ariaLabel, fmtTime = defaultFmtTime }
 
   const last = points.length - 1;
   const h = hover;
-  // time labels: ends only (middle would crowd at this width)
-  const timeTicks = [0, last];
+  // time labels: ends only (middle would crowd at this width); a single
+  // point collapses start/end to the same index, so don't duplicate it
+  const timeTicks = last === 0 ? [0] : [0, last];
 
   return (
     <Box sx={{ position: "relative" }}>
@@ -238,17 +239,22 @@ export function ChartStatHeader({
   title,
   value,
   sub,
+  valueColor,
 }: {
   readonly title: string;
   readonly value: string;
   readonly sub?: string;
+  readonly valueColor?: "warning.main" | "error.main";
 }) {
   return (
     <Stack direction="row" spacing={1.5} sx={{ alignItems: "baseline", mb: 1 }}>
       <Typography variant="subtitle2" color="text.secondary">
         {title}
       </Typography>
-      <Typography variant="h6" sx={{ fontFamily: mono, fontSize: "1.05rem" }}>
+      <Typography
+        variant="h6"
+        sx={{ fontFamily: mono, fontSize: "1.05rem", color: valueColor }}
+      >
         {value}
       </Typography>
       {sub && (
