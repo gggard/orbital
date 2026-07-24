@@ -42,6 +42,12 @@ Both the `test-python` and `build-ui` jobs in
   in the PR description so it's linked and closed automatically on merge.
 - Keep the PR description scoped to what a reviewer needs: what changed and
   why, plus how you tested it.
+- Before merging, apply exactly one type label — `bug`, `enhancement`, or
+  `documentation` — to the PR. Dependabot PRs are labeled `dependencies`
+  automatically. Each release's changelog is generated from these labels
+  (see [.github/release.yml](.github/release.yml)); an unlabeled PR still
+  ships, it just lands under the release's catch-all "Other Changes"
+  section instead of its own category.
 
 ## Reporting bugs
 
