@@ -10,8 +10,8 @@ export default function AppTypeIcon({
   appType,
   fontSize = 16,
 }: {
-  appType: AppType;
-  fontSize?: number;
+  readonly appType: AppType;
+  readonly fontSize?: number;
 }) {
   const isStatic = appType === "static";
   return (

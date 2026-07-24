@@ -17,7 +17,7 @@ import VulnerabilityTable from "@/components/VulnerabilityTable";
 import { useAppScans, useScanVulnerabilities } from "@/lib/api";
 import { mono } from "@/theme";
 
-export default function SecurityTab({ appId }: { appId: string }) {
+export default function SecurityTab({ appId }: { readonly appId: string }) {
   const { data: scans } = useAppScans(appId);
   const [selected, setSelected] = useState<string | null>(null);
   const { data: vulnerabilities } = useScanVulnerabilities(appId, selected);

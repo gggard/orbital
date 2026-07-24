@@ -22,7 +22,7 @@ function duration(start: string, end: string | null): string {
   return s < 90 ? `${Math.round(s)}s` : `${Math.round(s / 60)}m ${Math.round(s % 60)}s`;
 }
 
-export default function BuildsTab({ appId }: { appId: string }) {
+export default function BuildsTab({ appId }: { readonly appId: string }) {
   const { data: builds } = useBuilds(appId);
   const [selected, setSelected] = useState<string | null>(null);
   const { data: buildLogs } = useBuildLogs(appId, selected);

@@ -27,10 +27,10 @@ export default function TagPicker({
   label = "Tags",
   helperText,
 }: {
-  value: string[];
-  onChange: (tags: string[]) => void;
-  label?: string;
-  helperText?: string;
+  readonly value: string[];
+  readonly onChange: (tags: string[]) => void;
+  readonly label?: string;
+  readonly helperText?: string;
 }) {
   const [input, setInput] = useState("");
   const q = useDebounced(input, 250);

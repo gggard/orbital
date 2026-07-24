@@ -11,8 +11,8 @@ export default function Logo({
   size = 24,
   variant = "mark",
 }: {
-  size?: number;
-  variant?: "mark" | "tile";
+  readonly size?: number;
+  readonly variant?: "mark" | "tile";
 }) {
   const id = useId();
   const grad = `orbital-logo-${id}`;

@@ -25,8 +25,8 @@ export default function StateChip({
   state,
   size = "small",
 }: {
-  state: AppState | BuildPhase | ScanStatus;
-  size?: "small" | "medium";
+  readonly state: AppState | BuildPhase | ScanStatus;
+  readonly size?: "small" | "medium";
 }) {
   const s = STYLES[state] ?? { color: "default" as ChipColor };
   return (

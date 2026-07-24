@@ -19,9 +19,9 @@ export default function CreateTokenDialog({
   onClose,
   onCreated,
 }: {
-  open: boolean;
-  onClose: () => void;
-  onCreated: () => void;
+  readonly open: boolean;
+  readonly onClose: () => void;
+  readonly onCreated: () => void;
 }) {
   const { data: me } = useMe();
   const maxTtlDays = me?.api_token_max_ttl_days;

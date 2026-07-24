@@ -150,10 +150,10 @@ function SourceFields({
 export default function SettingsTab({
   app,
   onSaved,
-}: {
+}: Readonly<{
   app: AppOut;
   onSaved: (msg: string) => void;
-}) {
+}>) {
   const router = useRouter();
   const { data: me } = useMe();
   const isStatic = app.app_type === "static";

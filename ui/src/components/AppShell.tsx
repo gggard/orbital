@@ -93,7 +93,7 @@ function UserMenu() {
   );
 }
 
-function AuthGate({ children }: { children: React.ReactNode }) {
+function AuthGate({ children }: { readonly children: React.ReactNode }) {
   const { data: me, error, isLoading } = useMe();
   const pathname = usePathname();
 
@@ -145,7 +145,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   return <>{me && children}</>;
 }
 
-export default function AppShell({ children }: { children: React.ReactNode }) {
+export default function AppShell({ children }: { readonly children: React.ReactNode }) {
   return (
     <>
       <AppBar

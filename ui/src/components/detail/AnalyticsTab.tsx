@@ -26,7 +26,7 @@ function dayToUnix(date: string): number {
   return new Date(`${date}T00:00:00Z`).getTime() / 1000;
 }
 
-function StatTile({ label, value }: { label: string; value: string }) {
+function StatTile({ label, value }: { readonly label: string; readonly value: string }) {
   return (
     <Card sx={{ flex: 1, minWidth: 140 }}>
       <CardContent sx={{ py: 1.5, "&:last-child": { pb: 1.5 } }}>
@@ -41,7 +41,7 @@ function StatTile({ label, value }: { label: string; value: string }) {
   );
 }
 
-export default function AnalyticsTab({ appId }: { appId: string }) {
+export default function AnalyticsTab({ appId }: { readonly appId: string }) {
   const { data, error, isLoading } = useAppAnalytics(appId);
 
   if (error) return <Alert severity="error">failed to load analytics: {error.message}</Alert>;

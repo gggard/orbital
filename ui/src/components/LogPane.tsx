@@ -9,9 +9,9 @@ export default function LogPane({
   follow = false,
   maxHeight = 480,
 }: {
-  text: string;
-  follow?: boolean;
-  maxHeight?: number | string;
+  readonly text: string;
+  readonly follow?: boolean;
+  readonly maxHeight?: number | string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
 

@@ -12,7 +12,7 @@ import { useState } from "react";
 import LogPane from "@/components/LogPane";
 import { useAppLogs } from "@/lib/api";
 
-export default function LogsTab({ appId }: { appId: string }) {
+export default function LogsTab({ appId }: { readonly appId: string }) {
   const [follow, setFollow] = useState(true);
   const { data: logs, mutate } = useAppLogs(appId, follow);
 

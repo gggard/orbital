@@ -11,7 +11,7 @@ import { useBuilds, useMe } from "@/lib/api";
 import type { AppOut } from "@/lib/types";
 import { mono } from "@/theme";
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
+function Row({ label, children }: Readonly<{ label: string; children: React.ReactNode }>) {
   return (
     <Stack direction="row" spacing={2} sx={{ alignItems: "baseline" }}>
       <Typography variant="body2" color="text.secondary" sx={{ width: 120, flexShrink: 0 }}>
@@ -64,7 +64,7 @@ function DefinitionFields({ app }: Readonly<{ app: AppOut }>) {
   );
 }
 
-export default function OverviewTab({ app }: { app: AppOut }) {
+export default function OverviewTab({ app }: Readonly<{ app: AppOut }>) {
   const { data: builds } = useBuilds(app.id);
   const { data: me } = useMe();
   const current = builds?.find((b) => b.id === app.current_build_id);

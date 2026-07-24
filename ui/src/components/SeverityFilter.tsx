@@ -20,8 +20,8 @@ export default function SeverityFilter({
   value,
   onChange,
 }: {
-  value: Severity[];
-  onChange: (value: Severity[]) => void;
+  readonly value: Severity[];
+  readonly onChange: (value: Severity[]) => void;
 }) {
   return (
     <ToggleButtonGroup

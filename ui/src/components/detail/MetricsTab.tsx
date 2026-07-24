@@ -26,7 +26,7 @@ import { mono } from "@/theme";
 
 // -- tab -------------------------------------------------------------------
 
-export default function MetricsTab({ appId }: { appId: string }) {
+export default function MetricsTab({ appId }: { readonly appId: string }) {
   const { data, error, isLoading } = useAppMetrics(appId);
   const [view, setView] = useState<"charts" | "table">("charts");
 
