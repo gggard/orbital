@@ -2,6 +2,11 @@
 
 # Orbital
 
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=gggard_orbital&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=gggard_orbital)
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=gggard_orbital&metric=coverage)](https://sonarcloud.io/summary/new_code?id=gggard_orbital)
+[![Bugs](https://sonarcloud.io/api/project_badges/measure?project=gggard_orbital&metric=bugs)](https://sonarcloud.io/summary/new_code?id=gggard_orbital)
+[![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=gggard_orbital&metric=vulnerabilities)](https://sonarcloud.io/summary/new_code?id=gggard_orbital)
+
 Self-hosted platform for deploying, running, and managing [Streamlit](https://streamlit.io)
 apps — and plain static sites — on Kubernetes. Point it at a git repository
 and the app is live on its own subdomain minutes later, with secrets
