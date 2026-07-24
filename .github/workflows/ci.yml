@@ -45,12 +45,6 @@ jobs:
           name: coverage-xml
           path: coverage.xml
 
-      - name: SonarQube Scan
-        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
-        uses: SonarSource/sonarqube-scan-action@22918119ff8e1ca75a623e15c8296b6ea4fbe28f # v8.2.1
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-
   build-ui:
     runs-on: ubuntu-latest
     defaults:
@@ -69,5 +63,52 @@ jobs:
       - name: Install dependencies
         run: npm ci --ignore-scripts
 
+      - name: Run tests with coverage
+        run: npm run coverage
+
+      - name: Report coverage
+        if: always()
+        run: |
+          echo '## UI Coverage' >> "$GITHUB_STEP_SUMMARY"
+          node -e "
+            const s = require('./coverage/coverage-summary.json').total;
+            const row = (name, m) => \`| \${name} | \${m.pct}% (\${m.covered}/\${m.total}) |\`;
+            console.log(['| Metric | Coverage |', '|---|---|',
+              row('Lines', s.lines), row('Statements', s.statements),
+              row('Functions', s.functions), row('Branches', s.branches)].join('\n'));
+          " >> "$GITHUB_STEP_SUMMARY"
+
       - name: Build
         run: npm run build
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-ui-lcov
+          path: ui/coverage/lcov.info
+
+  sonar:
+    needs: [test-python, build-ui]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download Python coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-xml
+
+      - name: Download UI coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-ui-lcov
+          path: ui/coverage
+
+      - name: SonarQube Scan
+        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+        uses: SonarSource/sonarqube-scan-action@22918119ff8e1ca75a623e15c8296b6ea4fbe28f # v8.2.1
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
