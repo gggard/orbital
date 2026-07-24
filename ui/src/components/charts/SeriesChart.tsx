@@ -41,6 +41,11 @@ export interface SeriesPoint {
   v: number;
 }
 
+/** Time-axis tick indices: start + end, deduplicated for a single-point series. */
+export function computeTimeTicks(lastIndex: number): number[] {
+  return lastIndex === 0 ? [0] : [0, lastIndex];
+}
+
 interface SeriesChartProps {
   readonly points: SeriesPoint[];
   readonly fmt: (v: number) => string;
@@ -84,9 +89,8 @@ export function SeriesChart({ points, fmt, ariaLabel, fmtTime = defaultFmtTime }
 
   const last = points.length - 1;
   const h = hover;
-  // time labels: ends only (middle would crowd at this width); a single
-  // point collapses start/end to the same index, so don't duplicate it
-  const timeTicks = last === 0 ? [0] : [0, last];
+  // time labels: ends only (middle would crowd at this width)
+  const timeTicks = computeTimeTicks(last);
 
   return (
     <Box sx={{ position: "relative" }}>

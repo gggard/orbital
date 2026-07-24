@@ -108,15 +108,17 @@ def _pod(statuses: list):
 def test_fetch_pod_restarts_sums_counts_and_picks_latest_termination():
     older = _terminated("Error", datetime(2026, 1, 1, tzinfo=UTC))
     newer = _terminated("OOMKilled", datetime(2026, 1, 2, tzinfo=UTC))
+    # an even-older termination processed *after* `newer` must not overwrite it
+    stale = _terminated("Error", datetime(2025, 12, 31, tzinfo=UTC))
     pods = [
         _pod([_container_status(2, older), _container_status(0)]),
-        _pod([_container_status(1, newer)]),
+        _pod([_container_status(1, newer), _container_status(1, stale)]),
     ]
     fake_core = Mock()
     fake_core.list_namespaced_pod.return_value = Mock(items=pods)
     with patch("orbital.k8s.metrics.client.core", return_value=fake_core):
         info = fetch_pod_restarts("app1", Settings())
-    assert info.count == 3
+    assert info.count == 4
     assert info.last_reason == "OOMKilled"
     assert info.last_at == newer.finished_at
     fake_core.list_namespaced_pod.assert_called_once_with(

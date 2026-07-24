@@ -21,8 +21,17 @@ import { useState } from "react";
 import { ChartStatHeader, SeriesChart } from "@/components/charts/SeriesChart";
 import { useAppMetrics } from "@/lib/api";
 import { fmtAgo, fmtCpu, fmtMem } from "@/lib/format";
-import type { MetricsPoint } from "@/lib/types";
+import type { MetricsPoint, RestartInfo } from "@/lib/types";
 import { mono } from "@/theme";
+
+// -- pure helpers (unit-tested directly, no rendering needed) --------------
+
+/** Plain-text summary for the Restarts stat's sub-line. */
+export function restartsSummary(restarts: RestartInfo | null): string {
+  if (!restarts || restarts.count === 0) return "container restarts across this app's pods";
+  const when = restarts.last_at ? `last ${fmtAgo(restarts.last_at)}` : "last at an unknown time";
+  return restarts.last_reason ? `${when} · ${restarts.last_reason}` : when;
+}
 
 // -- tab -------------------------------------------------------------------
 
@@ -41,13 +50,10 @@ export default function MetricsTab({ appId }: { readonly appId: string }) {
   const restartsSub =
     restarts && restarts.count > 0 ? (
       <Tooltip title={restarts.last_at ? new Date(restarts.last_at).toLocaleString() : ""}>
-        <span>
-          last {restarts.last_at ? fmtAgo(restarts.last_at) : "at an unknown time"}
-          {restarts.last_reason ? ` · ${restarts.last_reason}` : ""}
-        </span>
+        <span>{restartsSummary(restarts)}</span>
       </Tooltip>
     ) : (
-      "container restarts across this app's pods"
+      restartsSummary(restarts)
     );
 
   const restartsCard = (
