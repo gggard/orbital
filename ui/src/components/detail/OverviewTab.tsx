@@ -24,13 +24,13 @@ function Row({ label, children }: Readonly<{ label: string; children: React.Reac
   );
 }
 
-function visibilityLabel(app: AppOut): string {
+export function visibilityLabel(app: AppOut): string {
   if (app.public) return "public";
   const scope = app.allowed_groups.length ? app.allowed_groups.join(", ") : "any signed-in user";
   return `private — ${scope}`;
 }
 
-function hibernationLabel(app: AppOut, hibernateHours: number | null): string {
+export function hibernationLabel(app: AppOut, hibernateHours: number | null): string {
   if (!app.hibernate_enabled) return "disabled";
   if (app.hibernate_after_seconds) return `sleeps after ${hibernateHours!.toFixed(1)}h idle`;
   if (hibernateHours !== null) {

@@ -28,7 +28,7 @@ import { useAdminOverview, useApps, useMe } from "@/lib/api";
 import { fmtCpu, fmtMem } from "@/lib/format";
 import type { AdminAppOut, AppState } from "@/lib/types";
 
-function AppsListBody({
+export function AppsListBody({
   loading,
   allApps,
   filteredApps,

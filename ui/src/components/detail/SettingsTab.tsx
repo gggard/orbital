@@ -23,7 +23,7 @@ const PYTHON_VERSIONS = ["3.12"];
 // trims to at most 1 decimal, e.g. 10 -> "10", 0.5 -> "0.5"
 const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
 
-function computeDirty(
+export function computeDirty(
   app: AppOut,
   isStatic: boolean,
   fields: { branch: string; mainFile: string; python: string; buildCommand: string; outputDir: string },
@@ -42,14 +42,18 @@ function computeDirty(
   );
 }
 
-function computeHibernateDirty(app: AppOut, hibernateEnabled: boolean, hibernateHours: string): boolean {
+export function computeHibernateDirty(
+  app: AppOut,
+  hibernateEnabled: boolean,
+  hibernateHours: string,
+): boolean {
   return (
     hibernateEnabled !== app.hibernate_enabled ||
     (hibernateHours !== "" && Number(hibernateHours) * 3600 !== app.hibernate_after_seconds)
   );
 }
 
-function computePollDirty(app: AppOut, pollEnabled: boolean, pollMinutes: string): boolean {
+export function computePollDirty(app: AppOut, pollEnabled: boolean, pollMinutes: string): boolean {
   return (
     pollEnabled !== app.poll_enabled ||
     (pollMinutes !== "" && Number(pollMinutes) * 60 !== app.poll_interval_seconds)
@@ -59,7 +63,7 @@ function computePollDirty(app: AppOut, pollEnabled: boolean, pollMinutes: string
 // Shared helper text for the poll-interval and hibernate-timeout fields: an
 // error message when the value is out of range, otherwise the platform
 // default/limit (or a generic hint if neither is known yet).
-function intervalHelperText(outOfRange: string | false, hints: (string | false)[]): string {
+export function intervalHelperText(outOfRange: string | false, hints: (string | false)[]): string {
   if (outOfRange) return outOfRange;
   return hints.filter(Boolean).join(" · ") || "leave blank to use the platform default";
 }

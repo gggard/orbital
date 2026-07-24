@@ -87,6 +87,41 @@ def _build(phase=BuildPhase.running, created_at=None) -> Build:
     )
 
 
+# -- primary signal: Job conditions ------------------------------------------
+
+
+def test_check_build_succeeds_via_complete_condition(reconciler, monkeypatch):
+    job = _job(conditions=[SimpleNamespace(type="Complete", status="True", message=None)])
+    _mock_k8s(monkeypatch, job)
+    app_id = _persist(make_app(), build=_build())
+
+    from orbital import db as db_mod
+
+    with db_mod.session_scope() as session:
+        app = session.get(App, app_id)
+        reconciler._check_build(session, app)
+        assert app.state == AppState.deploying
+        assert app.error is None
+
+
+def test_check_build_fails_via_failed_condition_message(reconciler, monkeypatch):
+    job = _job(
+        conditions=[
+            SimpleNamespace(type="Failed", status="True", message="OOMKilled")
+        ]
+    )
+    _mock_k8s(monkeypatch, job)
+    app_id = _persist(make_app(), build=_build())
+
+    from orbital import db as db_mod
+
+    with db_mod.session_scope() as session:
+        app = session.get(App, app_id)
+        reconciler._check_build(session, app)
+        assert app.state == AppState.build_failed
+        assert "OOMKilled" in app.error
+
+
 # -- fallback to status.succeeded/status.failed when conditions lag --------
 
 
