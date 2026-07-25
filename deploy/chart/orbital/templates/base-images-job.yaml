@@ -9,7 +9,7 @@ registry.tls.enabled=true this lookup finds nothing yet even though the
 Secret is created moments later in the same install - see the `fail` below.
 */ -}}
 {{- $registryCACert := "" }}
-{{- if .Values.registry.tls.enabled }}
+{{- if (and .Values.registry.tls.enabled (or .Values.baseImages.build .Values.baseImages.buildStatic)) }}
 {{- $tlsSecretName := include "orbital.registryTlsSecretName" . }}
 {{- $tlsSecret := lookup "v1" "Secret" .Release.Namespace $tlsSecretName }}
 {{- if not $tlsSecret }}
