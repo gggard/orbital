@@ -234,3 +234,49 @@ def test_logout_with_active_session_hits_idp_logout(client):
 
     # session was cleared: /me now 401s
     assert client.get("/api/v1/me").status_code == 401
+
+
+def test_login_rate_limited_per_ip(tmp_path, monkeypatch):
+    monkeypatch.setenv("ORBITAL_DATABASE_URL", f"sqlite:///{tmp_path}/rl.db")
+    monkeypatch.setenv("ORBITAL_RECONCILER_ENABLED", "false")
+    monkeypatch.setenv("ORBITAL_UI_AUTH_ENABLED", "true")
+    monkeypatch.setenv("ORBITAL_SESSION_SECRET", "x" * 32)
+    monkeypatch.setenv("ORBITAL_OIDC_ISSUER_URL", ISSUER)
+    monkeypatch.setenv("ORBITAL_OIDC_CLIENT_ID", "orbital-console")
+    monkeypatch.setenv("ORBITAL_OIDC_CLIENT_SECRET", "s3cr3t")
+    monkeypatch.setenv("ORBITAL_UI_BASE_URL", "http://console.local:3000")
+    monkeypatch.setenv("ORBITAL_LOGIN_RATE_LIMIT_PER_MINUTE", "2")
+    get_settings.cache_clear()
+    from orbital import db
+    from orbital.main import app
+
+    db.init_engine(f"sqlite:///{tmp_path}/rl.db")
+    with TestClient(app, base_url="https://testserver", follow_redirects=False) as c:
+        assert c.get("/api/auth/login?next=/x").status_code in (302, 307)
+        assert c.get("/api/auth/login?next=/x").status_code in (302, 307)
+        r = c.get("/api/auth/login?next=/x")
+        assert r.status_code == 429
+        assert r.headers["retry-after"] == "60"
+    get_settings.cache_clear()
+
+
+def test_login_rate_limit_is_keyed_per_client(tmp_path, monkeypatch):
+    """Different callers (keyed by request.client.host) don't share a budget."""
+    from orbital.ratelimit import login_limiter
+
+    monkeypatch.setenv("ORBITAL_DATABASE_URL", f"sqlite:///{tmp_path}/rl2.db")
+    monkeypatch.setenv("ORBITAL_RECONCILER_ENABLED", "false")
+    monkeypatch.setenv("ORBITAL_UI_AUTH_ENABLED", "false")
+    monkeypatch.setenv("ORBITAL_LOGIN_RATE_LIMIT_PER_MINUTE", "1")
+    get_settings.cache_clear()
+    from orbital import db
+    from orbital.main import app
+
+    db.init_engine(f"sqlite:///{tmp_path}/rl2.db")
+    with TestClient(app, follow_redirects=False) as c:
+        assert c.get("/api/auth/login?next=/x").status_code in (302, 307)
+        # same (TestClient-default) peer address is now over budget
+        assert c.get("/api/auth/login?next=/x").status_code == 429
+        # a distinct key has its own independent budget
+        assert login_limiter.check("some-other-ip", limit=1, window_seconds=60) is True
+    get_settings.cache_clear()

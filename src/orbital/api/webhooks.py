@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from ..db import get_db
 from ..models import App, AppState, PendingAction
+from ..ratelimit import rate_limit_webhook
 
 log = logging.getLogger(__name__)
 
@@ -14,7 +15,12 @@ router = APIRouter(tags=["webhooks"])
 
 
 @router.post("/webhooks/apps/{app_id}/{token}", status_code=202)
-def git_push_webhook(app_id: str, token: str, db: Annotated[Session, Depends(get_db)]):
+def git_push_webhook(
+    app_id: str,
+    token: str,
+    db: Annotated[Session, Depends(get_db)],
+    _rate_limit: Annotated[None, Depends(rate_limit_webhook)],
+):
     """Generic push webhook: any POST with the correct per-app token triggers a redeploy.
 
     Works as the target of GitHub/GitLab/Gitea push webhooks (payload is ignored;
