@@ -12,6 +12,12 @@ run:
 test:
 	$(VENV)/bin/pytest -q --cov=orbital --cov-report=term-missing --cov-report=xml
 
+lint:
+	$(VENV)/bin/ruff check src tests
+
+typecheck:
+	$(VENV)/bin/mypy src
+
 setup-minikube:
 	bash deploy/minikube/setup.sh
 
@@ -48,4 +54,4 @@ push-images:
 	docker push $(IMAGE_PREFIX)/control-plane:$(TAG)
 	docker push $(IMAGE_PREFIX)/console:$(TAG)
 
-.PHONY: install run test setup-minikube setup-auth ui-install ui-dev ui docs-install docs-serve docs-build images push-images
+.PHONY: install run test lint typecheck setup-minikube setup-auth ui-install ui-dev ui docs-install docs-serve docs-build images push-images

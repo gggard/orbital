@@ -141,6 +141,7 @@ def _sqlite_rebuild_apps_table(engine, models) -> None:
 def get_engine():
     if _engine is None:
         init_engine()
+    assert _engine is not None
     return _engine
 
 
@@ -148,6 +149,7 @@ def get_engine():
 def session_scope() -> Iterator[Session]:
     if _SessionLocal is None:
         init_engine()
+    assert _SessionLocal is not None
     session: Session = _SessionLocal()
     try:
         yield session

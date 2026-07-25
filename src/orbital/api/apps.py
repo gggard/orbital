@@ -111,7 +111,7 @@ def _validate_toml(text: str):
     try:
         tomllib.loads(text)
     except tomllib.TOMLDecodeError as e:
-        raise HTTPException(422, f"invalid TOML: {e}")
+        raise HTTPException(422, f"invalid TOML: {e}") from e
 
 
 def _validate_poll_interval(value: int | None, settings: Settings) -> None:

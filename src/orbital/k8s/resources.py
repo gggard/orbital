@@ -1,5 +1,7 @@
 """Per-app runtime manifests: Deployment, Service, Ingress, Secret (SPEC §5.3)."""
 
+from typing import Any
+
 from ..config import Settings
 from ..models import App, AppState, AppType
 
@@ -55,7 +57,7 @@ def deployment(app: App, image: str, settings: Settings, restarted_at: str) -> d
         # static apps have no generic base-path mechanism (best-effort under
         # path routing - see docs/ADMIN.md); nginx just serves at "/"
         health_path = f"{base_path}/" if base_path else "/"
-    volume_mounts = [
+    volume_mounts: list[dict[str, Any]] = [
         {"name": "tmp", "mountPath": _APP_TMP_DIR},
         {"name": "home", "mountPath": "/home/appuser"},
     ]

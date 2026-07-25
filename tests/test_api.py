@@ -163,8 +163,10 @@ def test_update_app_tags(client):
 
 def test_tags_endpoint_collects_distinct_tags(client):
     make_app(client, "app1").json()
-    client.patch(f"/api/v1/apps/{make_app(client, 'app2').json()['id']}", json={"tags": ["ml", "prod"]})
-    client.patch(f"/api/v1/apps/{make_app(client, 'app3').json()['id']}", json={"tags": ["prod", "web"]})
+    app2_id = make_app(client, "app2").json()["id"]
+    client.patch(f"/api/v1/apps/{app2_id}", json={"tags": ["ml", "prod"]})
+    app3_id = make_app(client, "app3").json()["id"]
+    client.patch(f"/api/v1/apps/{app3_id}", json={"tags": ["prod", "web"]})
     assert client.get("/api/v1/tags").json() == {"tags": ["ml", "prod", "web"]}
 
 

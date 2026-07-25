@@ -256,5 +256,6 @@ def test_admin_manages_everything(client):
     as_user(client, CREATOR)
     app_id = make_app(client, "mine").json()["id"]
     as_user(client, ADMIN)
-    assert client.patch(f"/api/v1/apps/{app_id}", json={"owner_groups": ["viewers"]}).status_code == 200
+    resp = client.patch(f"/api/v1/apps/{app_id}", json={"owner_groups": ["viewers"]})
+    assert resp.status_code == 200
     assert client.delete(f"/api/v1/apps/{app_id}").status_code == 202

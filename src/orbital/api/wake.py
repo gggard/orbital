@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session
 from .. import activity, analytics
 from ..config import Settings, get_settings
 from ..db import get_db, session_scope
-from ..models import App, AppState
+from ..models import App
 
 log = logging.getLogger(__name__)
 

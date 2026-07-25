@@ -13,11 +13,11 @@ from orbital.config import Settings, get_settings
 
 
 def _settings(**overrides) -> Settings:
-    base = dict(
-        admin_groups=["admins"],
-        creator_groups=["data-team"],
-        viewer_groups=["viewers"],
-    )
+    base = {
+        "admin_groups": ["admins"],
+        "creator_groups": ["data-team"],
+        "viewer_groups": ["viewers"],
+    }
     base.update(overrides)
     return Settings(**base)
 

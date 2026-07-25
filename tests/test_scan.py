@@ -13,19 +13,19 @@ from orbital.models import App, AppState, AppType, PendingAction, ScanResult, Sc
 
 
 def make_app(current_image="localhost:5000/apps/abc123def456:bld1", **kwargs) -> App:
-    defaults = dict(
-        id="abc123def456",
-        slug="demo",
-        repo_url="https://github.com/x/y",
-        branch="main",
-        app_type=AppType.streamlit,
-        state=AppState.running,
-        owner_groups=[],
-        allowed_groups=[],
-        pending_action=PendingAction.none,
-        current_build_id="bld1",
-        current_image=current_image,
-    )
+    defaults = {
+        "id": "abc123def456",
+        "slug": "demo",
+        "repo_url": "https://github.com/x/y",
+        "branch": "main",
+        "app_type": AppType.streamlit,
+        "state": AppState.running,
+        "owner_groups": [],
+        "allowed_groups": [],
+        "pending_action": PendingAction.none,
+        "current_build_id": "bld1",
+        "current_image": current_image,
+    }
     defaults.update(kwargs)
     return App(**defaults)
 
@@ -84,14 +84,14 @@ def _persist(app: App, scan: ScanResult | None = None) -> str:
 
 
 def _scan(status=ScanStatus.running, image="localhost:5000/apps/abc123def456:bld1", **kwargs):
-    defaults = dict(
-        id="scan00000001",
-        app_id="abc123def456",
-        build_id="bld1",
-        image=image,
-        status=status,
-        created_at=datetime.now(UTC),
-    )
+    defaults = {
+        "id": "scan00000001",
+        "app_id": "abc123def456",
+        "build_id": "bld1",
+        "image": image,
+        "status": status,
+        "created_at": datetime.now(UTC),
+    }
     defaults.update(kwargs)
     return ScanResult(**defaults)
 
@@ -249,8 +249,9 @@ def test_check_scan_times_out_with_no_terminal_signal(reconciler, monkeypatch):
 
 
 def test_check_scan_job_not_found_fails_scan(reconciler, monkeypatch):
-    from orbital.k8s import client as k8s_client
     from kubernetes.client import ApiException
+
+    from orbital.k8s import client as k8s_client
 
     batch = MagicMock()
     batch.read_namespaced_job.side_effect = ApiException(status=404)
