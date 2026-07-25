@@ -51,12 +51,18 @@ if [ "$APP_TYPE" = "static" ]; then
     for f in package-lock.json yarn.lock pnpm-lock.yaml; do
       if [ -f "$f" ]; then LOCKFILE="$f"; break; fi
     done
+    # BUILD_COMMAND is intentionally unsanitized (it's the app's own build
+    # step), so it's written verbatim to a script file rather than spliced
+    # into a Dockerfile RUN string, where a '"'/backslash/newline could
+    # break out into arbitrary extra Dockerfile instructions.
+    BUILD_SCRIPT=".orbital-build-command.sh"
+    printf '%s\n' "$BUILD_COMMAND" > "$BUILD_SCRIPT"
     {
       echo "FROM node:20-alpine AS build"
       echo "WORKDIR /src"
       echo "COPY . ."
       echo "RUN npm ci || npm install"
-      printf 'RUN sh -c "%s"\n' "$BUILD_COMMAND"
+      echo "RUN sh $BUILD_SCRIPT"
       echo "FROM $BASE_IMAGE"
       echo "COPY --from=build --chown=1000:1000 /src/$OUTPUT_DIR /usr/share/nginx/html"
       echo "COPY --from=build /src/package.json /opt/app-manifest/package.json"

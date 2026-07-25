@@ -58,6 +58,122 @@ def test_unsupported_python_version(client):
     assert r.status_code == 422
 
 
+# -- Dockerfile-injection guards (issue #76) --------------------------------
+# main_file/output_dir get spliced into generated Dockerfile instruction
+# lines (src/orbital/k8s/scripts.py); a '"', backslash or newline could break
+# out of the intended instruction and inject arbitrary Dockerfile syntax.
+
+
+def test_main_file_dockerfile_injection_rejected(client):
+    r = client.post(
+        "/api/v1/apps",
+        json={
+            "slug": "inject",
+            "repo_url": "https://github.com/x/y",
+            "main_file": '"]\nUSER root\nCMD ["sh',
+        },
+    )
+    assert r.status_code == 422
+
+
+def test_main_file_path_traversal_rejected(client):
+    r = client.post(
+        "/api/v1/apps",
+        json={
+            "slug": "traversal",
+            "repo_url": "https://github.com/x/y",
+            "main_file": "../../etc/passwd",
+        },
+    )
+    assert r.status_code == 422
+
+
+def test_main_file_absolute_path_rejected(client):
+    r = client.post(
+        "/api/v1/apps",
+        json={"slug": "absolute", "repo_url": "https://github.com/x/y", "main_file": "/etc/passwd"},
+    )
+    assert r.status_code == 422
+
+
+def test_valid_main_file_subdirectory_accepted(client):
+    r = client.post(
+        "/api/v1/apps",
+        json={
+            "slug": "validmain",
+            "repo_url": "https://github.com/x/y",
+            "main_file": "app/streamlit_app.py",
+        },
+    )
+    assert r.status_code == 201, r.text
+    assert r.json()["main_file"] == "app/streamlit_app.py"
+
+
+def test_output_dir_dockerfile_injection_rejected(client):
+    r = client.post(
+        "/api/v1/apps",
+        json={
+            "slug": "staticinject",
+            "repo_url": "https://github.com/x/y",
+            "app_type": "static",
+            "output_dir": 'dist"\nUSER root',
+        },
+    )
+    assert r.status_code == 422
+
+
+def test_output_dir_traversal_rejected(client):
+    r = client.post(
+        "/api/v1/apps",
+        json={
+            "slug": "statictraversal",
+            "repo_url": "https://github.com/x/y",
+            "app_type": "static",
+            "output_dir": "../secrets",
+        },
+    )
+    assert r.status_code == 422
+
+
+def test_valid_output_dir_accepted(client):
+    r = client.post(
+        "/api/v1/apps",
+        json={
+            "slug": "validoutput",
+            "repo_url": "https://github.com/x/y",
+            "app_type": "static",
+            "output_dir": "build/dist",
+        },
+    )
+    assert r.status_code == 201, r.text
+    assert r.json()["output_dir"] == "build/dist"
+
+
+def test_build_command_still_allows_arbitrary_shell_syntax(client):
+    """build_command intentionally runs arbitrary shell (it's the app's own
+    build step) - it must not be charset-restricted like main_file/output_dir,
+    only kept from splicing into the Dockerfile as a string literal."""
+    r = client.post(
+        "/api/v1/apps",
+        json={
+            "slug": "buildcmd",
+            "repo_url": "https://github.com/x/y",
+            "app_type": "static",
+            "build_command": 'echo "hi" && rm -rf node_modules/.cache',
+        },
+    )
+    assert r.status_code == 201, r.text
+
+
+def test_update_main_file_dockerfile_injection_rejected(client):
+    app_id = make_app(client).json()["id"]
+    r = client.patch(
+        f"/api/v1/apps/{app_id}",
+        json={"main_file": '"]\nUSER root\nCMD ["sh'},
+    )
+    assert r.status_code == 422
+
+
 def test_secrets_validation(client):
     app_id = make_app(client).json()["id"]
     bad = client.put(f"/api/v1/apps/{app_id}/secrets", json={"secrets_toml": "not = ["})

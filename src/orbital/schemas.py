@@ -1,11 +1,29 @@
 import re
 from datetime import datetime
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, ValidationInfo, field_validator, model_validator
 
 from .models import AppState, AppType, BuildPhase, ScanStatus, Severity
 
 SLUG_RE = re.compile(r"^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$")
+
+# Charset for main_file/output_dir: these get spliced into generated Dockerfile
+# instruction lines (see k8s/scripts.py), so they must never contain '"', '`',
+# '\' or newlines, which could break out of the intended instruction.
+PATH_SEGMENT_RE = re.compile(r"^[A-Za-z0-9_.\-]+$")
+
+
+def _relative_path(v: str, field: str) -> str:
+    if v.startswith("/"):
+        raise ValueError(f"{field} must be a relative path (no leading '/')")
+    for segment in v.split("/"):
+        if segment == "":
+            raise ValueError(f"{field} must not contain empty path segments")
+        if segment == "..":
+            raise ValueError(f"{field} must not contain '..' segments")
+        if not PATH_SEGMENT_RE.match(segment):
+            raise ValueError(f"{field} may only contain letters, digits, '.', '_', '-' and '/'")
+    return v
 
 
 class AppCreate(BaseModel):
@@ -33,6 +51,16 @@ class AppCreate(BaseModel):
         if not SLUG_RE.match(v):
             raise ValueError("slug must be lowercase DNS-safe: [a-z0-9-]")
         return v
+
+    @field_validator("main_file")
+    @classmethod
+    def main_file_safe_path(cls, v: str | None) -> str | None:
+        return _relative_path(v, "main_file") if v is not None else v
+
+    @field_validator("output_dir")
+    @classmethod
+    def output_dir_safe_path(cls, v: str) -> str:
+        return _relative_path(v, "output_dir")
 
     @model_validator(mode="after")
     def _type_specific_fields(self) -> "AppCreate":
@@ -67,6 +95,14 @@ class AppUpdate(BaseModel):
     hibernate_after_seconds: int | None = Field(default=None, gt=0)
     poll_enabled: bool | None = None
     poll_interval_seconds: int | None = Field(default=None, gt=0)
+
+    @field_validator("main_file", "output_dir")
+    @classmethod
+    def safe_path(cls, v: str | None, info: ValidationInfo) -> str | None:
+        if v is None:
+            return v
+        assert info.field_name is not None
+        return _relative_path(v, info.field_name)
 
 
 class BuildOut(BaseModel):

@@ -157,9 +157,26 @@ def test_static_npm_build_generates_multistage_dockerfile(static_repo: Path):
     assert r.returncode == 0, r.stderr
     df = dockerfile(static_repo)
     assert "FROM node:20-alpine AS build" in df
-    assert 'RUN sh -c "npm run build"' in df
+    assert "RUN sh .orbital-build-command.sh" in df
+    assert (static_repo / ".orbital-build-command.sh").read_text() == "npm run build\n"
     assert f"FROM {STATIC_BASE}" in df
     assert "COPY --from=build --chown=1000:1000 /src/dist /usr/share/nginx/html" in df
+
+
+def test_static_build_command_injection_cannot_break_out_of_run_instruction(static_repo: Path):
+    """build_command is intentionally unsanitized (it's the app's own build
+    step), so a '"'/newline in it must not be able to splice extra
+    instructions into the generated Dockerfile - it should only ever affect
+    the *contents* of the build-command script, never the Dockerfile text."""
+    (static_repo / "package.json").write_text('{"name": "x"}\n')
+    malicious = 'npm run build"\nUSER root\nRUN echo pwned > /etc/pwned'
+    r = run_detect_static(static_repo, build_command=malicious, output_dir="dist")
+    assert r.returncode == 0, r.stderr
+    df = dockerfile(static_repo)
+    assert "USER root" not in df
+    assert "RUN echo pwned" not in df
+    assert df.count("RUN sh .orbital-build-command.sh") == 1
+    assert (static_repo / ".orbital-build-command.sh").read_text() == malicious + "\n"
 
 
 def test_static_build_command_without_package_json_fails(static_repo: Path):
