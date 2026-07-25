@@ -31,3 +31,11 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{ include "orbital.fullname" . }}-auth
 {{- end -}}
 {{- end -}}
+
+{{- define "orbital.secretsEncryptionSecretName" -}}
+{{- if .Values.secrets.existingSecret -}}
+{{ .Values.secrets.existingSecret }}
+{{- else -}}
+{{ include "orbital.fullname" . }}-secrets-encryption
+{{- end -}}
+{{- end -}}

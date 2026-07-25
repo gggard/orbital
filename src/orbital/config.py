@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+from cryptography.fernet import Fernet
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -65,6 +66,11 @@ class Settings(BaseSettings):
     oidc_client_secret: str = ""
     ui_base_url: str = "http://localhost:3000"  # browser-facing console URL
     session_secret: str = "dev-session-secret-change-me"
+
+    # Encrypts App.secrets_toml at rest (issue #73): 32-byte, base64-encoded
+    # Fernet key, sourced from a k8s Secret (see docs/ADMIN.md). No default -
+    # the app refuses to start without one (see _validate_secrets_encryption_key).
+    secrets_encryption_key: str = ""
 
     # Personal API tokens (SPEC: "dashboard session or personal API token").
     # No separate default is needed beyond this: a token with no explicit
@@ -180,6 +186,23 @@ class Settings(BaseSettings):
                 f"({self.hibernation_max_timeout_seconds}) must be >= "
                 f"ORBITAL_HIBERNATION_TIMEOUT_SECONDS ({self.hibernation_timeout_seconds})"
             )
+        return self
+
+    @model_validator(mode="after")
+    def _validate_secrets_encryption_key(self) -> "Settings":
+        if not self.secrets_encryption_key:
+            raise ValueError(
+                "ORBITAL_SECRETS_ENCRYPTION_KEY must be set to a 32-byte, "
+                "base64-encoded key (encrypts App.secrets_toml at rest). Generate "
+                'one with: python -c "from cryptography.fernet import Fernet; '
+                'print(Fernet.generate_key().decode())"'
+            )
+        try:
+            Fernet(self.secrets_encryption_key)
+        except Exception as e:
+            raise ValueError(
+                f"ORBITAL_SECRETS_ENCRYPTION_KEY is not a valid Fernet key: {e}"
+            ) from e
         return self
 
 

@@ -208,7 +208,35 @@ Kubernetes resources; images remain in the registry until GC.
   checks the live schema against the current model and backfills anything
   missing before serving traffic. There's no separate migration step to run.
 - Back up either the PVC or the Postgres database; it holds app definitions,
-  build history, webhook tokens, and app secrets.
+  build history, webhook tokens, and app secrets (encrypted, see below).
+
+### Secrets encryption
+
+Every app's `secrets.toml` (`App.secrets_toml`) is encrypted at rest with a
+platform-wide symmetric key before it's written to the database, and only
+decrypted at the two points that need plaintext: the owner-facing
+`GET /api/v1/apps/{id}/secrets` response, and the Kubernetes `Secret` the
+control plane builds for the running app.
+
+- **Provisioning**: set `secrets.encryptionKey` (a 32-byte, base64-encoded
+  key) or `secrets.existingSecret` (name of a pre-existing Secret with an
+  `encryption-key` key) in the Helm values. Generate a key with:
+  ```
+  python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+  ```
+  The control plane refuses to start if `ORBITAL_SECRETS_ENCRYPTION_KEY` is
+  missing or malformed - unlike `auth.console.sessionSecret`, the chart
+  never auto-generates this key, since a value that changed across a `helm
+  upgrade` would make every already-encrypted `secrets_toml` row
+  permanently undecryptable.
+- **Rotation**: there's no live re-encryption in v1 - rotating the key does
+  not re-encrypt existing rows. After rotating, re-enter each app's secrets
+  once via `PUT /api/v1/apps/{id}/secrets` (or the console) using the new
+  key; until then, apps whose secrets predate the rotation will fail to
+  redeploy (decryption error surfaces in the reconciler logs).
+- **Upgrading from a version before this feature**: any `secrets_toml` rows
+  written before the key existed are plaintext and will fail to decrypt.
+  Set the key, then re-enter secrets for each affected app the same way.
 
 ## 4. Troubleshooting
 
@@ -232,8 +260,10 @@ Kubernetes resources; images remain in the registry until GC.
   and cloud metadata endpoints (SPEC §8) — not yet templated in the chart.
 - Never expose the control plane without `auth.console.enabled=true`; an
   unauthenticated control plane treats every caller as admin.
-- App secrets live in the platform database **and** as Kubernetes Secrets in
-  `streamlit-apps` — restrict access to both.
+- App secrets live in the platform database (encrypted at rest, see
+  [Secrets encryption](#secrets-encryption)) **and** as plaintext Kubernetes
+  Secrets in `streamlit-apps` (required so app pods can read them) —
+  restrict access to both.
 - The demo Keycloak in `deploy/auth/` runs in dev mode with fixed passwords:
   demos only, never production.
 

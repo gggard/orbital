@@ -43,6 +43,11 @@ spec:
           env:
             - name: ORBITAL_DATABASE_URL
               value: {{ .Values.database.url | default "sqlite:////data/orbital.db" | quote }}
+            - name: ORBITAL_SECRETS_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "orbital.secretsEncryptionSecretName" . }}
+                  key: encryption-key
             - name: ORBITAL_APPS_NAMESPACE
               value: {{ .Values.apps.namespace | quote }}
             - name: ORBITAL_BUILDS_NAMESPACE
