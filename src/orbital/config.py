@@ -4,6 +4,11 @@ from cryptography.fernet import Fernet
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Placeholder only safe when ui_auth_enabled=False (local dev without auth).
+# Named so the default and the startup check below can't drift apart.
+INSECURE_DEFAULT_SESSION_SECRET = "dev-session-secret-change-me"
+MIN_SESSION_SECRET_LENGTH = 32
+
 
 class Settings(BaseSettings):
     """Platform configuration. All values overridable via ORBITAL_* env vars."""
@@ -65,7 +70,10 @@ class Settings(BaseSettings):
     oidc_client_id: str = "orbital"
     oidc_client_secret: str = ""
     ui_base_url: str = "http://localhost:3000"  # browser-facing console URL
-    session_secret: str = "dev-session-secret-change-me"
+    # Signs the console session cookie (holds the caller's identity/role).
+    # The insecure default below is only tolerated when ui_auth_enabled=False;
+    # see _validate_session_secret.
+    session_secret: str = INSECURE_DEFAULT_SESSION_SECRET
 
     # Encrypts App.secrets_toml at rest (issue #73): 32-byte, base64-encoded
     # Fernet key, sourced from a k8s Secret (see docs/ADMIN.md). No default -
@@ -203,6 +211,28 @@ class Settings(BaseSettings):
             raise ValueError(
                 f"ORBITAL_SECRETS_ENCRYPTION_KEY is not a valid Fernet key: {e}"
             ) from e
+        return self
+
+    @model_validator(mode="after")
+    def _validate_session_secret(self) -> "Settings":
+        if not self.ui_auth_enabled:
+            return self
+        if self.session_secret == INSECURE_DEFAULT_SESSION_SECRET:
+            raise ValueError(
+                "ORBITAL_SESSION_SECRET is still the insecure default. Console auth "
+                "(ui_auth_enabled=true) trusts this key to sign session cookies "
+                "carrying the caller's identity and role - anyone who reads this "
+                "repo's source can forge an admin session. Set ORBITAL_SESSION_SECRET "
+                f"to a random value (>= {MIN_SESSION_SECRET_LENGTH} chars), e.g.: "
+                'python3 -c "import secrets; print(secrets.token_urlsafe(48))"'
+            )
+        if len(self.session_secret) < MIN_SESSION_SECRET_LENGTH:
+            raise ValueError(
+                f"ORBITAL_SESSION_SECRET is too short ({len(self.session_secret)} "
+                f"chars; need >= {MIN_SESSION_SECRET_LENGTH}) to safely sign session "
+                'cookies. Generate one with: python3 -c "import secrets; '
+                'print(secrets.token_urlsafe(48))"'
+            )
         return self
 
 

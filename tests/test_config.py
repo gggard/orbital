@@ -4,7 +4,7 @@ import pytest
 from cryptography.fernet import Fernet
 from pydantic import ValidationError
 
-from orbital.config import Settings
+from orbital.config import INSECURE_DEFAULT_SESSION_SECRET, Settings
 
 
 def test_resolved_buildkit_image_explicit_override():
@@ -46,3 +46,23 @@ def test_malformed_secrets_encryption_key_rejected():
 def test_valid_secrets_encryption_key_accepted():
     key = Fernet.generate_key().decode()
     assert Settings(secrets_encryption_key=key).secrets_encryption_key == key
+
+
+def test_session_secret_default_rejected_when_ui_auth_enabled():
+    with pytest.raises(ValidationError, match="insecure default"):
+        Settings(ui_auth_enabled=True, session_secret=INSECURE_DEFAULT_SESSION_SECRET)
+
+
+def test_session_secret_too_short_rejected_when_ui_auth_enabled():
+    with pytest.raises(ValidationError, match="too short"):
+        Settings(ui_auth_enabled=True, session_secret="short-but-not-the-default")
+
+
+def test_session_secret_default_allowed_when_ui_auth_disabled():
+    s = Settings(ui_auth_enabled=False, session_secret=INSECURE_DEFAULT_SESSION_SECRET)
+    assert s.session_secret == INSECURE_DEFAULT_SESSION_SECRET
+
+
+def test_session_secret_strong_value_accepted_when_ui_auth_enabled():
+    s = Settings(ui_auth_enabled=True, session_secret="x" * 32)
+    assert s.session_secret == "x" * 32

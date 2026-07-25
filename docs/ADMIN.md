@@ -260,6 +260,12 @@ control plane builds for the running app.
   and cloud metadata endpoints (SPEC §8) — not yet templated in the chart.
 - Never expose the control plane without `auth.console.enabled=true`; an
   unauthenticated control plane treats every caller as admin.
+- `ORBITAL_SESSION_SECRET` signs the console session cookie (identity +
+  role); the control plane refuses to start with `ui_auth_enabled=true` if
+  it's left at the insecure built-in default or is under 32 characters. The
+  Helm chart auto-generates a strong value when `auth.console.sessionSecret`
+  is left unset (recommended) and fails the render if you set it explicitly
+  to something too short.
 - App secrets live in the platform database (encrypted at rest, see
   [Secrets encryption](#secrets-encryption)) **and** as plaintext Kubernetes
   Secrets in `streamlit-apps` (required so app pods can read them) —
