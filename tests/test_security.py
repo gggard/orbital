@@ -65,7 +65,9 @@ def client(tmp_path, monkeypatch):
     from orbital.main import app
 
     db.init_engine(f"sqlite:///{tmp_path}/test.db")
-    with TestClient(app, follow_redirects=False) as c:
+    # base_url must be https:// so the (Secure-by-default) session cookie
+    # round-trips between requests, same as it would behind real TLS.
+    with TestClient(app, base_url="https://testserver", follow_redirects=False) as c:
         yield c
     get_settings.cache_clear()
 

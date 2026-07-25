@@ -74,6 +74,10 @@ class Settings(BaseSettings):
     # The insecure default below is only tolerated when ui_auth_enabled=False;
     # see _validate_session_secret.
     session_secret: str = INSECURE_DEFAULT_SESSION_SECRET
+    # Marks the session cookie Secure (browser withholds it over plain HTTP).
+    # Secure-by-default; disable only for the plain-HTTP local/minikube dev
+    # flow (docs/DEVELOPMENT.md), where the console isn't served over TLS.
+    session_cookie_secure: bool = True
 
     # Encrypts App.secrets_toml at rest (issue #73): 32-byte, base64-encoded
     # Fernet key, sourced from a k8s Secret (see docs/ADMIN.md). No default -

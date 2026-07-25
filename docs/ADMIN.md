@@ -266,6 +266,13 @@ control plane builds for the running app.
   Helm chart auto-generates a strong value when `auth.console.sessionSecret`
   is left unset (recommended) and fails the render if you set it explicitly
   to something too short.
+- The console session cookie is `Secure` by default
+  (`auth.console.sessionCookieSecure` / `ORBITAL_SESSION_COOKIE_SECURE`),
+  which requires the console to be served over TLS — see
+  [INSTALL.md](INSTALL.md) prerequisites. Only set it to `false` for a
+  plain-HTTP dev/demo console (e.g.
+  [examples/minikube-values.yaml](../deploy/chart/orbital/examples/minikube-values.yaml)),
+  never in production.
 - App secrets live in the platform database (encrypted at rest, see
   [Secrets encryption](#secrets-encryption)) **and** as plaintext Kubernetes
   Secrets in `streamlit-apps` (required so app pods can read them) —

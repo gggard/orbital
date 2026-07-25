@@ -125,6 +125,10 @@ auth:
     # if you set it explicitly it must be >= 32 chars, or both this chart
     # (render-time) and the control plane (startup) refuse it.
     sessionSecret: ""
+    # Marks the session cookie Secure (HTTPS-only). Keep true for any
+    # deployment behind TLS-terminating ingress; set false only for a
+    # plain-HTTP dev/demo console (e.g. examples/minikube-values.yaml).
+    sessionCookieSecure: true
     adminGroups: ["admins"]
     creatorGroups: []
     viewerGroups: []
