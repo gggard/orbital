@@ -89,6 +89,16 @@ class Settings(BaseSettings):
     # ttl_days gets this value, so it's both the default and the ceiling.
     api_token_max_ttl_days: int = 90
 
+    # Rate limiting (issue #82): in-process, per-key request throttling on
+    # unauthenticated hot paths, as a defense-in-depth backstop against
+    # resource exhaustion / IdP rate-limit amplification - not an auth
+    # control (see orbital.ratelimit for the multi-replica caveat).
+    login_rate_limit_per_minute: int = 20  # /api/auth/login + /api/auth/callback, per client IP
+    # /webhooks/apps/{app_id}/*, per app_id. Legitimate traffic is one push
+    # event at a time (rarely more than a couple in quick succession from a
+    # force-push/rebase), so this can stay tight; see docs/ADMIN.md.
+    webhook_rate_limit_per_minute: int = 5
+
     # Build
     # Rootless BuildKit is the default (SPEC §5.2); some environments (nested
     # containers/LXC without user-namespace support) need privileged builds.

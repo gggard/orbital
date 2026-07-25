@@ -12,6 +12,7 @@ from fastapi.responses import RedirectResponse
 
 from ..config import Settings, get_settings
 from ..groups import known_groups
+from ..ratelimit import rate_limit_login
 from .security import User, can_publish, get_current_user, resolve_role
 
 log = logging.getLogger(__name__)
@@ -73,6 +74,7 @@ def _verify_id_token(id_token: str, settings: Settings) -> dict:
 def login(
     request: Request,
     settings: Annotated[Settings, Depends(get_settings)],
+    _rate_limit: Annotated[None, Depends(rate_limit_login)],
     next: str = "/",
 ):
     if not settings.ui_auth_enabled:
@@ -94,6 +96,7 @@ def login(
 def callback(
     request: Request,
     settings: Annotated[Settings, Depends(get_settings)],
+    _rate_limit: Annotated[None, Depends(rate_limit_login)],
     code: str = "",
     state: str = "",
 ):

@@ -292,7 +292,8 @@ control plane builds for the running app.
 | App killed / restarts (OOM) | raise `apps.resources.memLimit` or fix the app's memory use |
 | Console login loop / state mismatch | `console.url` must exactly match the browser-facing URL; check IdP redirect URIs |
 | 403 after login | user's groups map to no role, or the groups claim is missing from the ID token (check the IdP's group mapper) |
-| Webhook doesn't trigger | webhook URL must be reachable from the git host; check per-app rate limit (5/min) |
+| Webhook doesn't trigger | webhook URL must be reachable from the git host; check per-app rate limit (5/min, `ORBITAL_WEBHOOK_RATE_LIMIT_PER_MINUTE`) |
+| Login intermittently fails with 429 | per-IP login rate limit (20/min, `ORBITAL_LOGIN_RATE_LIMIT_PER_MINUTE`) tripped — expected under a flood, but if it fires for normal traffic check whether many real users share one IP (corporate NAT/VPN egress) and raise the limit |
 
 ## 5. Security notes
 
@@ -321,6 +322,34 @@ control plane builds for the running app.
   restrict access to both.
 - The demo Keycloak in `deploy/auth/` runs in dev mode with fixed passwords:
   demos only, never production.
+- **Rate limiting** (issue #82): `/api/auth/login` and `/api/auth/callback`
+  (per client IP, default 20/min, `ORBITAL_LOGIN_RATE_LIMIT_PER_MINUTE`) and
+  the per-app git-push webhook (per `app_id`, default 5/min,
+  `ORBITAL_WEBHOOK_RATE_LIMIT_PER_MINUTE`) are throttled in-process, returning
+  `429` with `Retry-After` once tripped. This is defense-in-depth, not an
+  auth control — token/state entropy already makes brute force impractical
+  on these routes — the goal is to stop a request flood from exhausting
+  control-plane capacity or tripping the IdP's own rate limits (both
+  `callback()` and `authz()` call out synchronously to an external service).
+  Two things to know before relying on it:
+  - **Single process, in-memory counters.** There's no shared store (no
+    Redis) across replicas. `controlPlane.replicas > 1` is only reachable
+    when `database.url` (Postgres) is set — see
+    `deploy/chart/orbital/templates/control-plane.yaml` — and in that mode
+    each replica enforces its own independent counter, so the *effective*
+    limit scales roughly with replica count (e.g. 3 replicas behind a
+    load balancer that spreads requests evenly behave closer to 3x the
+    configured per-key limit). Accepted as a documented limitation for a
+    backstop control, not a blocker.
+  - **`/authz/{app_id}` is deliberately NOT limited in-app.** It's on the hot
+    path for every request to every private app (the ingress `auth_request`
+    target), so per-request limiter overhead there is the wrong tradeoff,
+    and the SPEC's own hardening guidance allows scoping it out explicitly.
+    If you want protection against a flood of `/authz` calls, configure your
+    ingress controller's own rate limiting instead — e.g. nginx-ingress's
+    `nginx.ingress.kubernetes.io/limit-rps` (or `limit-rpm`/`limit-burst-multiplier`)
+    annotation on the app Ingress. This is intentionally the primary
+    mitigation layer for that endpoint, not a fallback.
 
 ## 6. Demo identity stack
 

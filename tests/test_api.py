@@ -208,6 +208,28 @@ def test_webhook_token(client):
     assert client.post(body["webhook_path"]).status_code == 202
 
 
+def test_webhook_rate_limited_per_app(client, monkeypatch):
+    from orbital.ratelimit import webhook_limiter
+
+    app_a = make_app(client, slug="rl-a").json()
+    app_b = make_app(client, slug="rl-b").json()
+
+    monkeypatch.setenv("ORBITAL_WEBHOOK_RATE_LIMIT_PER_MINUTE", "2")
+    get_settings.cache_clear()
+    try:
+        assert client.post(app_a["webhook_path"]).status_code == 202
+        assert client.post(app_a["webhook_path"]).status_code == 202
+        r = client.post(app_a["webhook_path"])
+        assert r.status_code == 429
+        assert r.headers["retry-after"] == "60"
+
+        # a different app_id has its own independent budget
+        assert client.post(app_b["webhook_path"]).status_code == 202
+    finally:
+        webhook_limiter.reset()
+        get_settings.cache_clear()
+
+
 def test_webhook_ignored_while_building_or_deleting(client):
     from orbital import db
     from orbital.models import App, AppState, PendingAction
