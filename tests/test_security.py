@@ -13,11 +13,11 @@ from orbital.config import Settings, get_settings
 
 
 def _settings(**overrides) -> Settings:
-    base = dict(
-        admin_groups=["admins"],
-        creator_groups=["data-team"],
-        viewer_groups=["viewers"],
-    )
+    base = {
+        "admin_groups": ["admins"],
+        "creator_groups": ["data-team"],
+        "viewer_groups": ["viewers"],
+    }
     base.update(overrides)
     return Settings(**base)
 
@@ -55,6 +55,7 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setenv("ORBITAL_DATABASE_URL", f"sqlite:///{tmp_path}/test.db")
     monkeypatch.setenv("ORBITAL_RECONCILER_ENABLED", "false")
     monkeypatch.setenv("ORBITAL_UI_AUTH_ENABLED", "true")
+    monkeypatch.setenv("ORBITAL_SESSION_SECRET", "x" * 32)
     monkeypatch.setenv("ORBITAL_ADMIN_GROUPS", '["admins"]')
     monkeypatch.setenv("ORBITAL_CREATOR_GROUPS", '["data-team"]')
     monkeypatch.setenv("ORBITAL_VIEWER_GROUPS", '["viewers"]')
@@ -75,8 +76,10 @@ def _login_session(client, email, groups):
     """Drive the real login/callback flow (with the IdP call mocked) to plant a session."""
     r = client.get("/api/auth/login?next=/x")
     state = parse_qs(urlsplit(r.headers["location"]).query)["state"][0]
-    with patch("orbital.api.auth.httpx.post") as mock_post, \
-         patch("orbital.api.auth._verify_id_token") as mock_verify:
+    with (
+        patch("orbital.api.auth.httpx.post") as mock_post,
+        patch("orbital.api.auth._verify_id_token") as mock_verify,
+    ):
         mock_post.return_value = Mock(
             status_code=200,
             json=lambda: {"id_token": "tok"},

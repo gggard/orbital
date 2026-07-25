@@ -122,6 +122,17 @@ Register a confidential client at your IdP with:
   `view-users` roles of the realm's `realm-management` client. Otherwise
   provide suggestions statically via `auth.console.knownGroups`.
 
+**Required secrets.** With console auth enabled, both `auth.console.clientSecret`
+(or `existingSecret`) and `auth.console.sessionSecret` are non-optional:
+the session secret signs the cookie that carries the caller's identity and
+role, so a guessable value is a full authentication bypass. The chart fails
+at `helm install`/`upgrade` if `clientSecret` is missing, or if you set
+`sessionSecret` explicitly to fewer than 32 characters; leave `sessionSecret`
+unset and the chart auto-generates a strong one. The control plane also
+refuses to start (whether or not it was launched via this chart) if
+`ORBITAL_SESSION_SECRET` is left at its insecure built-in default or is
+otherwise too short.
+
 ### Private apps (viewer auth)
 
 Deploy [oauth2-proxy](https://oauth2-proxy.github.io/oauth2-proxy/) against

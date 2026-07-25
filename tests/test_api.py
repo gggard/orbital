@@ -67,6 +67,25 @@ def test_secrets_validation(client):
     assert client.get(f"/api/v1/apps/{app_id}/secrets").text == 'k = "v"'
 
 
+def test_secrets_encrypted_at_rest(client, tmp_path):
+    """The API round-trips the plaintext (above), but the raw DB column must
+    never hold it - only ciphertext (issue #73)."""
+    import sqlite3
+
+    plaintext = 'db_password = "hunter2"'
+    app_id = make_app(client, slug="secretive").json()["id"]
+    put = client.put(f"/api/v1/apps/{app_id}/secrets", json={"secrets_toml": plaintext})
+    assert put.status_code == 202
+
+    conn = sqlite3.connect(tmp_path / "test.db")
+    raw = conn.execute("SELECT secrets_toml FROM apps WHERE id = ?", (app_id,)).fetchone()[0]
+    conn.close()
+
+    assert raw != plaintext
+    assert "hunter2" not in raw
+    assert client.get(f"/api/v1/apps/{app_id}/secrets").text == plaintext
+
+
 def test_webhook_token(client):
     body = make_app(client).json()
     assert client.post(f"/webhooks/apps/{body['id']}/wrong-token").status_code == 404
@@ -163,8 +182,10 @@ def test_update_app_tags(client):
 
 def test_tags_endpoint_collects_distinct_tags(client):
     make_app(client, "app1").json()
-    client.patch(f"/api/v1/apps/{make_app(client, 'app2').json()['id']}", json={"tags": ["ml", "prod"]})
-    client.patch(f"/api/v1/apps/{make_app(client, 'app3').json()['id']}", json={"tags": ["prod", "web"]})
+    app2_id = make_app(client, "app2").json()["id"]
+    client.patch(f"/api/v1/apps/{app2_id}", json={"tags": ["ml", "prod"]})
+    app3_id = make_app(client, "app3").json()["id"]
+    client.patch(f"/api/v1/apps/{app3_id}", json={"tags": ["prod", "web"]})
     assert client.get("/api/v1/tags").json() == {"tags": ["ml", "prod", "web"]}
 
 

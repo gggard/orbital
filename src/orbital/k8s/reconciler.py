@@ -185,9 +185,18 @@ class Reconciler:
                 sample = metrics.fetch_app_usage(app.id, self.settings)
             except Exception:
                 log.exception("metrics sampling failed for app %s", app.slug)
-                continue
-            if sample is not None:
-                metrics.store.add(app.id, sample)
+            else:
+                if sample is not None:
+                    metrics.store.add(app.id, sample)
+            # independent of the metrics-server-backed usage sample above, so
+            # a missing metrics-server doesn't also hide restart counts
+            try:
+                restarts = metrics.fetch_pod_restarts(app.id, self.settings)
+            except Exception:
+                log.exception("restart-count sampling failed for app %s", app.slug)
+            else:
+                if restarts is not None:
+                    metrics.restart_counts.set(app.id, restarts)
 
     def _gc_orphaned_resources(self, apps: list[App]):
         """Delete apps_namespace Deployment/Service/Ingress/Secret objects
@@ -213,14 +222,26 @@ class Reconciler:
         live_ids = {app.id for app in apps}
         ns = self.settings.apps_namespace
         resource_kinds = (
-            ("Deployment", client.apps_v1().list_namespaced_deployment,
-             client.apps_v1().delete_namespaced_deployment),
-            ("Service", client.core().list_namespaced_service,
-             client.core().delete_namespaced_service),
-            ("Ingress", client.networking().list_namespaced_ingress,
-             client.networking().delete_namespaced_ingress),
-            ("Secret", client.core().list_namespaced_secret,
-             client.core().delete_namespaced_secret),
+            (
+                "Deployment",
+                client.apps_v1().list_namespaced_deployment,
+                client.apps_v1().delete_namespaced_deployment,
+            ),
+            (
+                "Service",
+                client.core().list_namespaced_service,
+                client.core().delete_namespaced_service,
+            ),
+            (
+                "Ingress",
+                client.networking().list_namespaced_ingress,
+                client.networking().delete_namespaced_ingress,
+            ),
+            (
+                "Secret",
+                client.core().list_namespaced_secret,
+                client.core().delete_namespaced_secret,
+            ),
         )
         for kind, list_fn, delete_fn in resource_kinds:
             for item in list_fn(ns, label_selector=_APP_ID_LABEL).items:
@@ -229,7 +250,9 @@ class Reconciler:
                     _not_found_ok(delete_fn, item.metadata.name, ns)
                     log.warning(
                         "gc: deleted orphaned %s %s (app-id=%s has no matching app)",
-                        kind, item.metadata.name, app_id,
+                        kind,
+                        item.metadata.name,
+                        app_id,
                     )
 
     def step(self, session, app: App):
@@ -325,6 +348,7 @@ class Reconciler:
             self._succeed_build(build, app)
             return
         if outcome == "failed":
+            assert message is not None
             tail = build_log_tail(build.id, self.settings)
             self._fail_build(build, app, message, tail)
             return
@@ -339,8 +363,7 @@ class Reconciler:
             self._fail_build(
                 build,
                 app,
-                f"build timed out after {int(elapsed)}s with no terminal status "
-                "from the build job",
+                f"build timed out after {int(elapsed)}s with no terminal status from the build job",
             )
 
     def _succeed_build(self, build: Build, app: App):
@@ -363,19 +386,24 @@ class Reconciler:
     # -- deploy ------------------------------------------------------------
 
     def _deploy(self, app: App):
+        assert app.current_image is not None
         s = self.settings
         if app.secrets_toml:
             sec = resources.secret(app, s)
             _apply(
                 client.core().create_namespaced_secret,
                 client.core().replace_namespaced_secret,
-                sec["metadata"]["name"], s.apps_namespace, sec,
+                sec["metadata"]["name"],
+                s.apps_namespace,
+                sec,
             )
         dep = resources.deployment(app, app.current_image, s, _now_iso())
         _apply(
             client.apps_v1().create_namespaced_deployment,
             client.apps_v1().replace_namespaced_deployment,
-            dep["metadata"]["name"], s.apps_namespace, dep,
+            dep["metadata"]["name"],
+            s.apps_namespace,
+            dep,
         )
         svc = resources.service(app, s)
         try:
@@ -387,7 +415,9 @@ class Reconciler:
         _apply(
             client.networking().create_namespaced_ingress,
             client.networking().replace_namespaced_ingress,
-            ing["metadata"]["name"], s.apps_namespace, ing,
+            ing["metadata"]["name"],
+            s.apps_namespace,
+            ing,
         )
 
     def _ensure_ingress(self, app: App):
@@ -422,7 +452,11 @@ class Reconciler:
         ):
             log.info(
                 "updating ingress for %s (host=%s path=%s auth=%s backend=%s)",
-                app.slug, desired_host, desired_path, bool(desired_auth), desired_backend,
+                app.slug,
+                desired_host,
+                desired_path,
+                bool(desired_auth),
+                desired_backend,
             )
             _apply(
                 client.networking().create_namespaced_ingress,
@@ -450,14 +484,14 @@ class Reconciler:
         if dep is None or not app.current_image:
             return
         env = dep.spec.template.spec.containers[0].env or []
-        current = next(
-            (e.value for e in env if e.name == "STREAMLIT_SERVER_BASE_URL_PATH"), ""
-        )
+        current = next((e.value for e in env if e.name == "STREAMLIT_SERVER_BASE_URL_PATH"), "")
         desired = self.settings.base_url_path(app.slug)
         if current != desired:
             log.info(
                 "routing mode change: redeploying %s (baseUrlPath %r -> %r)",
-                app.slug, current, desired,
+                app.slug,
+                current,
+                desired,
             )
             self._deploy(app)
             app.state = AppState.deploying
@@ -512,7 +546,10 @@ class Reconciler:
         interval = app.poll_interval_seconds or self.settings.git_poll_default_interval_seconds
         interval = max(interval, self.settings.git_poll_min_interval_seconds)
         now = datetime.now(UTC)
-        if app.last_polled_at and (now - ensure_aware(app.last_polled_at)).total_seconds() < interval:
+        if (
+            app.last_polled_at
+            and (now - ensure_aware(app.last_polled_at)).total_seconds() < interval
+        ):
             return
         app.last_polled_at = now
         try:
@@ -576,7 +613,7 @@ class Reconciler:
             self._fail_scan(scan, "scan job not found (expired or deleted)")
             return
 
-        for cond in (job.status.conditions or []):
+        for cond in job.status.conditions or []:
             if cond.type == "Complete" and cond.status == "True":
                 self._finish_scan(session, scan)
                 return
@@ -598,8 +635,7 @@ class Reconciler:
         if elapsed > timeout:
             self._fail_scan(
                 scan,
-                f"scan timed out after {int(elapsed)}s with no terminal status "
-                "from the scan job",
+                f"scan timed out after {int(elapsed)}s with no terminal status from the scan job",
             )
 
     def _finish_scan(self, session, scan: ScanResult):
@@ -619,8 +655,12 @@ class Reconciler:
         scan.finished_at = datetime.now(UTC)
         log.info(
             "scan %s finished for app %s: %d critical, %d high, %d medium, %d low",
-            scan.id, scan.app_id, scan.critical_count, scan.high_count,
-            scan.medium_count, scan.low_count,
+            scan.id,
+            scan.app_id,
+            scan.critical_count,
+            scan.high_count,
+            scan.medium_count,
+            scan.low_count,
         )
 
     def _fail_scan(self, scan: ScanResult, message: str):
@@ -650,9 +690,7 @@ class Reconciler:
         patch = {
             "spec": {
                 "template": {
-                    "metadata": {
-                        "annotations": {"app.orbital.io/restarted-at": _now_iso()}
-                    }
+                    "metadata": {"annotations": {"app.orbital.io/restarted-at": _now_iso()}}
                 }
             }
         }
@@ -671,9 +709,7 @@ class Reconciler:
         )
         if dep is None:
             return
-        if (dep.status.ready_replicas or 0) >= 1 and (
-            dep.status.updated_replicas or 0
-        ) >= 1:
+        if (dep.status.ready_replicas or 0) >= 1 and (dep.status.updated_replicas or 0) >= 1:
             app.state = AppState.running
             app.error = None
             return
@@ -685,7 +721,11 @@ class Reconciler:
         for pod in pods.items:
             for cs in pod.status.container_statuses or []:
                 waiting = cs.state.waiting
-                if waiting and waiting.reason in ("CrashLoopBackOff", "ErrImagePull", "ImagePullBackOff"):
+                if waiting and waiting.reason in (
+                    "CrashLoopBackOff",
+                    "ErrImagePull",
+                    "ImagePullBackOff",
+                ):
                     app.state = AppState.deploy_failed
                     app.error = f"{waiting.reason}: {waiting.message or ''}".strip()
                     return
@@ -714,6 +754,7 @@ class Reconciler:
                     propagation_policy="Background",
                 )
         metrics.store.drop(app.id)
+        metrics.restart_counts.drop(app.id)
         log.info("deleted app %s (%s)", app.slug, app.id)
         session.delete(app)
 

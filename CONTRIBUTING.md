@@ -28,11 +28,26 @@ Run what CI runs:
 
 ```bash
 make test        # control plane (pytest)
+make lint         # control plane (ruff)
+make typecheck    # control plane (mypy)
 cd ui && npm run build   # console (Next.js build)
+cd ui && npm run lint    # console (eslint)
 ```
 
 Both the `test-python` and `build-ui` jobs in
 [.github/workflows/ci.yml](.github/workflows/ci.yml) must pass on your PR.
+
+### pre-commit (optional but recommended)
+
+[pre-commit](https://pre-commit.com/) runs ruff, mypy, eslint, and basic
+hygiene checks (trailing whitespace, YAML/TOML syntax) before each commit:
+
+```bash
+uv pip install -p .venv/bin/python pre-commit
+.venv/bin/pre-commit install
+```
+
+Run it on the whole tree at any time with `.venv/bin/pre-commit run --all-files`.
 
 ## Commit messages and PRs
 

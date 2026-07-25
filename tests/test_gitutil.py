@@ -57,6 +57,5 @@ def test_resolve_branch_head_process_error_wrapped():
 
 def test_resolve_branch_head_timeout_wrapped():
     exc = subprocess.TimeoutExpired(cmd=["git"], timeout=30)
-    with patch("subprocess.run", side_effect=exc):
-        with pytest.raises(GitError, match="timed out"):
-            resolve_branch_head("https://github.com/x/y", "main")
+    with patch("subprocess.run", side_effect=exc), pytest.raises(GitError, match="timed out"):
+        resolve_branch_head("https://github.com/x/y", "main")

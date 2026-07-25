@@ -16,6 +16,7 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setenv("ORBITAL_DATABASE_URL", f"sqlite:///{tmp_path}/test.db")
     monkeypatch.setenv("ORBITAL_RECONCILER_ENABLED", "false")
     monkeypatch.setenv("ORBITAL_UI_AUTH_ENABLED", "true")
+    monkeypatch.setenv("ORBITAL_SESSION_SECRET", "x" * 32)
     monkeypatch.setenv("ORBITAL_ADMIN_GROUPS", '["admins"]')
     monkeypatch.setenv("ORBITAL_CREATOR_GROUPS", '["data-team"]')
     monkeypatch.setenv("ORBITAL_VIEWER_GROUPS", '["viewers"]')
@@ -180,8 +181,12 @@ def test_already_public_app_updates_unblocked(restricted):
     as_user(restricted, ADMIN)
     app_id = restricted.post(
         "/api/v1/apps",
-        json={"slug": "was-pub", "repo_url": "https://x/y", "public": True,
-              "owner_groups": ["data-team"]},
+        json={
+            "slug": "was-pub",
+            "repo_url": "https://x/y",
+            "public": True,
+            "owner_groups": ["data-team"],
+        },
     ).json()["id"]
     # non-publisher manager can still save with public: true (no transition)
     as_user(restricted, CREATOR)
@@ -216,9 +221,7 @@ def test_viewer_read_only(client):
         client.put(f"/api/v1/apps/{app_id}/secrets", json={"secrets_toml": 'a="b"'}).status_code
         == 403
     )
-    assert (
-        client.patch(f"/api/v1/apps/{app_id}", json={"public": False}).status_code == 403
-    )
+    assert client.patch(f"/api/v1/apps/{app_id}", json={"public": False}).status_code == 403
 
 
 def test_creator_manages_owned_app(client):
@@ -256,5 +259,6 @@ def test_admin_manages_everything(client):
     as_user(client, CREATOR)
     app_id = make_app(client, "mine").json()["id"]
     as_user(client, ADMIN)
-    assert client.patch(f"/api/v1/apps/{app_id}", json={"owner_groups": ["viewers"]}).status_code == 200
+    resp = client.patch(f"/api/v1/apps/{app_id}", json={"owner_groups": ["viewers"]})
+    assert resp.status_code == 200
     assert client.delete(f"/api/v1/apps/{app_id}").status_code == 202

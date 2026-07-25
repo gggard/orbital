@@ -17,6 +17,7 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setenv("ORBITAL_DATABASE_URL", f"sqlite:///{tmp_path}/test.db")
     monkeypatch.setenv("ORBITAL_RECONCILER_ENABLED", "false")
     monkeypatch.setenv("ORBITAL_UI_AUTH_ENABLED", "true")
+    monkeypatch.setenv("ORBITAL_SESSION_SECRET", "x" * 32)
     monkeypatch.setenv("ORBITAL_OIDC_ISSUER_URL", ISSUER)
     monkeypatch.setenv("ORBITAL_OIDC_CLIENT_ID", "orbital-console")
     monkeypatch.setenv("ORBITAL_OIDC_CLIENT_SECRET", "s3cr3t")
@@ -97,8 +98,10 @@ def test_login_rejects_external_next(client):
     qs = parse_qs(urlsplit(location).query)
     state = qs["state"][0]
     # the open-redirect is neutralized: post_login_redirect falls back to "/"
-    with patch("orbital.api.auth.httpx.post") as mock_post, \
-         patch("orbital.api.auth._verify_id_token") as mock_verify:
+    with (
+        patch("orbital.api.auth.httpx.post") as mock_post,
+        patch("orbital.api.auth._verify_id_token") as mock_verify,
+    ):
         mock_post.return_value = Mock(
             status_code=200,
             json=lambda: {"id_token": "tok"},
@@ -125,8 +128,10 @@ def test_callback_success_sets_session_and_redirects(client):
     r = client.get("/api/auth/login?next=/apps/42")
     state = parse_qs(urlsplit(r.headers["location"]).query)["state"][0]
 
-    with patch("orbital.api.auth.httpx.post") as mock_post, \
-         patch("orbital.api.auth._verify_id_token") as mock_verify:
+    with (
+        patch("orbital.api.auth.httpx.post") as mock_post,
+        patch("orbital.api.auth._verify_id_token") as mock_verify,
+    ):
         mock_post.return_value = Mock(
             status_code=200,
             json=lambda: {"id_token": "id-token-value"},
@@ -169,8 +174,10 @@ def test_callback_bad_id_token_502(client):
 
     import jwt as pyjwt
 
-    with patch("orbital.api.auth.httpx.post") as mock_post, \
-         patch("orbital.api.auth._verify_id_token") as mock_verify:
+    with (
+        patch("orbital.api.auth.httpx.post") as mock_post,
+        patch("orbital.api.auth._verify_id_token") as mock_verify,
+    ):
         mock_post.return_value = Mock(
             status_code=200,
             json=lambda: {"id_token": "bad"},
@@ -206,8 +213,10 @@ def test_logout_disabled_redirects_home(tmp_path, monkeypatch):
 def test_logout_with_active_session_hits_idp_logout(client):
     r = client.get("/api/auth/login?next=/x")
     state = parse_qs(urlsplit(r.headers["location"]).query)["state"][0]
-    with patch("orbital.api.auth.httpx.post") as mock_post, \
-         patch("orbital.api.auth._verify_id_token") as mock_verify:
+    with (
+        patch("orbital.api.auth.httpx.post") as mock_post,
+        patch("orbital.api.auth._verify_id_token") as mock_verify,
+    ):
         mock_post.return_value = Mock(
             status_code=200,
             json=lambda: {"id_token": "id-token-value"},

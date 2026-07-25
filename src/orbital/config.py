@@ -1,7 +1,13 @@
 from functools import lru_cache
 
+from cryptography.fernet import Fernet
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Placeholder only safe when ui_auth_enabled=False (local dev without auth).
+# Named so the default and the startup check below can't drift apart.
+INSECURE_DEFAULT_SESSION_SECRET = "dev-session-secret-change-me"
+MIN_SESSION_SECRET_LENGTH = 32
 
 
 class Settings(BaseSettings):
@@ -64,11 +70,19 @@ class Settings(BaseSettings):
     oidc_client_id: str = "orbital"
     oidc_client_secret: str = ""
     ui_base_url: str = "http://localhost:3000"  # browser-facing console URL
-    session_secret: str = "dev-session-secret-change-me"
+    # Signs the console session cookie (holds the caller's identity/role).
+    # The insecure default below is only tolerated when ui_auth_enabled=False;
+    # see _validate_session_secret.
+    session_secret: str = INSECURE_DEFAULT_SESSION_SECRET
     # Marks the session cookie Secure (browser withholds it over plain HTTP).
     # Secure-by-default; disable only for the plain-HTTP local/minikube dev
     # flow (docs/DEVELOPMENT.md), where the console isn't served over TLS.
     session_cookie_secure: bool = True
+
+    # Encrypts App.secrets_toml at rest (issue #73): 32-byte, base64-encoded
+    # Fernet key, sourced from a k8s Secret (see docs/ADMIN.md). No default -
+    # the app refuses to start without one (see _validate_secrets_encryption_key).
+    secrets_encryption_key: str = ""
 
     # Personal API tokens (SPEC: "dashboard session or personal API token").
     # No separate default is needed beyond this: a token with no explicit
@@ -126,9 +140,7 @@ class Settings(BaseSettings):
     hibernation_max_timeout_seconds: int = 7 * 24 * 3600  # 7 days
     # the control plane's own in-cluster Service (doubles as the wake proxy
     # and the authz backend); reachable from the ingress controller
-    control_plane_service_host: str = (
-        "orbital-control-plane.orbital-platform.svc.cluster.local"
-    )
+    control_plane_service_host: str = "orbital-control-plane.orbital-platform.svc.cluster.local"
     control_plane_service_port: int = 8000
 
     def resolved_buildkit_image(self) -> str:
@@ -177,13 +189,53 @@ class Settings(BaseSettings):
             raise ValueError(
                 "ORBITAL_GIT_POLL_MIN_INTERVAL_SECONDS "
                 f"({self.git_poll_min_interval_seconds}) must be <= "
-                f"ORBITAL_GIT_POLL_DEFAULT_INTERVAL_SECONDS ({self.git_poll_default_interval_seconds})"
+                "ORBITAL_GIT_POLL_DEFAULT_INTERVAL_SECONDS "
+                f"({self.git_poll_default_interval_seconds})"
             )
         if self.hibernation_max_timeout_seconds < self.hibernation_timeout_seconds:
             raise ValueError(
                 "ORBITAL_HIBERNATION_MAX_TIMEOUT_SECONDS "
                 f"({self.hibernation_max_timeout_seconds}) must be >= "
                 f"ORBITAL_HIBERNATION_TIMEOUT_SECONDS ({self.hibernation_timeout_seconds})"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _validate_secrets_encryption_key(self) -> "Settings":
+        if not self.secrets_encryption_key:
+            raise ValueError(
+                "ORBITAL_SECRETS_ENCRYPTION_KEY must be set to a 32-byte, "
+                "base64-encoded key (encrypts App.secrets_toml at rest). Generate "
+                'one with: python -c "from cryptography.fernet import Fernet; '
+                'print(Fernet.generate_key().decode())"'
+            )
+        try:
+            Fernet(self.secrets_encryption_key)
+        except Exception as e:
+            raise ValueError(
+                f"ORBITAL_SECRETS_ENCRYPTION_KEY is not a valid Fernet key: {e}"
+            ) from e
+        return self
+
+    @model_validator(mode="after")
+    def _validate_session_secret(self) -> "Settings":
+        if not self.ui_auth_enabled:
+            return self
+        if self.session_secret == INSECURE_DEFAULT_SESSION_SECRET:
+            raise ValueError(
+                "ORBITAL_SESSION_SECRET is still the insecure default. Console auth "
+                "(ui_auth_enabled=true) trusts this key to sign session cookies "
+                "carrying the caller's identity and role - anyone who reads this "
+                "repo's source can forge an admin session. Set ORBITAL_SESSION_SECRET "
+                f"to a random value (>= {MIN_SESSION_SECRET_LENGTH} chars), e.g.: "
+                'python3 -c "import secrets; print(secrets.token_urlsafe(48))"'
+            )
+        if len(self.session_secret) < MIN_SESSION_SECRET_LENGTH:
+            raise ValueError(
+                f"ORBITAL_SESSION_SECRET is too short ({len(self.session_secret)} "
+                f"chars; need >= {MIN_SESSION_SECRET_LENGTH}) to safely sign session "
+                'cookies. Generate one with: python3 -c "import secrets; '
+                'print(secrets.token_urlsafe(48))"'
             )
         return self
 

@@ -182,9 +182,7 @@ def test_create_streamlit_app_rejects_build_command(client):
 
 
 def test_create_streamlit_app_defaults_main_file(client):
-    r = client.post(
-        "/api/v1/apps", json={"slug": "sl-demo", "repo_url": "https://github.com/x/y"}
-    )
+    r = client.post("/api/v1/apps", json={"slug": "sl-demo", "repo_url": "https://github.com/x/y"})
     assert r.status_code == 201, r.text
     body = r.json()
     assert body["app_type"] == "streamlit"

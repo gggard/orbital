@@ -7,7 +7,7 @@ from fastapi.responses import PlainTextResponse, StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .. import analytics
+from .. import analytics, crypto
 from ..config import Settings, get_settings
 from ..db import get_db
 from ..k8s import inspect, metrics
@@ -21,6 +21,7 @@ from ..schemas import (
     MetricsLimits,
     MetricsOut,
     MetricsPoint,
+    RestartInfo,
     ScanOut,
     SecretsIn,
     VulnerabilityOut,
@@ -110,7 +111,7 @@ def _validate_toml(text: str):
     try:
         tomllib.loads(text)
     except tomllib.TOMLDecodeError as e:
-        raise HTTPException(422, f"invalid TOML: {e}")
+        raise HTTPException(422, f"invalid TOML: {e}") from e
 
 
 def _validate_poll_interval(value: int | None, settings: Settings) -> None:
@@ -143,9 +144,7 @@ def create_app(
         require_publish(user, settings)
     owner_groups = payload.owner_groups if payload.owner_groups is not None else user.groups
     if not user.is_admin and not set(owner_groups) & set(user.groups):
-        raise HTTPException(
-            403, "owner_groups must include at least one of your own groups"
-        )
+        raise HTTPException(403, "owner_groups must include at least one of your own groups")
     if db.scalar(select(App).where(App.slug == payload.slug)):
         raise HTTPException(409, f"slug {payload.slug!r} already in use")
     python_version = None
@@ -157,8 +156,10 @@ def create_app(
                 f"unsupported python version {python_version!r}; "
                 f"supported: {sorted(settings.python_versions)}",
             )
-    if payload.secrets_toml:
-        _validate_toml(payload.secrets_toml)
+    secrets_toml = payload.secrets_toml
+    if secrets_toml:
+        _validate_toml(secrets_toml)
+        secrets_toml = crypto.encrypt(secrets_toml, settings)
     _validate_poll_interval(payload.poll_interval_seconds, settings)
     _validate_hibernate_timeout(payload.hibernate_after_seconds, settings)
     app = App(
@@ -174,7 +175,7 @@ def create_app(
         allowed_groups=payload.allowed_groups,
         owner_groups=owner_groups,
         tags=_normalize_tags(payload.tags),
-        secrets_toml=payload.secrets_toml,
+        secrets_toml=secrets_toml,
         state=AppState.created,
         pending_action=PendingAction.deploy,
         hibernate_enabled=payload.hibernate_enabled,
@@ -421,10 +422,8 @@ def app_metrics(
     user: Annotated[User, Depends(get_current_user)],
 ):
     _visible(db, app_id, user)
-    series = [
-        MetricsPoint(t=s.ts, cpu=s.cpu, mem=s.mem)
-        for s in metrics.store.series(app_id)
-    ]
+    series = [MetricsPoint(t=s.ts, cpu=s.cpu, mem=s.mem) for s in metrics.store.series(app_id)]
+    restarts = metrics.restart_counts.get(app_id)
     return MetricsOut(
         available=bool(series),
         limits=MetricsLimits(
@@ -433,6 +432,11 @@ def app_metrics(
         ),
         current=series[-1] if series else None,
         series=series,
+        restarts=RestartInfo(
+            count=restarts.count, last_reason=restarts.last_reason, last_at=restarts.last_at
+        )
+        if restarts
+        else None,
     )
 
 
@@ -452,9 +456,11 @@ def app_analytics(
 def get_secrets(
     app_id: str,
     db: Annotated[Session, Depends(get_db)],
+    settings: Annotated[Settings, Depends(get_settings)],
     user: Annotated[User, Depends(get_current_user)],
 ):
-    return _managed(db, app_id, user).secrets_toml or ""
+    ciphertext = _managed(db, app_id, user).secrets_toml
+    return crypto.decrypt(ciphertext, settings) if ciphertext else ""
 
 
 @router.put("/apps/{app_id}/secrets", status_code=202)
@@ -462,11 +468,14 @@ def put_secrets(
     app_id: str,
     payload: SecretsIn,
     db: Annotated[Session, Depends(get_db)],
+    settings: Annotated[Settings, Depends(get_settings)],
     user: Annotated[User, Depends(get_current_user)],
 ):
     app = _managed(db, app_id, user)
     _validate_toml(payload.secrets_toml)
-    app.secrets_toml = payload.secrets_toml
+    app.secrets_toml = (
+        crypto.encrypt(payload.secrets_toml, settings) if payload.secrets_toml else None
+    )
     app.secrets_dirty = True
     return {"status": "secrets updated; app will restart"}
 
@@ -488,9 +497,7 @@ def _get_scan(db: Session, app_id: str, scan_id: str) -> ScanResult:
     return scan
 
 
-@router.get(
-    "/apps/{app_id}/scans/{scan_id}/vulnerabilities", response_model=list[VulnerabilityOut]
-)
+@router.get("/apps/{app_id}/scans/{scan_id}/vulnerabilities", response_model=list[VulnerabilityOut])
 def scan_vulnerabilities(
     app_id: str,
     scan_id: str,

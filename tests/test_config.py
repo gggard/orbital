@@ -1,6 +1,10 @@
 """Unit tests for pure Settings helper methods (orbital.config)."""
 
-from orbital.config import Settings
+import pytest
+from cryptography.fernet import Fernet
+from pydantic import ValidationError
+
+from orbital.config import INSECURE_DEFAULT_SESSION_SECRET, Settings
 
 
 def test_resolved_buildkit_image_explicit_override():
@@ -27,3 +31,38 @@ def test_app_image_pull_vs_push():
     s = Settings(registry_push_url="push.local", registry_pull_prefix="pull.local")
     assert s.app_image("app1", "build1", pull=True) == "pull.local/apps/app1:build1"
     assert s.app_image("app1", "build1", pull=False) == "push.local/apps/app1:build1"
+
+
+def test_missing_secrets_encryption_key_rejected():
+    with pytest.raises(ValidationError, match="ORBITAL_SECRETS_ENCRYPTION_KEY"):
+        Settings(secrets_encryption_key="")
+
+
+def test_malformed_secrets_encryption_key_rejected():
+    with pytest.raises(ValidationError, match="not a valid Fernet key"):
+        Settings(secrets_encryption_key="not-a-valid-key")
+
+
+def test_valid_secrets_encryption_key_accepted():
+    key = Fernet.generate_key().decode()
+    assert Settings(secrets_encryption_key=key).secrets_encryption_key == key
+
+
+def test_session_secret_default_rejected_when_ui_auth_enabled():
+    with pytest.raises(ValidationError, match="insecure default"):
+        Settings(ui_auth_enabled=True, session_secret=INSECURE_DEFAULT_SESSION_SECRET)
+
+
+def test_session_secret_too_short_rejected_when_ui_auth_enabled():
+    with pytest.raises(ValidationError, match="too short"):
+        Settings(ui_auth_enabled=True, session_secret="short-but-not-the-default")
+
+
+def test_session_secret_default_allowed_when_ui_auth_disabled():
+    s = Settings(ui_auth_enabled=False, session_secret=INSECURE_DEFAULT_SESSION_SECRET)
+    assert s.session_secret == INSECURE_DEFAULT_SESSION_SECRET
+
+
+def test_session_secret_strong_value_accepted_when_ui_auth_enabled():
+    s = Settings(ui_auth_enabled=True, session_secret="x" * 32)
+    assert s.session_secret == "x" * 32

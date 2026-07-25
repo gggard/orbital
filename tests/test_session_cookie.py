@@ -11,6 +11,7 @@ def _login_response(tmp_path, monkeypatch, *, session_cookie_secure: bool):
     monkeypatch.setenv("ORBITAL_DATABASE_URL", f"sqlite:///{tmp_path}/test.db")
     monkeypatch.setenv("ORBITAL_RECONCILER_ENABLED", "false")
     monkeypatch.setenv("ORBITAL_UI_AUTH_ENABLED", "true")
+    monkeypatch.setenv("ORBITAL_SESSION_SECRET", "x" * 32)
     monkeypatch.setenv("ORBITAL_OIDC_ISSUER_URL", "https://idp.example.com/realms/streamlit")
     monkeypatch.setenv(
         "ORBITAL_SESSION_COOKIE_SECURE", "true" if session_cookie_secure else "false"

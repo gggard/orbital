@@ -128,11 +128,18 @@ export interface MetricsPoint {
   mem: number; // bytes
 }
 
+export interface RestartInfo {
+  count: number;
+  last_reason: string | null; // e.g. "Error", "OOMKilled"
+  last_at: string | null; // ISO datetime of the last container termination
+}
+
 export interface MetricsOut {
   available: boolean;
   limits: { cpu: number; mem: number };
   current: MetricsPoint | null;
   series: MetricsPoint[];
+  restarts: RestartInfo | null;
 }
 
 export interface AnalyticsDailyPoint {
@@ -160,6 +167,7 @@ export interface AnalyticsOut {
 export interface AdminAppOut extends AppOut {
   cpu: number | null; // cores, latest sample
   mem: number | null; // bytes, latest sample
+  restarts: number | null; // total container restarts across the app's pods
 }
 
 export interface AdminTotals {

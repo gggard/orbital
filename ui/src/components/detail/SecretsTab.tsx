@@ -7,7 +7,7 @@ import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { putSecrets, useSecrets } from "@/lib/api";
 import { mono } from "@/theme";
 
@@ -23,9 +23,7 @@ export default function SecretsTab({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
-    if (value === null && current !== undefined) setValue(current);
-  }, [current, value]);
+  if (value === null && current !== undefined) setValue(current);
 
   if (isLoading || value === null) return <Skeleton variant="rounded" height={280} />;
 

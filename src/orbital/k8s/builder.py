@@ -27,20 +27,18 @@ def build_support_configmap(settings: Settings) -> dict:
 
 def build_job(app: App, build: Build, settings: Settings) -> dict:
     push_image = settings.app_image(app.id, build.id, pull=False)
-    base_image = (
-        settings.static_base_image_ref()
-        if app.app_type == AppType.static
-        else settings.base_image_for(app.python_version)
-    )
+    if app.app_type == AppType.static:
+        base_image = settings.static_base_image_ref()
+    else:
+        assert app.python_version is not None
+        base_image = settings.base_image_for(app.python_version)
     labels = {
         "app.orbital.io/managed-by": "control-plane",
         "app.orbital.io/app-id": app.id,
         "app.orbital.io/build-id": build.id,
     }
     if settings.buildkit_rootless:
-        pod_annotations = {
-            "container.apparmor.security.beta.kubernetes.io/buildkit": "unconfined"
-        }
+        pod_annotations = {"container.apparmor.security.beta.kubernetes.io/buildkit": "unconfined"}
         buildkit_security = {
             "seccompProfile": {"type": "Unconfined"},
             "runAsUser": 1000,

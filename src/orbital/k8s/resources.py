@@ -1,5 +1,8 @@
 """Per-app runtime manifests: Deployment, Service, Ingress, Secret (SPEC §5.3)."""
 
+from typing import Any
+
+from .. import crypto
 from ..config import Settings
 from ..models import App, AppState, AppType
 
@@ -30,6 +33,7 @@ def secret_name(app: App) -> str:
 
 
 def secret(app: App, settings: Settings) -> dict:
+    plaintext = crypto.decrypt(app.secrets_toml, settings) if app.secrets_toml else ""
     return {
         "apiVersion": "v1",
         "kind": "Secret",
@@ -38,7 +42,7 @@ def secret(app: App, settings: Settings) -> dict:
             "namespace": settings.apps_namespace,
             "labels": app_labels(app),
         },
-        "stringData": {"secrets.toml": app.secrets_toml or ""},
+        "stringData": {"secrets.toml": plaintext},
     }
 
 
@@ -55,7 +59,7 @@ def deployment(app: App, image: str, settings: Settings, restarted_at: str) -> d
         # static apps have no generic base-path mechanism (best-effort under
         # path routing - see docs/ADMIN.md); nginx just serves at "/"
         health_path = f"{base_path}/" if base_path else "/"
-    volume_mounts = [
+    volume_mounts: list[dict[str, Any]] = [
         {"name": "tmp", "mountPath": _APP_TMP_DIR},
         {"name": "home", "mountPath": "/home/appuser"},
     ]

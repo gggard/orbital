@@ -3,6 +3,7 @@
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
+import type { ReactNode } from "react";
 import { useMemo, useRef, useState } from "react";
 import { mono } from "@/theme";
 
@@ -38,6 +39,11 @@ function niceCeil(v: number): number {
 export interface SeriesPoint {
   t: number;
   v: number;
+}
+
+/** Time-axis tick indices: start + end, deduplicated for a single-point series. */
+export function computeTimeTicks(lastIndex: number): number[] {
+  return lastIndex === 0 ? [0] : [0, lastIndex];
 }
 
 interface SeriesChartProps {
@@ -84,7 +90,7 @@ export function SeriesChart({ points, fmt, ariaLabel, fmtTime = defaultFmtTime }
   const last = points.length - 1;
   const h = hover;
   // time labels: ends only (middle would crowd at this width)
-  const timeTicks = [0, last];
+  const timeTicks = computeTimeTicks(last);
 
   return (
     <Box sx={{ position: "relative" }}>
@@ -238,17 +244,22 @@ export function ChartStatHeader({
   title,
   value,
   sub,
+  valueColor,
 }: {
   readonly title: string;
   readonly value: string;
-  readonly sub?: string;
+  readonly sub?: ReactNode;
+  readonly valueColor?: "warning.main" | "error.main";
 }) {
   return (
     <Stack direction="row" spacing={1.5} sx={{ alignItems: "baseline", mb: 1 }}>
       <Typography variant="subtitle2" color="text.secondary">
         {title}
       </Typography>
-      <Typography variant="h6" sx={{ fontFamily: mono, fontSize: "1.05rem" }}>
+      <Typography
+        variant="h6"
+        sx={{ fontFamily: mono, fontSize: "1.05rem", color: valueColor }}
+      >
         {value}
       </Typography>
       {sub && (

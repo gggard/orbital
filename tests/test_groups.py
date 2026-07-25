@@ -40,7 +40,10 @@ def client(tmp_path, monkeypatch):
 
 def test_flatten_nested_subgroups():
     tree = [
-        {"name": "a", "subGroups": [{"name": "a1"}, {"name": "a2", "subGroups": [{"name": "a2x"}]}]},
+        {
+            "name": "a",
+            "subGroups": [{"name": "a1"}, {"name": "a2", "subGroups": [{"name": "a2x"}]}],
+        },
         {"name": "b"},
         {"noname": True},
     ]
@@ -55,9 +58,7 @@ def test_known_groups_merges_config_sources(client):
 def test_known_groups_includes_keycloak(client, monkeypatch):
     monkeypatch.setenv("ORBITAL_GROUPS_FROM_KEYCLOAK", "true")
     get_settings.cache_clear()
-    monkeypatch.setattr(
-        groups_mod, "_fetch_keycloak_groups", lambda s: ["from-idp", "admins"]
-    )
+    monkeypatch.setattr(groups_mod, "_fetch_keycloak_groups", lambda s: ["from-idp", "admins"])
     assert "from-idp" in known_groups(get_settings())
 
 
@@ -101,11 +102,11 @@ def _clear_groups_cache():
 
 
 def _kc_settings(**overrides) -> Settings:
-    base = dict(
-        oidc_issuer_url="https://idp.example.com/realms/streamlit",
-        oidc_client_id="orbital",
-        oidc_client_secret="s3cr3t",
-    )
+    base = {
+        "oidc_issuer_url": "https://idp.example.com/realms/streamlit",
+        "oidc_client_id": "orbital",
+        "oidc_client_secret": "s3cr3t",
+    }
     base.update(overrides)
     return Settings(**base)
 
@@ -116,16 +117,16 @@ def test_fetch_keycloak_groups_success():
         json=lambda: [{"name": "a", "subGroups": [{"name": "a1"}]}, {"name": "b"}],
         raise_for_status=lambda: None,
     )
-    with patch("orbital.groups.httpx.post", return_value=token_resp) as mock_post, \
-         patch("orbital.groups.httpx.get", return_value=groups_resp) as mock_get:
+    with (
+        patch("orbital.groups.httpx.post", return_value=token_resp) as mock_post,
+        patch("orbital.groups.httpx.get", return_value=groups_resp) as mock_get,
+    ):
         result = _fetch_keycloak_groups(_kc_settings())
     assert result == ["a", "a1", "b"]
     assert mock_post.call_args.args[0] == (
         "https://idp.example.com/realms/streamlit/protocol/openid-connect/token"
     )
-    assert mock_get.call_args.args[0] == (
-        "https://idp.example.com/admin/realms/streamlit/groups"
-    )
+    assert mock_get.call_args.args[0] == ("https://idp.example.com/admin/realms/streamlit/groups")
     assert mock_get.call_args.kwargs["headers"] == {"Authorization": "Bearer tok"}
 
 
@@ -135,11 +136,11 @@ def test_fetch_keycloak_groups_bad_issuer_url_raises():
 
 
 def test_fetch_keycloak_groups_token_error_propagates():
-    with patch(
-        "orbital.groups.httpx.post", side_effect=httpx.ConnectError("refused")
+    with (
+        patch("orbital.groups.httpx.post", side_effect=httpx.ConnectError("refused")),
+        pytest.raises(httpx.ConnectError),
     ):
-        with pytest.raises(httpx.ConnectError):
-            _fetch_keycloak_groups(_kc_settings())
+        _fetch_keycloak_groups(_kc_settings())
 
 
 def test_keycloak_groups_cached_hits_cache_within_ttl():
@@ -156,6 +157,7 @@ def test_groups_endpoint_requires_login(tmp_path, monkeypatch):
     monkeypatch.setenv("ORBITAL_DATABASE_URL", f"sqlite:///{tmp_path}/t.db")
     monkeypatch.setenv("ORBITAL_RECONCILER_ENABLED", "false")
     monkeypatch.setenv("ORBITAL_UI_AUTH_ENABLED", "true")
+    monkeypatch.setenv("ORBITAL_SESSION_SECRET", "x" * 32)
     monkeypatch.setenv("ORBITAL_GROUPS_FROM_KEYCLOAK", "false")
     get_settings.cache_clear()
     from orbital import db

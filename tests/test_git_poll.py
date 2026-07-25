@@ -104,9 +104,7 @@ def test_poll_triggers_redeploy_on_new_commit(reconciler):
     app_id = _persist(make_app(current_build_id="bld000000001"), build=build)
     with db_mod.session_scope() as session:
         app = session.get(App, app_id)
-        with patch(
-            "orbital.k8s.reconciler.resolve_branch_head", return_value="bbb222"
-        ):
+        with patch("orbital.k8s.reconciler.resolve_branch_head", return_value="bbb222"):
             reconciler._maybe_poll_git(session, app)
         assert app.pending_action == PendingAction.deploy
         assert app.last_polled_at is not None
@@ -124,9 +122,7 @@ def test_poll_noop_when_commit_unchanged(reconciler):
     app_id = _persist(make_app(current_build_id="bld000000001"), build=build)
     with db_mod.session_scope() as session:
         app = session.get(App, app_id)
-        with patch(
-            "orbital.k8s.reconciler.resolve_branch_head", return_value="aaa111"
-        ):
+        with patch("orbital.k8s.reconciler.resolve_branch_head", return_value="aaa111"):
             reconciler._maybe_poll_git(session, app)
         assert app.pending_action == PendingAction.none
 

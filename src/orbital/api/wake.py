@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session
 from .. import activity, analytics
 from ..config import Settings, get_settings
 from ..db import get_db, session_scope
-from ..models import App, AppState
+from ..models import App
 
 log = logging.getLogger(__name__)
 
@@ -80,7 +80,7 @@ def _resolve_slug(request: Request, settings: Settings) -> str | None:
         path = request.url.path
         if not path.startswith(prefix):
             return None
-        return path[len(prefix):].split("/", 1)[0] or None
+        return path[len(prefix) :].split("/", 1)[0] or None
     suffix = f".{domain}"
     if host == domain or not host.endswith(suffix):
         return None

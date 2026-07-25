@@ -36,11 +36,10 @@ def test_session_scope_rolls_back_on_exception():
     class Boom(Exception):
         pass
 
-    with pytest.raises(Boom):
-        with db.session_scope() as session:
-            session.add(App(id="x1", slug="x1", repo_url="https://x/y"))
-            session.flush()
-            raise Boom()
+    with pytest.raises(Boom), db.session_scope() as session:
+        session.add(App(id="x1", slug="x1", repo_url="https://x/y"))
+        session.flush()
+        raise Boom()
 
     with db.session_scope() as session:
         assert session.get(App, "x1") is None

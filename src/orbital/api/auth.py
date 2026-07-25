@@ -115,7 +115,7 @@ def callback(
         claims = _verify_id_token(resp.json()["id_token"], settings)
     except (httpx.HTTPError, jwt.PyJWTError, KeyError) as e:
         log.warning("login failed: %s", e)
-        raise HTTPException(502, f"login failed: {e}")
+        raise HTTPException(502, f"login failed: {e}") from e
 
     email = claims.get("email", claims.get("preferred_username", ""))
     groups = [g for g in claims.get("groups", []) if isinstance(g, str)]
@@ -123,8 +123,9 @@ def callback(
     # kept for RP-initiated logout (id_token_hint), so signing out also ends
     # the Keycloak SSO session
     request.session["id_token"] = resp.json()["id_token"]
-    log.info("console login: %s (groups=%s, role=%s)",
-             email, groups, resolve_role(groups, settings))
+    log.info(
+        "console login: %s (groups=%s, role=%s)", email, groups, resolve_role(groups, settings)
+    )
     return RedirectResponse(request.session.pop("post_login_redirect", "/"))
 
 

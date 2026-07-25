@@ -158,11 +158,18 @@ class MetricsLimits(BaseModel):
     mem: float  # bytes
 
 
+class RestartInfo(BaseModel):
+    count: int  # total container restarts across the app's pods
+    last_reason: str | None  # e.g. "Error", "OOMKilled" (from the container's last termination)
+    last_at: datetime | None  # when that last termination happened; None if never restarted
+
+
 class MetricsOut(BaseModel):
     available: bool  # false when metrics-server is absent or has no data yet
     limits: MetricsLimits
     current: MetricsPoint | None  # latest sample
     series: list[MetricsPoint]
+    restarts: RestartInfo | None  # None: no pod data yet
 
 
 class AnalyticsDailyPoint(BaseModel):
@@ -180,6 +187,7 @@ class AnalyticsViewer(BaseModel):
 class AdminAppOut(AppOut):
     cpu: float | None  # cores, latest sample (None: no metrics yet)
     mem: float | None  # bytes, latest sample
+    restarts: int | None  # total container restarts across the app's pods
 
 
 class AdminScanOut(ScanOut):

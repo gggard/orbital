@@ -71,11 +71,15 @@ def _persist(app: App) -> str:
 
 def test_gc_deletes_orphaned_resources_but_spares_live_app(reconciler, monkeypatch):
     _persist(make_app())
+    live_and_orphan = [
+        _item("app-abc123def456", "abc123def456"),
+        _item("app-orphan0001", "orphan0001"),
+    ]
     _batch, apps_v1, core, networking = _mock_k8s(
         monkeypatch,
-        deployments=[_item("app-abc123def456", "abc123def456"), _item("app-orphan0001", "orphan0001")],
-        services=[_item("app-abc123def456", "abc123def456"), _item("app-orphan0001", "orphan0001")],
-        ingresses=[_item("app-abc123def456", "abc123def456"), _item("app-orphan0001", "orphan0001")],
+        deployments=live_and_orphan,
+        services=live_and_orphan,
+        ingresses=live_and_orphan,
         secrets=[_item("app-orphan0001-secrets", "orphan0001")],
     )
 
