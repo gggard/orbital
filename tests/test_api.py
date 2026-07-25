@@ -67,6 +67,25 @@ def test_secrets_validation(client):
     assert client.get(f"/api/v1/apps/{app_id}/secrets").text == 'k = "v"'
 
 
+def test_secrets_encrypted_at_rest(client, tmp_path):
+    """The API round-trips the plaintext (above), but the raw DB column must
+    never hold it - only ciphertext (issue #73)."""
+    import sqlite3
+
+    plaintext = 'db_password = "hunter2"'
+    app_id = make_app(client, slug="secretive").json()["id"]
+    put = client.put(f"/api/v1/apps/{app_id}/secrets", json={"secrets_toml": plaintext})
+    assert put.status_code == 202
+
+    conn = sqlite3.connect(tmp_path / "test.db")
+    raw = conn.execute("SELECT secrets_toml FROM apps WHERE id = ?", (app_id,)).fetchone()[0]
+    conn.close()
+
+    assert raw != plaintext
+    assert "hunter2" not in raw
+    assert client.get(f"/api/v1/apps/{app_id}/secrets").text == plaintext
+
+
 def test_webhook_token(client):
     body = make_app(client).json()
     assert client.post(f"/webhooks/apps/{body['id']}/wrong-token").status_code == 404

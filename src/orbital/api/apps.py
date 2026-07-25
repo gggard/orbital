@@ -7,7 +7,7 @@ from fastapi.responses import PlainTextResponse, StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .. import analytics
+from .. import analytics, crypto
 from ..config import Settings, get_settings
 from ..db import get_db
 from ..k8s import inspect, metrics
@@ -156,8 +156,10 @@ def create_app(
                 f"unsupported python version {python_version!r}; "
                 f"supported: {sorted(settings.python_versions)}",
             )
-    if payload.secrets_toml:
-        _validate_toml(payload.secrets_toml)
+    secrets_toml = payload.secrets_toml
+    if secrets_toml:
+        _validate_toml(secrets_toml)
+        secrets_toml = crypto.encrypt(secrets_toml, settings)
     _validate_poll_interval(payload.poll_interval_seconds, settings)
     _validate_hibernate_timeout(payload.hibernate_after_seconds, settings)
     app = App(
@@ -173,7 +175,7 @@ def create_app(
         allowed_groups=payload.allowed_groups,
         owner_groups=owner_groups,
         tags=_normalize_tags(payload.tags),
-        secrets_toml=payload.secrets_toml,
+        secrets_toml=secrets_toml,
         state=AppState.created,
         pending_action=PendingAction.deploy,
         hibernate_enabled=payload.hibernate_enabled,
@@ -454,9 +456,11 @@ def app_analytics(
 def get_secrets(
     app_id: str,
     db: Annotated[Session, Depends(get_db)],
+    settings: Annotated[Settings, Depends(get_settings)],
     user: Annotated[User, Depends(get_current_user)],
 ):
-    return _managed(db, app_id, user).secrets_toml or ""
+    ciphertext = _managed(db, app_id, user).secrets_toml
+    return crypto.decrypt(ciphertext, settings) if ciphertext else ""
 
 
 @router.put("/apps/{app_id}/secrets", status_code=202)
@@ -464,11 +468,14 @@ def put_secrets(
     app_id: str,
     payload: SecretsIn,
     db: Annotated[Session, Depends(get_db)],
+    settings: Annotated[Settings, Depends(get_settings)],
     user: Annotated[User, Depends(get_current_user)],
 ):
     app = _managed(db, app_id, user)
     _validate_toml(payload.secrets_toml)
-    app.secrets_toml = payload.secrets_toml
+    app.secrets_toml = (
+        crypto.encrypt(payload.secrets_toml, settings) if payload.secrets_toml else None
+    )
     app.secrets_dirty = True
     return {"status": "secrets updated; app will restart"}
 
