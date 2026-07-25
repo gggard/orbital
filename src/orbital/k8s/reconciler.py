@@ -334,6 +334,7 @@ class Reconciler:
             self._succeed_build(build, app)
             return
         if outcome == "failed":
+            assert message is not None
             tail = build_log_tail(build.id, self.settings)
             self._fail_build(build, app, message, tail)
             return
@@ -372,6 +373,7 @@ class Reconciler:
     # -- deploy ------------------------------------------------------------
 
     def _deploy(self, app: App):
+        assert app.current_image is not None
         s = self.settings
         if app.secrets_toml:
             sec = resources.secret(app, s)
@@ -521,7 +523,10 @@ class Reconciler:
         interval = app.poll_interval_seconds or self.settings.git_poll_default_interval_seconds
         interval = max(interval, self.settings.git_poll_min_interval_seconds)
         now = datetime.now(UTC)
-        if app.last_polled_at and (now - ensure_aware(app.last_polled_at)).total_seconds() < interval:
+        if (
+            app.last_polled_at
+            and (now - ensure_aware(app.last_polled_at)).total_seconds() < interval
+        ):
             return
         app.last_polled_at = now
         try:
@@ -694,7 +699,11 @@ class Reconciler:
         for pod in pods.items:
             for cs in pod.status.container_statuses or []:
                 waiting = cs.state.waiting
-                if waiting and waiting.reason in ("CrashLoopBackOff", "ErrImagePull", "ImagePullBackOff"):
+                if waiting and waiting.reason in (
+                    "CrashLoopBackOff",
+                    "ErrImagePull",
+                    "ImagePullBackOff",
+                ):
                     app.state = AppState.deploy_failed
                     app.error = f"{waiting.reason}: {waiting.message or ''}".strip()
                     return

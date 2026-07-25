@@ -15,6 +15,7 @@ _TRIVY_CACHE_DIR = "/tmp/trivy-cache"  # NOSONAR
 
 
 def scan_job(app: App, scan: ScanResult, settings: Settings) -> dict:
+    assert scan.build_id is not None
     # scan.image mirrors app.current_image (pull form: localhost:5000/...,
     # only resolvable by the kubelet) so the "same image already scanned"
     # comparison in reconciler._maybe_scan stays valid across restarts. The
@@ -94,7 +95,7 @@ def parse_report(raw: str) -> tuple[dict[Severity, int], list[Vulnerability]]:
     finished even when Trivy produced no parseable output (e.g. a killed
     pod whose log the reconciler picked up mid-write).
     """
-    counts: dict[Severity, int] = {severity: 0 for severity in Severity}
+    counts: dict[Severity, int] = dict.fromkeys(Severity, 0)
     vulnerabilities: list[Vulnerability] = []
     try:
         report = json.loads(raw) if raw else {}

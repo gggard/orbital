@@ -173,7 +173,8 @@ class Settings(BaseSettings):
             raise ValueError(
                 "ORBITAL_GIT_POLL_MIN_INTERVAL_SECONDS "
                 f"({self.git_poll_min_interval_seconds}) must be <= "
-                f"ORBITAL_GIT_POLL_DEFAULT_INTERVAL_SECONDS ({self.git_poll_default_interval_seconds})"
+                "ORBITAL_GIT_POLL_DEFAULT_INTERVAL_SECONDS "
+                f"({self.git_poll_default_interval_seconds})"
             )
         if self.hibernation_max_timeout_seconds < self.hibernation_timeout_seconds:
             raise ValueError(

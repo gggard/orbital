@@ -82,6 +82,7 @@ def _build(phase=BuildPhase.running, created_at=None) -> Build:
         id="bld000000001",
         app_id="abc123def456",
         commit_sha="aaa111",
+        image="localhost:5000/apps/abc123def456:bld000000001",
         phase=phase,
         created_at=created_at or datetime.now(UTC),
     )

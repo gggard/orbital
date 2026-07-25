@@ -1,0 +1,36 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+        files: ^(src|tests|ui/src)/
+      - id: end-of-file-fixer
+        files: ^(src|tests|ui/src)/
+      - id: check-yaml
+        exclude: ^deploy/chart/.*/templates/
+      - id: check-toml
+      - id: check-added-large-files
+      - id: check-merge-conflict
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.0
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+        files: ^(src|tests)/
+
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy
+        entry: .venv/bin/mypy src
+        language: system
+        files: ^src/.*\.py$
+        pass_filenames: false
+
+      - id: eslint
+        name: eslint (ui)
+        entry: bash -c 'cd ui && npx eslint .'
+        language: system
+        files: ^ui/(src|.*\.config\.(mjs|ts))
+        pass_filenames: false

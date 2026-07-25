@@ -40,7 +40,10 @@ def client(tmp_path, monkeypatch):
 
 def test_flatten_nested_subgroups():
     tree = [
-        {"name": "a", "subGroups": [{"name": "a1"}, {"name": "a2", "subGroups": [{"name": "a2x"}]}]},
+        {
+            "name": "a",
+            "subGroups": [{"name": "a1"}, {"name": "a2", "subGroups": [{"name": "a2x"}]}],
+        },
         {"name": "b"},
         {"noname": True},
     ]
@@ -101,11 +104,11 @@ def _clear_groups_cache():
 
 
 def _kc_settings(**overrides) -> Settings:
-    base = dict(
-        oidc_issuer_url="https://idp.example.com/realms/streamlit",
-        oidc_client_id="orbital",
-        oidc_client_secret="s3cr3t",
-    )
+    base = {
+        "oidc_issuer_url": "https://idp.example.com/realms/streamlit",
+        "oidc_client_id": "orbital",
+        "oidc_client_secret": "s3cr3t",
+    }
     base.update(overrides)
     return Settings(**base)
 
@@ -137,9 +140,8 @@ def test_fetch_keycloak_groups_bad_issuer_url_raises():
 def test_fetch_keycloak_groups_token_error_propagates():
     with patch(
         "orbital.groups.httpx.post", side_effect=httpx.ConnectError("refused")
-    ):
-        with pytest.raises(httpx.ConnectError):
-            _fetch_keycloak_groups(_kc_settings())
+    ), pytest.raises(httpx.ConnectError):
+        _fetch_keycloak_groups(_kc_settings())
 
 
 def test_keycloak_groups_cached_hits_cache_within_ttl():

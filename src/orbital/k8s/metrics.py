@@ -140,10 +140,11 @@ def fetch_pod_restarts(app_id: str, settings: Settings) -> RestartInfo | None:
         for cs in pod.status.container_statuses or []:
             count += cs.restart_count
             terminated = cs.last_state.terminated if cs.last_state else None
-            if terminated and terminated.finished_at:
-                if last_at is None or terminated.finished_at > last_at:
-                    last_at = terminated.finished_at
-                    last_reason = terminated.reason
+            if not terminated or not terminated.finished_at:
+                continue
+            if last_at is None or terminated.finished_at > last_at:
+                last_at = terminated.finished_at
+                last_reason = terminated.reason
     return RestartInfo(count=count, last_reason=last_reason, last_at=last_at)
 
 

@@ -5,7 +5,6 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-
 from starlette.middleware.sessions import SessionMiddleware
 
 from . import __version__

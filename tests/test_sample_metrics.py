@@ -39,7 +39,8 @@ def reconciler(monkeypatch, tmp_path):
 def test_sample_metrics_stores_usage_and_restarts(reconciler):
     app = make_app()
     sample = metrics.Sample(ts=1.0, cpu=0.1, mem=100.0)
-    info = metrics.RestartInfo(count=2, last_reason="Error", last_at=datetime(2026, 1, 1, tzinfo=UTC))
+    last_at = datetime(2026, 1, 1, tzinfo=UTC)
+    info = metrics.RestartInfo(count=2, last_reason="Error", last_at=last_at)
     with patch("orbital.k8s.reconciler.metrics.fetch_app_usage", return_value=sample), patch(
         "orbital.k8s.reconciler.metrics.fetch_pod_restarts", return_value=info
     ):
