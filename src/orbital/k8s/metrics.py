@@ -26,9 +26,22 @@ SAMPLE_INTERVAL = 15.0
 MAX_SAMPLES = 120
 
 _SUFFIXES = {
-    "n": 1e-9, "u": 1e-6, "m": 1e-3,
-    "k": 1e3, "K": 1e3, "M": 1e6, "G": 1e9, "T": 1e12, "P": 1e15, "E": 1e18,
-    "Ki": 2**10, "Mi": 2**20, "Gi": 2**30, "Ti": 2**40, "Pi": 2**50, "Ei": 2**60,
+    "n": 1e-9,
+    "u": 1e-6,
+    "m": 1e-3,
+    "k": 1e3,
+    "K": 1e3,
+    "M": 1e6,
+    "G": 1e9,
+    "T": 1e12,
+    "P": 1e15,
+    "E": 1e18,
+    "Ki": 2**10,
+    "Mi": 2**20,
+    "Gi": 2**30,
+    "Ti": 2**40,
+    "Pi": 2**50,
+    "Ei": 2**60,
 }
 _QUANTITY_RE = re.compile(r"^(-?[0-9.]+)([a-zA-Z]*)$")
 
@@ -65,7 +78,10 @@ def fetch_app_usage(app_id: str, settings: Settings) -> Sample | None:
     api = k8s_client.CustomObjectsApi(client.api())
     try:
         result = api.list_namespaced_custom_object(
-            "metrics.k8s.io", "v1beta1", settings.apps_namespace, "pods",
+            "metrics.k8s.io",
+            "v1beta1",
+            settings.apps_namespace,
+            "pods",
             label_selector=f"app.orbital.io/app-id={app_id}",
         )
     except ApiException as e:
@@ -127,10 +143,14 @@ def fetch_pod_restarts(app_id: str, settings: Settings) -> RestartInfo | None:
     available even in clusters where metrics-server isn't installed. Returns
     None when the app has no pods yet.
     """
-    pods = client.core().list_namespaced_pod(
-        settings.apps_namespace,
-        label_selector=f"app.orbital.io/app-id={app_id}",
-    ).items
+    pods = (
+        client.core()
+        .list_namespaced_pod(
+            settings.apps_namespace,
+            label_selector=f"app.orbital.io/app-id={app_id}",
+        )
+        .items
+    )
     if not pods:
         return None
     count = 0

@@ -122,9 +122,7 @@ class Settings(BaseSettings):
     hibernation_max_timeout_seconds: int = 7 * 24 * 3600  # 7 days
     # the control plane's own in-cluster Service (doubles as the wake proxy
     # and the authz backend); reachable from the ingress controller
-    control_plane_service_host: str = (
-        "orbital-control-plane.orbital-platform.svc.cluster.local"
-    )
+    control_plane_service_host: str = "orbital-control-plane.orbital-platform.svc.cluster.local"
     control_plane_service_port: int = 8000
 
     def resolved_buildkit_image(self) -> str:

@@ -123,8 +123,9 @@ def callback(
     # kept for RP-initiated logout (id_token_hint), so signing out also ends
     # the Keycloak SSO session
     request.session["id_token"] = resp.json()["id_token"]
-    log.info("console login: %s (groups=%s, role=%s)",
-             email, groups, resolve_role(groups, settings))
+    log.info(
+        "console login: %s (groups=%s, role=%s)", email, groups, resolve_role(groups, settings)
+    )
     return RedirectResponse(request.session.pop("post_login_redirect", "/"))
 
 

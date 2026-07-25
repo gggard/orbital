@@ -106,11 +106,7 @@ def test_check_build_succeeds_via_complete_condition(reconciler, monkeypatch):
 
 
 def test_check_build_fails_via_failed_condition_message(reconciler, monkeypatch):
-    job = _job(
-        conditions=[
-            SimpleNamespace(type="Failed", status="True", message="OOMKilled")
-        ]
-    )
+    job = _job(conditions=[SimpleNamespace(type="Failed", status="True", message="OOMKilled")])
     _mock_k8s(monkeypatch, job)
     app_id = _persist(make_app(), build=_build())
 
@@ -166,9 +162,7 @@ def test_check_build_times_out_with_no_terminal_signal(reconciler, monkeypatch):
     job = _job(conditions=[], succeeded=None, failed=None)
     _mock_k8s(monkeypatch, job)
     settings = get_settings()
-    stale = datetime.now(UTC) - timedelta(
-        seconds=settings.build_timeout_seconds + 121
-    )
+    stale = datetime.now(UTC) - timedelta(seconds=settings.build_timeout_seconds + 121)
     app_id = _persist(make_app(), build=_build(created_at=stale))
 
     from orbital import db as db_mod
@@ -199,9 +193,7 @@ def test_check_build_stays_building_within_timeout_grace(reconciler, monkeypatch
 
 def test_tick_surfaces_unhandled_step_exception_on_app(reconciler, monkeypatch):
     _persist(make_app())
-    monkeypatch.setattr(
-        reconciler, "step", MagicMock(side_effect=RuntimeError("boom"))
-    )
+    monkeypatch.setattr(reconciler, "step", MagicMock(side_effect=RuntimeError("boom")))
     reconciler.tick()
 
     from orbital import db as db_mod
@@ -227,9 +219,7 @@ def test_tick_uses_str_not_repr_for_exceptions_with_custom_str(reconciler, monke
     """A bare repr() on an ApiException-shaped error produced a useless
     "ApiException()" with no status/reason - str() carries the real detail."""
     _persist(make_app())
-    monkeypatch.setattr(
-        reconciler, "step", MagicMock(side_effect=_CustomStrOnlyError())
-    )
+    monkeypatch.setattr(reconciler, "step", MagicMock(side_effect=_CustomStrOnlyError()))
     reconciler.tick()
 
     from orbital import db as db_mod

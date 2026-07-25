@@ -61,14 +61,10 @@ def app_log_stream(app_id: str, settings: Settings, tail: int = 100) -> Iterator
 def build_log_tail(build_id: str, settings: Settings, tail: int = 200) -> str:
     """Concatenated logs of the fetch (clone+detect) and buildkit containers."""
     chunks = []
-    for pod in _pods_for(
-        settings.builds_namespace, f"app.orbital.io/build-id={build_id}"
-    ):
+    for pod in _pods_for(settings.builds_namespace, f"app.orbital.io/build-id={build_id}"):
         for container in ("fetch", "buildkit"):
             try:
-                text = _read_log(
-                    pod.metadata.name, settings.builds_namespace, tail, container
-                )
+                text = _read_log(pod.metadata.name, settings.builds_namespace, tail, container)
                 chunks.append(f"--- {container} ---\n{text}")
             except ApiException as e:
                 chunks.append(f"--- {container} --- [unavailable: {e.reason}]")

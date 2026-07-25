@@ -48,10 +48,11 @@ def test_delete_app_cleans_up_cluster_resources_and_metrics(reconciler):
     session = Mock()
 
     try:
-        with patch("orbital.k8s.reconciler.client.networking", return_value=fake_networking), patch(
-            "orbital.k8s.reconciler.client.apps_v1", return_value=fake_apps_v1
-        ), patch("orbital.k8s.reconciler.client.core", return_value=fake_core), patch(
-            "orbital.k8s.reconciler.client.batch", return_value=fake_batch
+        with (
+            patch("orbital.k8s.reconciler.client.networking", return_value=fake_networking),
+            patch("orbital.k8s.reconciler.client.apps_v1", return_value=fake_apps_v1),
+            patch("orbital.k8s.reconciler.client.core", return_value=fake_core),
+            patch("orbital.k8s.reconciler.client.batch", return_value=fake_batch),
         ):
             reconciler._delete_app(session, app)
 
@@ -85,10 +86,11 @@ def test_delete_app_deletes_matching_jobs(reconciler):
     fake_batch.list_namespaced_job.return_value = Mock(items=[job])
     session = Mock()
 
-    with patch("orbital.k8s.reconciler.client.networking", return_value=Mock()), patch(
-        "orbital.k8s.reconciler.client.apps_v1", return_value=Mock()
-    ), patch("orbital.k8s.reconciler.client.core", return_value=Mock()), patch(
-        "orbital.k8s.reconciler.client.batch", return_value=fake_batch
+    with (
+        patch("orbital.k8s.reconciler.client.networking", return_value=Mock()),
+        patch("orbital.k8s.reconciler.client.apps_v1", return_value=Mock()),
+        patch("orbital.k8s.reconciler.client.core", return_value=Mock()),
+        patch("orbital.k8s.reconciler.client.batch", return_value=fake_batch),
     ):
         reconciler._delete_app(session, app)
 

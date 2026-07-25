@@ -144,9 +144,7 @@ def create_app(
         require_publish(user, settings)
     owner_groups = payload.owner_groups if payload.owner_groups is not None else user.groups
     if not user.is_admin and not set(owner_groups) & set(user.groups):
-        raise HTTPException(
-            403, "owner_groups must include at least one of your own groups"
-        )
+        raise HTTPException(403, "owner_groups must include at least one of your own groups")
     if db.scalar(select(App).where(App.slug == payload.slug)):
         raise HTTPException(409, f"slug {payload.slug!r} already in use")
     python_version = None
@@ -422,10 +420,7 @@ def app_metrics(
     user: Annotated[User, Depends(get_current_user)],
 ):
     _visible(db, app_id, user)
-    series = [
-        MetricsPoint(t=s.ts, cpu=s.cpu, mem=s.mem)
-        for s in metrics.store.series(app_id)
-    ]
+    series = [MetricsPoint(t=s.ts, cpu=s.cpu, mem=s.mem) for s in metrics.store.series(app_id)]
     restarts = metrics.restart_counts.get(app_id)
     return MetricsOut(
         available=bool(series),
@@ -495,9 +490,7 @@ def _get_scan(db: Session, app_id: str, scan_id: str) -> ScanResult:
     return scan
 
 
-@router.get(
-    "/apps/{app_id}/scans/{scan_id}/vulnerabilities", response_model=list[VulnerabilityOut]
-)
+@router.get("/apps/{app_id}/scans/{scan_id}/vulnerabilities", response_model=list[VulnerabilityOut])
 def scan_vulnerabilities(
     app_id: str,
     scan_id: str,
