@@ -376,13 +376,16 @@ control plane builds for the running app.
 - App code is untrusted: pods run as non-root with read-only rootfs, no SA
   token, dropped capabilities, and (recommended) rootless builds — see
   [Privileged builds](#privileged-builds) for the risk of disabling the
-  latter. Consider adding NetworkPolicies denying app-pod egress to
-  cluster-internal CIDRs
-  and cloud metadata endpoints (SPEC §8) — not yet templated in the chart.
+  latter. The chart also ships default-deny NetworkPolicies isolating
+  apps/builds/scans from each other, the control plane, and cloud metadata
+  endpoints (SPEC §8) — see [Network policies](#network-policies) below.
+  This requires a NetworkPolicy-enforcing CNI; without one these are
+  silently unenforced.
 - The in-cluster registry is plaintext HTTP by default (dev/minikube
   quick-start); enable `registry.tls.enabled` for TLS-protected build
   push/pull, and see [Registry TLS](#registry-tls) for the tradeoffs and the
-  complementary NetworkPolicy hardening tracked in issue #79.
+  complementary NetworkPolicy hardening described in
+  [Network policies](#network-policies) below.
 - Never expose the control plane without `auth.console.enabled=true`; an
   unauthenticated control plane treats every caller as admin.
 - `ORBITAL_SESSION_SECRET` signs the console session cookie (identity +
@@ -432,6 +435,63 @@ control plane builds for the running app.
     `nginx.ingress.kubernetes.io/limit-rps` (or `limit-rpm`/`limit-burst-multiplier`)
     annotation on the app Ingress. This is intentionally the primary
     mitigation layer for that endpoint, not a fallback.
+
+### Network policies
+
+`networkPolicy.enabled` (default `true`) ships default-deny `NetworkPolicy`
+resources (issue #79) for the three workload namespaces plus the
+control-plane namespace, since none of them are otherwise network-segmented
+from each other, from cluster-internal services, or from cloud metadata
+endpoints:
+
+- **`streamlit-apps`**: ingress only from the ingress controller; egress
+  only DNS plus `networkPolicy.apps.egressAllowlist` (see below). No
+  ingress/egress to/from `streamlit-builds`, `streamlit-scans`, or the
+  control-plane namespace.
+- **`streamlit-builds`**: no ingress at all (the control plane creates
+  BuildKit Jobs and reads their logs via the Kubernetes API, never a direct
+  pod connection). Egress: DNS, the registry, and otherwise-arbitrary
+  internet (git clone/pip/npm need it) — but never cluster-internal
+  (RFC1918) ranges or the cloud metadata endpoint.
+- **`streamlit-scans`**: same as builds, but with no arbitrary internet
+  egress — Trivy only needs to pull the image it's scanning from the
+  registry.
+- **control-plane namespace** (this release's namespace): ingress restricted
+  to the console (in-namespace) and the ingress controller; apps/builds/scans
+  never get direct network access to the control plane (the
+  authz/activity-beacon/wake-proxy paths are all ingress-controller ->
+  control-plane, not app-pod -> control-plane).
+
+**Prerequisite**: your cluster's CNI must enforce `NetworkPolicy` (Calico,
+Cilium, etc. — see [INSTALL.md](INSTALL.md) prerequisites). If it doesn't,
+either switch to one or set `networkPolicy.enabled=false`; shipping
+unenforced policies is a false sense of isolation.
+
+**Required configuration**: `networkPolicy.ingressNamespaceSelector` must be
+set to your ingress controller's namespace selector (see
+[INSTALL.md](INSTALL.md) for a worked nginx-ingress example) — left at its
+empty default, ingress is denied entirely rather than opened to every
+namespace.
+
+**Extending the apps-namespace egress allowlist.** Apps that legitimately
+call external APIs (payment providers, SaaS webhooks, etc.) need more than
+DNS egress. Add CIDR ranges to `networkPolicy.apps.egressAllowlist`:
+
+```yaml
+networkPolicy:
+  apps:
+    egressAllowlist:
+      - 203.0.113.0/24   # e.g. a third-party API's published IP range
+```
+
+Each entry is rendered as its own `NetworkPolicy` egress rule with the
+cloud metadata endpoint (`networkPolicy.metadataCidr`) always excepted, even
+if the CIDR you add would otherwise cover it. Prefer the narrowest CIDR your
+external dependency documents; a broad range (e.g. a whole `/16` or `0.0.0.0/0`)
+defeats the point of the allowlist. If a dependency doesn't publish a stable
+IP range (common with CDN-fronted APIs), there's no way to allowlist it via
+`ipBlock` alone — you'd need per-app NetworkPolicies (out of scope for this
+chart) or to accept broader egress for that namespace.
 
 ## 6. Demo identity stack
 

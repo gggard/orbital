@@ -90,6 +90,54 @@ builds:
     limitsCpu: "40"
     limitsMemory: 40Gi
 
+# Periodic Trivy vulnerability scans of deployed app images (src/orbital/k8s/scanner.py).
+scans:
+  namespace: streamlit-scans
+  createNamespace: true
+
+# NetworkPolicies (issue #79): default-deny for the apps/builds/scans
+# workload namespaces plus the control-plane namespace (this release's
+# namespace), since none of those are network-segmented otherwise. Requires
+# a NetworkPolicy-enforcing CNI (Calico, Cilium, ...) - see docs/INSTALL.md.
+networkPolicy:
+  enabled: true
+  # REQUIRED for apps/console/control-plane to remain reachable: a label
+  # selector matching your ingress controller's namespace. Left empty
+  # (default) ingress is denied entirely (fail closed) rather than opened to
+  # every namespace - see docs/INSTALL.md for how to find your ingress
+  # controller's namespace labels (e.g. ingress-nginx conventionally labels
+  # its namespace app.kubernetes.io/name=ingress-nginx, but this varies by
+  # distribution - check your own installation).
+  ingressNamespaceSelector: {}
+  #   ingressNamespaceSelector:
+  #     matchLabels:
+  #       kubernetes.io/metadata.name: ingress-nginx
+  # Cloud metadata endpoint (AWS/GCP/Azure IMDS) - a classic pivot point for
+  # credential theft from a compromised pod. Always excluded from egress in
+  # apps/builds/scans, even from operator-configured allowlists.
+  metadataCidr: 169.254.169.254/32
+  # Private/RFC1918 ranges excluded from builds-namespace's "internet"
+  # egress rule (git clone/pip/npm need broad outbound access, but must not
+  # be able to reach cluster-internal pods/Services by IP). Adjust if your
+  # cluster's pod/Service CIDRs fall outside these ranges.
+  privateCidrs:
+    - 10.0.0.0/8
+    - 172.16.0.0/12
+    - 192.168.0.0/16
+  # Extra NetworkPolicy peers (ipBlock/namespaceSelector/podSelector) that
+  # builds and scans pods may reach for your container registry, beyond the
+  # chart's own internal registry (auto-allowed when registry.internal.enabled).
+  # Needed when the registry lives in-cluster but outside this release, e.g.
+  # the minikube "registry" addon in kube-system:
+  #   registryEgress:
+  #     - namespaceSelector:
+  #         matchLabels: {kubernetes.io/metadata.name: kube-system}
+  registryEgress: []
+  apps:
+    # Additional CIDRs apps-namespace pods may reach beyond DNS, e.g. a
+    # specific external API's IP range. See docs/ADMIN.md.
+    egressAllowlist: []
+
 # Container registry used for app images.
 # pushUrl:    registry endpoint reachable from build pods (in-cluster DNS ok)
 # pullPrefix: image prefix as pullable by the cluster's nodes

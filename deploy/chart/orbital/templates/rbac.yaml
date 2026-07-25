@@ -77,3 +77,34 @@ subjects:
   - kind: ServiceAccount
     name: {{ include "orbital.controlPlaneName" . }}
     namespace: {{ .Release.Namespace }}
+---
+# scan jobs (also fixes: scans namespace had no chart-managed RBAC at all -
+# see PR description)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "orbital.fullname" . }}-scans
+  namespace: {{ .Values.scans.namespace }}
+  labels: {{- include "orbital.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [batch]
+    resources: [jobs]
+    verbs: [get, list, watch, create, delete]
+  - apiGroups: [""]
+    resources: [pods, pods/log]
+    verbs: [get, list, watch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "orbital.fullname" . }}-scans
+  namespace: {{ .Values.scans.namespace }}
+  labels: {{- include "orbital.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "orbital.fullname" . }}-scans
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "orbital.controlPlaneName" . }}
+    namespace: {{ .Release.Namespace }}

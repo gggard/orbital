@@ -1,0 +1,194 @@
+{{- if .Values.networkPolicy.enabled }}
+# Default-deny NetworkPolicies (issue #79). apps/builds/scans host
+# untrusted or semi-trusted workloads (arbitrary developer app code, BuildKit
+# builds of arbitrary repos, Trivy scans) with no network segmentation
+# between them, the control plane, or cloud metadata endpoints by default -
+# these policies close that off.
+#
+# Requires a NetworkPolicy-enforcing CNI (e.g. Calico, Cilium - NOT every
+# CNI enforces NetworkPolicy; see docs/INSTALL.md). If your CNI doesn't
+# enforce them, set networkPolicy.enabled=false: shipping unenforced
+# NetworkPolicies gives a false sense of isolation.
+# apps-namespace: ingress only from the ingress controller (the app traffic
+# path; the authz/activity-beacon/wake-proxy auth_request subrequests are
+# made by the ingress controller itself straight to the control plane and
+# never touch apps-namespace pods - see docs/ADMIN.md). Egress limited to
+# DNS plus an operator-configured allowlist; builds-namespace,
+# scans-namespace and the control-plane namespace are never allowed in or
+# out, and the cloud metadata endpoint is always excluded even from
+# allowlisted CIDRs.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "orbital.fullname" . }}-apps-default-deny
+  namespace: {{ .Values.apps.namespace }}
+  labels: {{- include "orbital.labels" . | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+  {{- if .Values.networkPolicy.ingressNamespaceSelector }}
+  ingress:
+    - from:
+        - namespaceSelector:
+            {{- toYaml .Values.networkPolicy.ingressNamespaceSelector | nindent 12 }}
+  {{- else }}
+  # networkPolicy.ingressNamespaceSelector is unset: fail closed (no ingress
+  # allowed at all) rather than fail open. Set it to your ingress
+  # controller's namespace selector or apps will be unreachable - see
+  # docs/INSTALL.md.
+  ingress: []
+  {{- end }}
+  egress:
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - {protocol: UDP, port: 53}
+        - {protocol: TCP, port: 53}
+    {{- range .Values.networkPolicy.apps.egressAllowlist }}
+    # operator-configured allowlist entry (docs/ADMIN.md) - the cloud
+    # metadata endpoint is always excluded, even if this CIDR would
+    # otherwise cover it.
+    - to:
+        - ipBlock:
+            cidr: {{ . | quote }}
+            except: [{{ $.Values.networkPolicy.metadataCidr | quote }}]
+    {{- end }}
+---
+# builds-namespace: no ingress (nothing ever calls into a build pod - the
+# control plane creates BuildKit Jobs and reads their logs via the k8s API
+# server, never a direct pod connection). Egress: DNS, the registry, and
+# arbitrary internet (git clone / pip / npm need it) - but never
+# cluster-internal ranges (so a compromised build can't pivot to the
+# control plane or apps-namespace by IP) or the metadata endpoint.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "orbital.fullname" . }}-builds-default-deny
+  namespace: {{ .Values.builds.namespace }}
+  labels: {{- include "orbital.labels" . | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+  ingress: []
+  egress:
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - {protocol: UDP, port: 53}
+        - {protocol: TCP, port: 53}
+    {{- if .Values.registry.internal.enabled }}
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Release.Namespace }}
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/component: registry
+              app.kubernetes.io/instance: {{ .Release.Name }}
+      ports:
+        - {protocol: TCP, port: 5000}
+    {{- end }}
+    {{- with .Values.networkPolicy.registryEgress }}
+    - to:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              {{- toYaml (append .Values.networkPolicy.privateCidrs .Values.networkPolicy.metadataCidr) | nindent 14 }}
+---
+# scans-namespace: same as builds-namespace but with no arbitrary internet
+# egress - Trivy only ever needs to pull the image being scanned from the
+# registry.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "orbital.fullname" . }}-scans-default-deny
+  namespace: {{ .Values.scans.namespace }}
+  labels: {{- include "orbital.labels" . | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+  ingress: []
+  egress:
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - {protocol: UDP, port: 53}
+        - {protocol: TCP, port: 53}
+    {{- if .Values.registry.internal.enabled }}
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Release.Namespace }}
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/component: registry
+              app.kubernetes.io/instance: {{ .Release.Name }}
+      ports:
+        - {protocol: TCP, port: 5000}
+    {{- end }}
+    {{- with .Values.networkPolicy.registryEgress }}
+    - to:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+---
+# control-plane namespace (this release's namespace, .Release.Namespace):
+# restrict ingress to (a) the console calling the control plane's API
+# in-namespace, and (b) the ingress controller - which fronts both the
+# console UI/API traffic AND the authz/activity-beacon/wake-proxy
+# auth_request subrequests nginx makes on behalf of apps-namespace ingresses
+# (SPEC §5.5/§5.6). apps/builds/scans never need direct network access to
+# the control plane - only the ingress controller does.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "orbital.fullname" . }}-control-plane-default-deny
+  namespace: {{ .Release.Namespace }}
+  labels: {{- include "orbital.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: control-plane
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: console
+      ports:
+        - {protocol: TCP, port: 8000}
+    {{- if .Values.networkPolicy.ingressNamespaceSelector }}
+    - from:
+        - namespaceSelector:
+            {{- toYaml .Values.networkPolicy.ingressNamespaceSelector | nindent 12 }}
+      ports:
+        - {protocol: TCP, port: 8000}
+    {{- end }}
+{{- if .Values.console.enabled }}
+---
+# console: ingress only from the ingress controller.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "orbital.fullname" . }}-console-default-deny
+  namespace: {{ .Release.Namespace }}
+  labels: {{- include "orbital.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: console
+  policyTypes: [Ingress]
+  {{- if .Values.networkPolicy.ingressNamespaceSelector }}
+  ingress:
+    - from:
+        - namespaceSelector:
+            {{- toYaml .Values.networkPolicy.ingressNamespaceSelector | nindent 12 }}
+      ports:
+        - {protocol: TCP, port: 3000}
+  {{- else }}
+  ingress: []
+  {{- end }}
+{{- end }}
+{{- end }}
