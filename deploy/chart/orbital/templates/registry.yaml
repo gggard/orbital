@@ -1,5 +1,41 @@
+{{- if and .Values.registry.tls.enabled (not .Values.registry.internal.enabled) (not .Values.registry.tls.existingSecret) }}
+{{- fail "registry.tls.enabled requires either registry.internal.enabled=true (the chart then generates a self-signed CA/cert) or registry.tls.existingSecret (bring your own registry's CA/cert/key, keys: tls.crt, tls.key, ca.crt)" }}
+{{- end }}
 {{- if .Values.registry.internal.enabled }}
 # Dev/demo in-cluster registry. NOT for production use (no auth, no GC policy).
+{{- $tlsEnabled := .Values.registry.tls.enabled }}
+{{- $secretName := include "orbital.registryTlsSecretName" . }}
+{{- if and $tlsEnabled (not .Values.registry.tls.existingSecret) }}
+{{- $existing := lookup "v1" "Secret" .Release.Namespace $secretName }}
+---
+# Self-signed CA + server cert for the internal registry (issue #78). Only
+# trusted by this chart's own components (control plane, build Jobs), not
+# by the OS root store - fine for the in-cluster-only traffic this covers.
+# Reused across `helm upgrade`s (via `lookup`) so it doesn't rotate and
+# break trust on every release.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ $secretName }}
+  namespace: {{ .Release.Namespace }}
+  labels: {{- include "orbital.labels" . | nindent 4 }}
+type: Opaque
+data:
+{{- if $existing }}
+  tls.crt: {{ index $existing.data "tls.crt" }}
+  tls.key: {{ index $existing.data "tls.key" }}
+  ca.crt: {{ index $existing.data "ca.crt" }}
+{{- else }}
+{{- $fqdn := include "orbital.registryServiceFQDN" . }}
+{{- $altNames := list $fqdn (printf "%s-registry" (include "orbital.fullname" .)) (printf "%s-registry.%s" (include "orbital.fullname" .) .Release.Namespace) }}
+{{- $ca := genCA (printf "%s-registry-ca" (include "orbital.fullname" .)) 3650 }}
+{{- $cert := genSignedCert $fqdn nil $altNames 3650 $ca }}
+  tls.crt: {{ $cert.Cert | b64enc }}
+  tls.key: {{ $cert.Key | b64enc }}
+  ca.crt: {{ $ca.Cert | b64enc }}
+{{- end }}
+{{- end }}
+---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -35,13 +71,30 @@ spec:
           image: registry:2
           ports:
             - containerPort: 5000
+          {{- if $tlsEnabled }}
+          env:
+            - name: REGISTRY_HTTP_TLS_CERTIFICATE
+              value: /etc/registry-tls/tls.crt
+            - name: REGISTRY_HTTP_TLS_KEY
+              value: /etc/registry-tls/tls.key
+          {{- end }}
           volumeMounts:
             - name: data
               mountPath: /var/lib/registry
+            {{- if $tlsEnabled }}
+            - name: registry-tls
+              mountPath: /etc/registry-tls
+              readOnly: true
+            {{- end }}
       volumes:
         - name: data
           persistentVolumeClaim:
             claimName: {{ include "orbital.fullname" . }}-registry
+        {{- if $tlsEnabled }}
+        - name: registry-tls
+          secret:
+            secretName: {{ $secretName }}
+        {{- end }}
 ---
 apiVersion: v1
 kind: Service

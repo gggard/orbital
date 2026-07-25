@@ -29,6 +29,14 @@ class Settings(BaseSettings):
     # Defaults match the minikube "registry" addon.
     registry_push_url: str = "registry.kube-system.svc.cluster.local:80"
     registry_pull_prefix: str = "localhost:5000"
+    # TLS for build-pod <-> registry traffic (issue #78). Off by default so
+    # the minikube/dev quick-start needs no extra setup - the plaintext path
+    # then relies on NetworkPolicy (issue #79) to bound its blast radius.
+    # When enabled, registry_ca_cert must hold the PEM text of the CA that
+    # signed the registry's server certificate (sourced from the chart's
+    # generated/BYO Secret's ca.crt key - see docs/ADMIN.md#registry-tls).
+    registry_tls_enabled: bool = False
+    registry_ca_cert: str = ""
 
     # Base images per supported Python version, as repo:tag inside the registry.
     python_versions: dict[str, str] = {"3.12": "streamlit-base:py3.12"}

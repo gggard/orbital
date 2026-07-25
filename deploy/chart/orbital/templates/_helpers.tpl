@@ -39,3 +39,15 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{ include "orbital.fullname" . }}-secrets-encryption
 {{- end -}}
 {{- end -}}
+
+{{- define "orbital.registryTlsSecretName" -}}
+{{- if .Values.registry.tls.existingSecret -}}
+{{ .Values.registry.tls.existingSecret }}
+{{- else -}}
+{{ include "orbital.fullname" . }}-registry-tls
+{{- end -}}
+{{- end -}}
+
+{{- define "orbital.registryServiceFQDN" -}}
+{{ include "orbital.fullname" . }}-registry.{{ .Release.Namespace }}.svc.cluster.local
+{{- end -}}

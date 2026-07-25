@@ -101,6 +101,18 @@ registry:
   internal:
     enabled: false
     storageSize: 10Gi
+  # TLS for build-pod <-> registry traffic (issue #78). Disabled by default
+  # so the minikube/dev quick-start needs no extra setup; the plaintext path
+  # is then only as safe as your pod network (see the NetworkPolicy note in
+  # docs/ADMIN.md#registry-tls, tracked separately in issue #79).
+  tls:
+    enabled: false
+    # When internal.enabled=true and this is empty, the chart generates
+    # (and reuses across `helm upgrade`s) a self-signed CA + server cert for
+    # the internal registry. Set this to bring your own instead - required
+    # when internal.enabled=false (a BYO/external registry's CA isn't ours
+    # to generate); secret must have keys: tls.crt, tls.key, ca.crt.
+    existingSecret: ""
 
 # Base images for hosted apps: one per supported Python version, plus one
 # shared image for static-site apps. When build/buildStatic, a post-install

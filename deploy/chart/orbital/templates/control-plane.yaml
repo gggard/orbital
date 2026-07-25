@@ -66,6 +66,15 @@ spec:
               value: {{ .Values.registry.pushUrl | quote }}
             - name: ORBITAL_REGISTRY_PULL_PREFIX
               value: {{ .Values.registry.pullPrefix | quote }}
+            {{- if .Values.registry.tls.enabled }}
+            - name: ORBITAL_REGISTRY_TLS_ENABLED
+              value: "true"
+            - name: ORBITAL_REGISTRY_CA_CERT
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "orbital.registryTlsSecretName" . }}
+                  key: ca.crt
+            {{- end }}
             - name: ORBITAL_PYTHON_VERSIONS
               value: {{ include "orbital.pythonVersionsJson" . | quote }}
             - name: ORBITAL_STATIC_BASE_IMAGE

@@ -6,8 +6,24 @@ from . import scripts
 
 SUPPORT_CONFIGMAP = "orbital-build-support"
 
+# Fixed in-container path the registry CA cert is mounted at (via the
+# existing "scripts" ConfigMap volume, subPath registry-ca.crt) when
+# registry_tls_enabled - see build_job() and docs/ADMIN.md#registry-tls.
+REGISTRY_CA_CERT_PATH = "/etc/buildkit/certs/ca.crt"
+
 
 def build_support_configmap(settings: Settings) -> dict:
+    data = {
+        "fetch.sh": scripts.FETCH_SH,
+        "detect.sh": scripts.DETECT_SH,
+        "build.sh": scripts.BUILD_SH,
+        "buildkitd.toml": scripts.buildkitd_toml(
+            settings.registry_push_url,
+            ca_cert_path=REGISTRY_CA_CERT_PATH if settings.registry_tls_enabled else None,
+        ),
+    }
+    if settings.registry_tls_enabled and settings.registry_ca_cert:
+        data["registry-ca.crt"] = settings.registry_ca_cert
     return {
         "apiVersion": "v1",
         "kind": "ConfigMap",
@@ -16,12 +32,7 @@ def build_support_configmap(settings: Settings) -> dict:
             "namespace": settings.builds_namespace,
             "labels": {"app.orbital.io/managed-by": "control-plane"},
         },
-        "data": {
-            "fetch.sh": scripts.FETCH_SH,
-            "detect.sh": scripts.DETECT_SH,
-            "build.sh": scripts.BUILD_SH,
-            "buildkitd.toml": scripts.buildkitd_toml(settings.registry_push_url),
-        },
+        "data": data,
     }
 
 
@@ -53,6 +64,24 @@ def build_job(app: App, build: Build, settings: Settings) -> dict:
         buildkitd_flags = ""
         config_path = "/etc/buildkit/buildkitd.toml"
         state_path = "/var/lib/buildkit"
+    buildkit_volume_mounts = [
+        {"name": "workspace", "mountPath": "/workspace"},
+        {"name": "scripts", "mountPath": "/scripts"},
+        {
+            "name": "scripts",
+            "mountPath": config_path,
+            "subPath": "buildkitd.toml",
+        },
+        {"name": "buildkit-state", "mountPath": state_path},
+    ]
+    if settings.registry_tls_enabled:
+        buildkit_volume_mounts.append(
+            {
+                "name": "scripts",
+                "mountPath": REGISTRY_CA_CERT_PATH,
+                "subPath": "registry-ca.crt",
+            }
+        )
     return {
         "apiVersion": "batch/v1",
         "kind": "Job",
@@ -108,18 +137,13 @@ def build_job(app: App, build: Build, settings: Settings) -> dict:
                                 {"name": "IMAGE", "value": push_image},
                                 {"name": "SRC_DIR", "value": "/workspace/src"},
                                 {"name": "BUILDKITD_FLAGS", "value": buildkitd_flags},
+                                {
+                                    "name": "REGISTRY_INSECURE",
+                                    "value": "false" if settings.registry_tls_enabled else "true",
+                                },
                             ],
                             "securityContext": buildkit_security,
-                            "volumeMounts": [
-                                {"name": "workspace", "mountPath": "/workspace"},
-                                {"name": "scripts", "mountPath": "/scripts"},
-                                {
-                                    "name": "scripts",
-                                    "mountPath": config_path,
-                                    "subPath": "buildkitd.toml",
-                                },
-                                {"name": "buildkit-state", "mountPath": state_path},
-                            ],
+                            "volumeMounts": buildkit_volume_mounts,
                             "resources": {
                                 "requests": {"cpu": "500m", "memory": "512Mi"},
                                 "limits": {"cpu": "2", "memory": "2Gi"},

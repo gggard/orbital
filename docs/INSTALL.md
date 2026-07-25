@@ -27,7 +27,10 @@ development setup on minikube, see [DEVELOPMENT.md](DEVELOPMENT.md) instead.
 These may differ (e.g. minikube's registry addon: push to
 `registry.kube-system.svc.cluster.local:80`, pull via `localhost:5000`). For a
 cloud registry both are usually the same host. The chart can also deploy a
-**dev-only** in-cluster registry (`registry.internal.enabled=true`).
+**dev-only** in-cluster registry (`registry.internal.enabled=true`). That
+in-cluster registry (and build push/pull traffic to it) is plain HTTP by
+default; set `registry.tls.enabled=true` for a TLS-protected option — see
+[ADMIN.md#registry-tls](ADMIN.md#registry-tls) for the tradeoffs and setup.
 
 **Rootless builds.** By default builds run rootless BuildKit. Clusters
 without user-namespace support (some LXC/nested environments) need
@@ -195,6 +198,8 @@ helm upgrade orbital deploy/chart/orbital -n orbital-platform -f my-values.yaml
 | `builds.rootless` | `true` | rootless vs privileged BuildKit |
 | `registry.pushUrl` / `pullPrefix` | minikube addon | app image registry |
 | `registry.internal.enabled` | `false` | dev-only in-cluster registry |
+| `registry.tls.enabled` | `false` | TLS for build-pod↔registry traffic (see [ADMIN.md#registry-tls](ADMIN.md#registry-tls)) — unaffected/off by default so this quick-start needs no extra setup |
+| `registry.tls.existingSecret` | `""` | bring-your-own CA/cert/key Secret (keys `tls.crt`/`tls.key`/`ca.crt`); required when `registry.tls.enabled=true` and `registry.internal.enabled=false` |
 | `baseImages.pythonVersions` | `["3.12"]` | supported Python versions |
 | `database.url` | `""` (SQLite PVC) | PostgreSQL URL for production |
 | `auth.console.*` | disabled | console OIDC login + group RBAC |
