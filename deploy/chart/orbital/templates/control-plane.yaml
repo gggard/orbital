@@ -81,6 +81,8 @@ spec:
               value: {{ .Values.apps.resources.memLimit | quote }}
             - name: ORBITAL_UI_BASE_URL
               value: {{ .Values.console.url | quote }}
+            - name: ORBITAL_SESSION_COOKIE_SECURE
+              value: {{ .Values.auth.console.sessionCookieSecure | quote }}
             - name: ORBITAL_HIBERNATION_ENABLED
               value: {{ .Values.hibernation.enabled | quote }}
             - name: ORBITAL_HIBERNATION_TIMEOUT_SECONDS

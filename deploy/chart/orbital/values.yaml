@@ -111,6 +111,10 @@ auth:
     clientSecret: ""         # or use existingSecret
     existingSecret: ""       # secret with keys: oidc-client-secret, session-secret
     sessionSecret: ""        # random string; generated secret recommended
+    # Marks the session cookie Secure (HTTPS-only). Keep true for any
+    # deployment behind TLS-terminating ingress; set false only for a
+    # plain-HTTP dev/demo console (e.g. examples/minikube-values.yaml).
+    sessionCookieSecure: true
     adminGroups: ["admins"]
     creatorGroups: []
     viewerGroups: []

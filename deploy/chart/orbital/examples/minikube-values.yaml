@@ -23,6 +23,14 @@ console:
 builds:
   rootless: false   # required on hosts without user-namespace support
 
+auth:
+  console:
+    # This example serves the console over plain HTTP (no TLS on minikube's
+    # ingress); a Secure session cookie would never be sent back by the
+    # browser, breaking console login. Only disable this for plain-HTTP
+    # dev/demo setups like this one - never in production.
+    sessionCookieSecure: false
+
 # minikube registry addon defaults already match:
 # registry.pushUrl:    registry.kube-system.svc.cluster.local:80
 # registry.pullPrefix: localhost:5000

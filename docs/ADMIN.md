@@ -232,6 +232,13 @@ Kubernetes resources; images remain in the registry until GC.
   and cloud metadata endpoints (SPEC §8) — not yet templated in the chart.
 - Never expose the control plane without `auth.console.enabled=true`; an
   unauthenticated control plane treats every caller as admin.
+- The console session cookie is `Secure` by default
+  (`auth.console.sessionCookieSecure` / `ORBITAL_SESSION_COOKIE_SECURE`),
+  which requires the console to be served over TLS — see
+  [INSTALL.md](INSTALL.md) prerequisites. Only set it to `false` for a
+  plain-HTTP dev/demo console (e.g.
+  [examples/minikube-values.yaml](../deploy/chart/orbital/examples/minikube-values.yaml)),
+  never in production.
 - App secrets live in the platform database **and** as Kubernetes Secrets in
   `streamlit-apps` — restrict access to both.
 - The demo Keycloak in `deploy/auth/` runs in dev mode with fixed passwords:

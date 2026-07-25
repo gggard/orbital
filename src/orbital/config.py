@@ -65,6 +65,10 @@ class Settings(BaseSettings):
     oidc_client_secret: str = ""
     ui_base_url: str = "http://localhost:3000"  # browser-facing console URL
     session_secret: str = "dev-session-secret-change-me"
+    # Marks the session cookie Secure (browser withholds it over plain HTTP).
+    # Secure-by-default; disable only for the plain-HTTP local/minikube dev
+    # flow (docs/DEVELOPMENT.md), where the console isn't served over TLS.
+    session_cookie_secure: bool = True
 
     # Personal API tokens (SPEC: "dashboard session or personal API token").
     # No separate default is needed beyond this: a token with no explicit

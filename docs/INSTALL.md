@@ -16,7 +16,7 @@ development setup on minikube, see [DEVELOPMENT.md](DEVELOPMENT.md) instead.
 | Container registry | reachable by build pods (push) and by cluster nodes (pull) |
 | OIDC identity provider | Keycloak, Entra ID, Okta, Dex… — required for console RBAC and private apps |
 | Helm ≥ 3.12, Docker | on the machine performing the install |
-| (optional) TLS | cert-manager with a wildcard certificate for the apps domain |
+| TLS on the console host | **required** if `auth.console.enabled=true` and `auth.console.sessionCookieSecure` is left at its default (`true`): the console session cookie is marked `Secure` and browsers won't return it over plain HTTP. cert-manager (or any ingress-terminated TLS) covers this; a wildcard certificate for the apps domain is optional beyond that. |
 | (optional) metrics-server | powers the console's per-app CPU/memory Metrics tab (minikube: `addons enable metrics-server`) — without it the tab shows "no metrics" |
 
 **Registry note.** The platform builds one container image per app. Configure:

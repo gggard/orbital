@@ -41,6 +41,7 @@ app.add_middleware(
     secret_key=get_settings().session_secret,
     same_site="lax",
     max_age=12 * 3600,
+    https_only=get_settings().session_cookie_secure,
 )
 # intercepts requests to hosts/paths that resolve to a sleeping app (traffic
 # reaching this process for an app host only happens while it's sleeping,
