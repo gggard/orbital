@@ -14,6 +14,7 @@ development setup on minikube, see [DEVELOPMENT.md](DEVELOPMENT.md) instead.
 | Ingress controller | NGINX Ingress recommended; must support websockets |
 | DNS | subdomain routing: wildcard `*.<apps-domain>` → ingress; **path routing** (`apps.routing=path`): a single apps host suffices | 
 | Container registry | reachable by build pods (push) and by cluster nodes (pull) |
+| NetworkPolicy-enforcing CNI | **required** for the chart's default-deny NetworkPolicies (`networkPolicy.enabled`, default `true`) to actually isolate the `streamlit-apps`/`streamlit-builds`/`streamlit-scans` namespaces — e.g. Calico, Cilium, AKS with "Azure/Calico" networking, GKE with "Dataplane V2" (Cilium). Not every default CNI enforces `NetworkPolicy` (e.g. plain kubenet/AWS VPC CNI without add-ons, or minikube's default driver, silently ignore them). If yours doesn't, either enable enforcement or set `networkPolicy.enabled=false` — shipping policies your CNI won't enforce is a false sense of isolation. |
 | OIDC identity provider | Keycloak, Entra ID, Okta, Dex… — required for console RBAC and private apps |
 | Helm ≥ 3.12, Docker | on the machine performing the install |
 | TLS on the console host | **required** if `auth.console.enabled=true` and `auth.console.sessionCookieSecure` is left at its default (`true`): the console session cookie is marked `Secure` and browsers won't return it over plain HTTP. cert-manager (or any ingress-terminated TLS) covers this; a wildcard certificate for the apps domain is optional beyond that. |
@@ -35,6 +36,32 @@ default; set `registry.tls.enabled=true` for a TLS-protected option — see
 **Rootless builds.** By default builds run rootless BuildKit. Clusters
 without user-namespace support (some LXC/nested environments) need
 `builds.rootless=false` (privileged build pods).
+
+**NetworkPolicy: configure your ingress controller's namespace selector.**
+The chart ships default-deny `NetworkPolicy` resources for the
+`streamlit-apps`/`streamlit-builds`/`streamlit-scans` namespaces and the
+control-plane namespace (`networkPolicy.enabled=true` by default — see
+[ADMIN.md](ADMIN.md#network-policies) for what each denies). They only allow
+ingress from your ingress controller's namespace, matched by
+`networkPolicy.ingressNamespaceSelector` — a raw `namespaceSelector` passed
+through as-is, because ingress controller label conventions vary by
+distribution and the chart cannot guess yours. **Leaving this unset denies
+ALL ingress**, including to the console and every app (fail closed, not
+fail open). Find your ingress controller's namespace labels
+(`kubectl get ns <ingress-namespace> -o yaml`) and set them, e.g. for a
+stock `ingress-nginx` install (which conventionally labels its namespace
+`app.kubernetes.io/name: ingress-nginx`):
+
+```yaml
+networkPolicy:
+  ingressNamespaceSelector:
+    matchLabels:
+      app.kubernetes.io/name: ingress-nginx
+```
+
+Check your own controller's actual namespace labels rather than assuming
+this — distributions (EKS/GKE/AKS managed add-ons, k3s' Traefik, etc.) label
+things differently.
 
 ## 2. Get the platform images and Helm chart
 
@@ -155,9 +182,11 @@ helm install orbital deploy/chart/orbital \
 (use `orbital` instead of `deploy/chart/orbital` if you pulled
 the chart per step 2 rather than working from a checkout of this repo)
 
-The chart creates the `streamlit-apps` and `streamlit-builds` namespaces,
-RBAC (the control plane can only touch those two namespaces), the control
-plane + console Deployments and the console ingress. A post-install job
+The chart creates the `streamlit-apps`, `streamlit-builds` and
+`streamlit-scans` namespaces, RBAC (the control plane can only touch those
+three namespaces), NetworkPolicies isolating them from each other and from
+cloud metadata endpoints (see above), the control plane + console
+Deployments and the console ingress. A post-install job
 builds the app **base images** (one per entry in `baseImages.pythonVersions`)
 with BuildKit and pushes them to your registry.
 
@@ -205,10 +234,13 @@ helm upgrade orbital deploy/chart/orbital -n orbital-platform -f my-values.yaml
 | `auth.console.*` | disabled | console OIDC login + group RBAC |
 | `auth.viewer.*` | disabled | private-app viewer auth |
 | `controlPlane.reconcileInterval` | `3` | reconcile loop period (s) |
+| `networkPolicy.enabled` | `true` | default-deny NetworkPolicies for apps/builds/scans/control-plane namespaces (needs a NetworkPolicy-enforcing CNI) |
+| `networkPolicy.ingressNamespaceSelector` | `{}` (deny all) | **must be set** to your ingress controller's namespace selector, or ingress is denied entirely |
+| `networkPolicy.apps.egressAllowlist` | `[]` | extra CIDRs apps may reach beyond DNS (see [ADMIN.md](ADMIN.md#network-policies)) |
 
 ## 7. Uninstall
 
 ```bash
 helm uninstall orbital -n orbital-platform
-kubectl delete ns streamlit-apps streamlit-builds   # removes all hosted apps!
+kubectl delete ns streamlit-apps streamlit-builds streamlit-scans   # removes all hosted apps!
 ```

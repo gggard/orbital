@@ -34,3 +34,13 @@ auth:
 # minikube registry addon defaults already match:
 # registry.pushUrl:    registry.kube-system.svc.cluster.local:80
 # registry.pullPrefix: localhost:5000
+
+networkPolicy:
+  # minikube's default CNI doesn't enforce NetworkPolicy, and this example
+  # doesn't set networkPolicy.ingressNamespaceSelector - leaving the chart
+  # default (true) would render policies that fail closed (deny all
+  # ingress) on a cluster where they might actually be enforced (e.g.
+  # `minikube start --cni=calico`), breaking this dev flow. Set your own
+  # ingressNamespaceSelector and re-enable for a more realistic local test
+  # of the NetworkPolicies - see docs/ADMIN.md#network-policies.
+  enabled: false

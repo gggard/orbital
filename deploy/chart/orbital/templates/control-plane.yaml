@@ -52,6 +52,8 @@ spec:
               value: {{ .Values.apps.namespace | quote }}
             - name: ORBITAL_BUILDS_NAMESPACE
               value: {{ .Values.builds.namespace | quote }}
+            - name: ORBITAL_SCANS_NAMESPACE
+              value: {{ .Values.scans.namespace | quote }}
             - name: ORBITAL_ROUTING_MODE
               value: {{ .Values.apps.routing | quote }}
             - name: ORBITAL_APPS_PATH_PREFIX
