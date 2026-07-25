@@ -118,9 +118,13 @@ auth:
     enabled: false
     issuerUrl: ""            # e.g. https://keycloak.example.com/realms/myrealm
     clientId: orbital
-    clientSecret: ""         # or use existingSecret
+    clientSecret: ""         # required (or use existingSecret) when console auth is enabled
     existingSecret: ""       # secret with keys: oidc-client-secret, session-secret
-    sessionSecret: ""        # random string; generated secret recommended
+    # Signs the console session cookie; required, non-optional once console
+    # auth is enabled. Leave unset to auto-generate a strong one (recommended);
+    # if you set it explicitly it must be >= 32 chars, or both this chart
+    # (render-time) and the control plane (startup) refuse it.
+    sessionSecret: ""
     adminGroups: ["admins"]
     creatorGroups: []
     viewerGroups: []

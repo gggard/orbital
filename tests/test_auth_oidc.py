@@ -17,6 +17,7 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setenv("ORBITAL_DATABASE_URL", f"sqlite:///{tmp_path}/test.db")
     monkeypatch.setenv("ORBITAL_RECONCILER_ENABLED", "false")
     monkeypatch.setenv("ORBITAL_UI_AUTH_ENABLED", "true")
+    monkeypatch.setenv("ORBITAL_SESSION_SECRET", "x" * 32)
     monkeypatch.setenv("ORBITAL_OIDC_ISSUER_URL", ISSUER)
     monkeypatch.setenv("ORBITAL_OIDC_CLIENT_ID", "orbital-console")
     monkeypatch.setenv("ORBITAL_OIDC_CLIENT_SECRET", "s3cr3t")
