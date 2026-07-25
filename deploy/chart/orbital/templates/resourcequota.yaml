@@ -1,0 +1,77 @@
+# Namespace-level backstops (issue #80): bound the *total* number of app
+# pods / build Jobs and aggregate CPU/memory in apps-namespace and
+# builds-namespace, on top of the per-pod requests/limits already set by
+# resources.py and builder.py. Sized generously by default (see
+# docs/ADMIN.md) so this only kicks in as a defense-in-depth ceiling against
+# a single tenant exhausting cluster capacity, not as a routine limit.
+{{- if .Values.apps.resourceQuota.enabled }}
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: {{ include "orbital.fullname" . }}-apps-quota
+  namespace: {{ .Values.apps.namespace }}
+  labels: {{- include "orbital.labels" . | nindent 4 }}
+spec:
+  hard:
+    pods: {{ .Values.apps.resourceQuota.pods | quote }}
+    requests.cpu: {{ .Values.apps.resourceQuota.requestsCpu | quote }}
+    requests.memory: {{ .Values.apps.resourceQuota.requestsMemory | quote }}
+    limits.cpu: {{ .Values.apps.resourceQuota.limitsCpu | quote }}
+    limits.memory: {{ .Values.apps.resourceQuota.limitsMemory | quote }}
+---
+# Belt-and-suspenders default for any app pod that somehow ends up without
+# explicit requests/limits; resources.py always sets both, so this default
+# should never actually apply in practice, and never overrides an explicit
+# pod-level value.
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: {{ include "orbital.fullname" . }}-apps-limits
+  namespace: {{ .Values.apps.namespace }}
+  labels: {{- include "orbital.labels" . | nindent 4 }}
+spec:
+  limits:
+    - type: Container
+      default:
+        cpu: {{ .Values.apps.resources.cpuLimit | quote }}
+        memory: {{ .Values.apps.resources.memLimit | quote }}
+      defaultRequest:
+        cpu: {{ .Values.apps.resources.cpuRequest | quote }}
+        memory: {{ .Values.apps.resources.memRequest | quote }}
+{{- end }}
+{{- if .Values.builds.resourceQuota.enabled }}
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: {{ include "orbital.fullname" . }}-builds-quota
+  namespace: {{ .Values.builds.namespace }}
+  labels: {{- include "orbital.labels" . | nindent 4 }}
+spec:
+  hard:
+    pods: {{ .Values.builds.resourceQuota.pods | quote }}
+    requests.cpu: {{ .Values.builds.resourceQuota.requestsCpu | quote }}
+    requests.memory: {{ .Values.builds.resourceQuota.requestsMemory | quote }}
+    limits.cpu: {{ .Values.builds.resourceQuota.limitsCpu | quote }}
+    limits.memory: {{ .Values.builds.resourceQuota.limitsMemory | quote }}
+---
+# Belt-and-suspenders default for any build Job pod that somehow ends up
+# without explicit requests/limits; builder.py (per-app builds) and the
+# baseImages post-install Jobs (builds.resources.*) always set both, so this
+# default should never actually apply in practice.
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: {{ include "orbital.fullname" . }}-builds-limits
+  namespace: {{ .Values.builds.namespace }}
+  labels: {{- include "orbital.labels" . | nindent 4 }}
+spec:
+  limits:
+    - type: Container
+      default:
+        cpu: {{ .Values.builds.resources.limits.cpu | quote }}
+        memory: {{ .Values.builds.resources.limits.memory | quote }}
+      defaultRequest:
+        cpu: {{ .Values.builds.resources.requests.cpu | quote }}
+        memory: {{ .Values.builds.resources.requests.memory | quote }}
+{{- end }}

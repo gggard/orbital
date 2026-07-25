@@ -191,6 +191,48 @@ Per-app requests/limits are platform-wide (`apps.resources.*`). Raising them
 requires a `helm upgrade`; running apps apply the new limits at their next
 deploy/reboot.
 
+#### Namespace quotas and limit ranges
+
+App creation is available to any `creator`-role user with no per-user or
+per-group cap on how many apps they own. To stop a single tenant (or a
+compromised account) from creating enough apps to exhaust the whole
+cluster's CPU/memory - a noisy-neighbor denial of service against every
+other tenant - the chart also installs a `ResourceQuota` in each of
+`apps-namespace` and `builds-namespace` bounding the *total* pod count and
+aggregate CPU/memory requests/limits across all apps (or build Jobs) in that
+namespace:
+
+- `apps.resourceQuota.*` (default: 50 pods, 20/50 cores requested/limited,
+  40Gi/100Gi memory requested/limited) - sized to roughly 50-100x a single
+  app's default per-pod request/limit (`apps.resources.*`), so a handful of
+  legitimate apps never comes close to it; it only kicks in as a backstop.
+- `builds.resourceQuota.*` (default: 30 pods, 10/40 cores requested/limited,
+  20Gi/40Gi memory requested/limited) - sized for roughly 20 concurrent
+  per-app build Jobs at their hardcoded per-job limits (2 CPU / 2Gi memory
+  each, set in `builder.py`), plus headroom for the one-off base-image build
+  Jobs (`builds.resources.*`).
+
+Each namespace also gets a `LimitRange` whose `default`/`defaultRequest`
+exactly match `apps.resources.*` / `builds.resources.*`. Every pod the
+control plane creates already sets explicit requests/limits (which always
+take precedence over a `LimitRange` default), so this is a pure
+belt-and-suspenders fallback - it should never actually be exercised in
+practice, but keeps any future pod that omits resources from being
+unbounded.
+
+Both are enabled by default (`apps.resourceQuota.enabled` /
+`builds.resourceQuota.enabled`) and sized generously enough not to interfere
+with normal use, including the minikube quick-start
+(`deploy/chart/orbital/examples/minikube-values.yaml`). For a larger
+deployment, raise the `requestsCpu`/`requestsMemory`/`limitsCpu`/
+`limitsMemory`/`pods` fields via `helm upgrade`; there's no need to disable
+the quota entirely unless you're intentionally relying on some other
+enforcement mechanism.
+
+This is a coarse, cluster-wide backstop, not a fair-share mechanism between
+tenants - a per-owner-group cap on app count (enforced in `api/apps.py`'s
+`create_app`) would be a more targeted follow-up but is out of scope here.
+
 ### Registry hygiene
 
 Every build pushes an image tagged `apps/<app-id>:<build-id>`. The platform
