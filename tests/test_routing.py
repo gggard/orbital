@@ -27,9 +27,7 @@ def subdomain() -> Settings:
 
 @pytest.fixture
 def path_mode() -> Settings:
-    return Settings(
-        routing_mode="path", apps_domain="apps.example.com", _env_file=None
-    )
+    return Settings(routing_mode="path", apps_domain="apps.example.com", _env_file=None)
 
 
 def test_subdomain_urls(subdomain):
@@ -44,7 +42,9 @@ def test_path_urls(path_mode):
 
 def test_path_url_with_port():
     s = Settings(
-        routing_mode="path", apps_domain="apps.example.com", apps_url_port=8090,
+        routing_mode="path",
+        apps_domain="apps.example.com",
+        apps_url_port=8090,
         _env_file=None,
     )
     assert s.app_url("demo") == "http://apps.example.com:8090/app/demo/"

@@ -38,9 +38,7 @@ def build_job(app: App, build: Build, settings: Settings) -> dict:
         "app.orbital.io/build-id": build.id,
     }
     if settings.buildkit_rootless:
-        pod_annotations = {
-            "container.apparmor.security.beta.kubernetes.io/buildkit": "unconfined"
-        }
+        pod_annotations = {"container.apparmor.security.beta.kubernetes.io/buildkit": "unconfined"}
         buildkit_security = {
             "seccompProfile": {"type": "Unconfined"},
             "runAsUser": 1000,

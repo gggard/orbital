@@ -58,9 +58,7 @@ def test_known_groups_merges_config_sources(client):
 def test_known_groups_includes_keycloak(client, monkeypatch):
     monkeypatch.setenv("ORBITAL_GROUPS_FROM_KEYCLOAK", "true")
     get_settings.cache_clear()
-    monkeypatch.setattr(
-        groups_mod, "_fetch_keycloak_groups", lambda s: ["from-idp", "admins"]
-    )
+    monkeypatch.setattr(groups_mod, "_fetch_keycloak_groups", lambda s: ["from-idp", "admins"])
     assert "from-idp" in known_groups(get_settings())
 
 
@@ -119,16 +117,16 @@ def test_fetch_keycloak_groups_success():
         json=lambda: [{"name": "a", "subGroups": [{"name": "a1"}]}, {"name": "b"}],
         raise_for_status=lambda: None,
     )
-    with patch("orbital.groups.httpx.post", return_value=token_resp) as mock_post, \
-         patch("orbital.groups.httpx.get", return_value=groups_resp) as mock_get:
+    with (
+        patch("orbital.groups.httpx.post", return_value=token_resp) as mock_post,
+        patch("orbital.groups.httpx.get", return_value=groups_resp) as mock_get,
+    ):
         result = _fetch_keycloak_groups(_kc_settings())
     assert result == ["a", "a1", "b"]
     assert mock_post.call_args.args[0] == (
         "https://idp.example.com/realms/streamlit/protocol/openid-connect/token"
     )
-    assert mock_get.call_args.args[0] == (
-        "https://idp.example.com/admin/realms/streamlit/groups"
-    )
+    assert mock_get.call_args.args[0] == ("https://idp.example.com/admin/realms/streamlit/groups")
     assert mock_get.call_args.kwargs["headers"] == {"Authorization": "Bearer tok"}
 
 
@@ -138,9 +136,10 @@ def test_fetch_keycloak_groups_bad_issuer_url_raises():
 
 
 def test_fetch_keycloak_groups_token_error_propagates():
-    with patch(
-        "orbital.groups.httpx.post", side_effect=httpx.ConnectError("refused")
-    ), pytest.raises(httpx.ConnectError):
+    with (
+        patch("orbital.groups.httpx.post", side_effect=httpx.ConnectError("refused")),
+        pytest.raises(httpx.ConnectError),
+    ):
         _fetch_keycloak_groups(_kc_settings())
 
 

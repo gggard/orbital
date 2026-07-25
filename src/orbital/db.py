@@ -123,18 +123,20 @@ def _sqlite_rebuild_apps_table(engine, models) -> None:
         # apps -> apps_old does NOT rename the indexes defined on it (e.g.
         # the unique index on slug), so they must be dropped before the new
         # `apps` table - which defines the same index names - can be created.
-        stale_indexes = conn.execute(
-            text(
-                "SELECT name FROM sqlite_master "
-                "WHERE type='index' AND tbl_name='apps_old' AND sql IS NOT NULL"
+        stale_indexes = (
+            conn.execute(
+                text(
+                    "SELECT name FROM sqlite_master "
+                    "WHERE type='index' AND tbl_name='apps_old' AND sql IS NOT NULL"
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         for name in stale_indexes:
             conn.execute(text(f"DROP INDEX {name}"))
         apps_table.create(conn)
-        conn.execute(
-            text(f"INSERT INTO apps ({insert_cols}) SELECT {select_cols} FROM apps_old")
-        )
+        conn.execute(text(f"INSERT INTO apps ({insert_cols}) SELECT {select_cols} FROM apps_old"))
         conn.execute(text("DROP TABLE apps_old"))
 
 

@@ -148,9 +148,7 @@ class App(Base):
     poll_interval_seconds: Mapped[int | None] = mapped_column(default=None)
     # bumped every time the reconciler checks the remote branch head, so it
     # only calls `git ls-remote` once per interval rather than every tick
-    last_polled_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), default=None
-    )
+    last_polled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     updated_at: Mapped[datetime] = mapped_column(
@@ -178,9 +176,7 @@ class Build(Base):
     phase: Mapped[BuildPhase] = mapped_column(Enum(BuildPhase), default=BuildPhase.pending)
     error: Mapped[str | None] = mapped_column(Text, default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
-    finished_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), default=None
-    )
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
 
     app: Mapped[App] = relationship(back_populates="builds")
 
@@ -205,9 +201,7 @@ class ScanResult(Base):
     unknown_count: Mapped[int] = mapped_column(default=0)
     error: Mapped[str | None] = mapped_column(Text, default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
-    finished_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), default=None
-    )
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
 
     app: Mapped[App] = relationship(back_populates="scan_results")
     vulnerabilities: Mapped[list["Vulnerability"]] = relationship(
@@ -270,8 +264,6 @@ class ViewEvent(Base):
     # dedup/uniqueness key: the viewer's email if known, else a client IP -
     # never returned by the API, only used to bucket "unique viewers"
     viewer_key: Mapped[str] = mapped_column(String(255), index=True)
-    viewed_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=_now, index=True
-    )
+    viewed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, index=True)
 
     app: Mapped[App] = relationship(back_populates="views")

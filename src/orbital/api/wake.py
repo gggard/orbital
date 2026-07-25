@@ -80,7 +80,7 @@ def _resolve_slug(request: Request, settings: Settings) -> str | None:
         path = request.url.path
         if not path.startswith(prefix):
             return None
-        return path[len(prefix):].split("/", 1)[0] or None
+        return path[len(prefix) :].split("/", 1)[0] or None
     suffix = f".{domain}"
     if host == domain or not host.endswith(suffix):
         return None

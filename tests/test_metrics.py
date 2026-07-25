@@ -135,9 +135,7 @@ def test_fetch_pod_restarts_no_pods_returns_none():
 
 def test_fetch_pod_restarts_never_restarted():
     fake_core = Mock()
-    fake_core.list_namespaced_pod.return_value = Mock(
-        items=[_pod([_container_status(0)])]
-    )
+    fake_core.list_namespaced_pod.return_value = Mock(items=[_pod([_container_status(0)])])
     with patch("orbital.k8s.metrics.client.core", return_value=fake_core):
         info = fetch_pod_restarts("app1", Settings())
     assert info.count == 0
@@ -159,9 +157,7 @@ def test_fetch_pod_restarts_pod_with_no_container_statuses_yet():
 
 
 def _make_app(client):
-    r = client.post(
-        "/api/v1/apps", json={"slug": "metered", "repo_url": "https://github.com/x/y"}
-    )
+    r = client.post("/api/v1/apps", json={"slug": "metered", "repo_url": "https://github.com/x/y"})
     assert r.status_code == 201
     return r.json()["id"]
 

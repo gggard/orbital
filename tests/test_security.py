@@ -73,8 +73,10 @@ def _login_session(client, email, groups):
     """Drive the real login/callback flow (with the IdP call mocked) to plant a session."""
     r = client.get("/api/auth/login?next=/x")
     state = parse_qs(urlsplit(r.headers["location"]).query)["state"][0]
-    with patch("orbital.api.auth.httpx.post") as mock_post, \
-         patch("orbital.api.auth._verify_id_token") as mock_verify:
+    with (
+        patch("orbital.api.auth.httpx.post") as mock_post,
+        patch("orbital.api.auth._verify_id_token") as mock_verify,
+    ):
         mock_post.return_value = Mock(
             status_code=200,
             json=lambda: {"id_token": "tok"},

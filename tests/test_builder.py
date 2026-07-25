@@ -38,8 +38,7 @@ def test_build_job_streamlit_uses_python_version_base_image():
     assert job["metadata"]["namespace"] == settings.builds_namespace
 
     init_env = {
-        e["name"]: e["value"]
-        for e in job["spec"]["template"]["spec"]["initContainers"][0]["env"]
+        e["name"]: e["value"] for e in job["spec"]["template"]["spec"]["initContainers"][0]["env"]
     }
     assert init_env["BASE_IMAGE"] == f"{settings.registry_push_url}/streamlit-base:py3.12"
     assert init_env["APP_TYPE"] == "streamlit"
@@ -51,8 +50,7 @@ def test_build_job_static_uses_static_base_image_and_skips_python_version():
     job = build_job(_app(AppType.static), _build(), settings)
 
     init_env = {
-        e["name"]: e["value"]
-        for e in job["spec"]["template"]["spec"]["initContainers"][0]["env"]
+        e["name"]: e["value"] for e in job["spec"]["template"]["spec"]["initContainers"][0]["env"]
     }
     assert init_env["BASE_IMAGE"] == f"{settings.registry_push_url}/{settings.static_base_image}"
     assert init_env["APP_TYPE"] == "static"

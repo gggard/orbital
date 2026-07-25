@@ -180,8 +180,12 @@ def test_already_public_app_updates_unblocked(restricted):
     as_user(restricted, ADMIN)
     app_id = restricted.post(
         "/api/v1/apps",
-        json={"slug": "was-pub", "repo_url": "https://x/y", "public": True,
-              "owner_groups": ["data-team"]},
+        json={
+            "slug": "was-pub",
+            "repo_url": "https://x/y",
+            "public": True,
+            "owner_groups": ["data-team"],
+        },
     ).json()["id"]
     # non-publisher manager can still save with public: true (no transition)
     as_user(restricted, CREATOR)
@@ -216,9 +220,7 @@ def test_viewer_read_only(client):
         client.put(f"/api/v1/apps/{app_id}/secrets", json={"secrets_toml": 'a="b"'}).status_code
         == 403
     )
-    assert (
-        client.patch(f"/api/v1/apps/{app_id}", json={"public": False}).status_code == 403
-    )
+    assert client.patch(f"/api/v1/apps/{app_id}", json={"public": False}).status_code == 403
 
 
 def test_creator_manages_owned_app(client):
