@@ -62,7 +62,14 @@ builds:
   namespace: streamlit-builds
   createNamespace: true
   # rootless BuildKit (recommended); set false on clusters without
-  # user-namespace support (builds then run privileged)
+  # user-namespace support (builds then run privileged).
+  # SECURITY: build Jobs run untrusted, user-supplied repository content
+  # (arbitrary Dockerfile.orbital / RUN steps from an app owner's own repo).
+  # rootless: false makes the build container's securityContext
+  # privileged=true - one of the most direct paths to node/host compromise
+  # in Kubernetes. The control plane logs a WARNING at startup when this is
+  # set; only disable rootless where it's confirmed unsupported. See
+  # docs/ADMIN.md.
   rootless: true
   timeoutSeconds: 900
   # BuildKit resources for the one-off post-install base-image build Jobs

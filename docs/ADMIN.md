@@ -240,6 +240,21 @@ does not garbage-collect the registry in v1 — configure your registry's own
 retention (or run its GC) periodically. Deleting an app removes its
 Kubernetes resources; images remain in the registry until GC.
 
+### Privileged builds
+
+Build Jobs execute untrusted, user-supplied repository content (arbitrary
+`Dockerfile.orbital` / `RUN` steps generated from an app owner's own repo).
+`builds.rootless` (`ORBITAL_BUILDKIT_ROOTLESS`) defaults to `true`, which
+runs BuildKit rootless with a capability-restricted `securityContext`.
+Setting it to `false` switches the build container to
+`securityContext.privileged: true` instead — one of the most direct paths to
+node/host compromise in Kubernetes, since a build that escapes the
+container lands directly on the node. Only set it `false` where rootless
+BuildKit is confirmed unsupported (e.g. nested containers/LXC without
+user-namespace support — see the Troubleshooting table below). The control
+plane logs a `WARNING` at startup whenever it resolves to `false`, so this
+can't silently pass unnoticed.
+
 ### Database
 
 - Default: SQLite on a PVC — fine for small teams, single replica.
@@ -298,8 +313,10 @@ control plane builds for the running app.
 ## 5. Security notes
 
 - App code is untrusted: pods run as non-root with read-only rootfs, no SA
-  token, dropped capabilities, and (recommended) rootless builds. Consider
-  adding NetworkPolicies denying app-pod egress to cluster-internal CIDRs
+  token, dropped capabilities, and (recommended) rootless builds — see
+  [Privileged builds](#privileged-builds) for the risk of disabling the
+  latter. Consider adding NetworkPolicies denying app-pod egress to
+  cluster-internal CIDRs
   and cloud metadata endpoints (SPEC §8) — not yet templated in the chart.
 - Never expose the control plane without `auth.console.enabled=true`; an
   unauthenticated control plane treats every caller as admin.

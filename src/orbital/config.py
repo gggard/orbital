@@ -1,8 +1,11 @@
+import logging
 from functools import lru_cache
 
 from cryptography.fernet import Fernet
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+log = logging.getLogger(__name__)
 
 # Placeholder only safe when ui_auth_enabled=False (local dev without auth).
 # Named so the default and the startup check below can't drift apart.
@@ -102,6 +105,13 @@ class Settings(BaseSettings):
     # Build
     # Rootless BuildKit is the default (SPEC §5.2); some environments (nested
     # containers/LXC without user-namespace support) need privileged builds.
+    # SECURITY: build Jobs run untrusted, user-supplied repository content
+    # (arbitrary Dockerfile.orbital / RUN steps from an app owner's own
+    # repo). Setting this False switches the build container's
+    # securityContext to privileged=true (see k8s/builder.py), one of the
+    # most direct paths to node/host compromise in Kubernetes - see
+    # warn_if_privileged_builds() below and docs/ADMIN.md. Only disable
+    # where rootless BuildKit is confirmed unsupported.
     buildkit_rootless: bool = True
     buildkit_image: str = ""  # empty -> auto based on buildkit_rootless
     git_image: str = "alpine/git:latest"
@@ -248,6 +258,30 @@ class Settings(BaseSettings):
                 'print(secrets.token_urlsafe(48))"'
             )
         return self
+
+
+def warn_if_privileged_builds(settings: Settings) -> None:
+    """Log a loud startup warning when BuildKit runs privileged.
+
+    Not a validator: `buildkit_rootless=False` is a deliberate, supported
+    escape hatch for environments without user-namespace support (see the
+    field's docstring above), so this never blocks startup - it only makes
+    sure an operator flipping it gets an unmissable signal about the blast
+    radius they're accepting, since build Jobs execute untrusted,
+    user-supplied repository content.
+    """
+    if settings.buildkit_rootless:
+        return
+    log.warning(
+        "SECURITY: ORBITAL_BUILDKIT_ROOTLESS=false - build Jobs run "
+        "PRIVILEGED containers (securityContext.privileged=true) instead of "
+        "rootless, capability-restricted BuildKit. Build Jobs execute "
+        "untrusted, user-supplied repository content (arbitrary "
+        "Dockerfile.orbital / RUN steps from an app owner's own repo); a "
+        "privileged container is one of the most direct paths to node/host "
+        "compromise in Kubernetes. Only run this way where rootless "
+        "BuildKit is confirmed unsupported - see docs/ADMIN.md."
+    )
 
 
 @lru_cache

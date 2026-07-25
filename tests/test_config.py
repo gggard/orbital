@@ -1,10 +1,12 @@
 """Unit tests for pure Settings helper methods (orbital.config)."""
 
+import logging
+
 import pytest
 from cryptography.fernet import Fernet
 from pydantic import ValidationError
 
-from orbital.config import INSECURE_DEFAULT_SESSION_SECRET, Settings
+from orbital.config import INSECURE_DEFAULT_SESSION_SECRET, Settings, warn_if_privileged_builds
 
 
 def test_resolved_buildkit_image_explicit_override():
@@ -66,3 +68,18 @@ def test_session_secret_default_allowed_when_ui_auth_disabled():
 def test_session_secret_strong_value_accepted_when_ui_auth_enabled():
     s = Settings(ui_auth_enabled=True, session_secret="x" * 32)
     assert s.session_secret == "x" * 32
+
+
+def test_privileged_buildkit_warns_at_startup(caplog):
+    with caplog.at_level(logging.WARNING, logger="orbital.config"):
+        warn_if_privileged_builds(Settings(buildkit_rootless=False))
+    assert len(caplog.records) == 1
+    assert caplog.records[0].levelname == "WARNING"
+    assert "privileged" in caplog.text.lower()
+    assert "ORBITAL_BUILDKIT_ROOTLESS" in caplog.text
+
+
+def test_rootless_buildkit_does_not_warn_at_startup(caplog):
+    with caplog.at_level(logging.WARNING, logger="orbital.config"):
+        warn_if_privileged_builds(Settings(buildkit_rootless=True))
+    assert caplog.records == []

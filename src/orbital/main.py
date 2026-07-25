@@ -10,7 +10,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from . import __version__
 from .api import admin, apps, auth, authz, tokens, wake, webhooks
 from .api.wake import hibernation_middleware
-from .config import get_settings
+from .config import get_settings, warn_if_privileged_builds
 from .db import init_engine
 from .logbuffer import handler as log_ring_buffer
 
@@ -24,6 +24,7 @@ templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 async def lifespan(app: FastAPI):
     init_engine()
     settings = get_settings()
+    warn_if_privileged_builds(settings)
     if settings.reconciler_enabled:
         from .k8s.reconciler import start_reconciler, stop_reconciler
 
