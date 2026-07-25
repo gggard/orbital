@@ -178,11 +178,19 @@ buildctl-daemonless.sh build \
   --local context="$SRC_DIR" \
   --local dockerfile="$SRC_DIR" \
   --opt filename=Dockerfile.orbital \
-  --output type=image,name="$IMAGE",push=true,registry.insecure=true
+  --output type=image,name="$IMAGE",push=true,registry.insecure=${REGISTRY_INSECURE:-true}
 echo "[build] pushed $IMAGE"
 """
 
 
-def buildkitd_toml(registry_host: str) -> str:
-    """buildkitd config allowing plain-http access to the in-cluster registry."""
+def buildkitd_toml(registry_host: str, ca_cert_path: str | None = None) -> str:
+    """buildkitd config for reaching the in-cluster registry.
+
+    Plain HTTP by default (dev/minikube quick-start, matches
+    Settings.registry_tls_enabled=False). When ca_cert_path is given (TLS
+    mode - see docs/ADMIN.md#registry-tls), emit a `ca=` cert-file entry
+    instead of disabling transport security outright.
+    """
+    if ca_cert_path:
+        return f'[registry."{registry_host}"]\n  ca=["{ca_cert_path}"]\n'
     return f'[registry."{registry_host}"]\n  http = true\n'
