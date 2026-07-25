@@ -29,6 +29,18 @@ apps:
     cpuLimit: "1"
     memRequest: 512Mi
     memLimit: 2Gi
+  # Namespace-wide backstop (issue #80) against a single tenant creating
+  # unbounded apps and starving the cluster for everyone else. Sized ~50-100x
+  # a single app's per-pod defaults above, so it never trips under normal
+  # operation - see docs/ADMIN.md "Resource tiers" for the full rationale
+  # and how to raise these for a bigger deployment.
+  resourceQuota:
+    enabled: true
+    pods: "50"
+    requestsCpu: "20"
+    requestsMemory: 40Gi
+    limitsCpu: "50"
+    limitsMemory: 100Gi
 
 # Hibernation (SPEC §4.8): idle apps scale to zero and wake on the next
 # request. timeoutHours is the platform default; apps can override or opt
@@ -59,6 +71,17 @@ builds:
   resources:
     requests: {cpu: 250m, memory: 512Mi}
     limits: {cpu: "2", memory: 2Gi}
+  # Namespace-wide backstop (issue #80), sized for ~20 concurrent build Jobs
+  # at their per-job limits (builder.py hardcodes requests 500m/512Mi, limits
+  # 2/2Gi per app build; the one-off base-image Jobs above are smaller and
+  # only run around install time). See docs/ADMIN.md "Resource tiers".
+  resourceQuota:
+    enabled: true
+    pods: "30"
+    requestsCpu: "10"
+    requestsMemory: 20Gi
+    limitsCpu: "40"
+    limitsMemory: 40Gi
 
 # Container registry used for app images.
 # pushUrl:    registry endpoint reachable from build pods (in-cluster DNS ok)
