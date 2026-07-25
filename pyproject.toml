@@ -29,7 +29,7 @@ dev = [
 ]
 docs = [
     "mkdocs-material>=9.5",
-    "mkdocs-include-markdown-plugin>=6.2",
+    "mkdocs-include-markdown-plugin>=7.3.0",
     "mkdocs-llmstxt>=0.5",
 ]
 
