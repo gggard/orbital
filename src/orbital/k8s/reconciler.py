@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 from kubernetes.client import ApiException
 from sqlalchemy import select
 
+from .. import activity
 from ..config import get_settings
 from ..db import session_scope
 from ..gitutil import GitError, resolve_branch_head
@@ -269,16 +270,16 @@ class Reconciler:
             return
 
         if app.state == AppState.deploying:
-            self._check_rollout(app)
+            self._check_rollout(session, app)
 
         if app.state == AppState.running:
             self._ensure_ingress(app)
             self._ensure_base_path(app)
-            self._maybe_hibernate(app)
+            self._maybe_hibernate(session, app)
 
         if app.state == AppState.sleeping:
             self._ensure_ingress(app)
-            self._maybe_wake(app)
+            self._maybe_wake(session, app)
 
         if app.state in (AppState.running, AppState.deploying, AppState.deploy_failed):
             if app.pending_action == PendingAction.reboot:
@@ -311,6 +312,8 @@ class Reconciler:
             app.pending_action = PendingAction.none
             app.error = str(e)
             log.warning("commit resolution failed for %s: %s", app.slug, e)
+            activity.record(session, app.slug, "build failed", "error", app.requested_by or "reconciler")
+            app.requested_by = None
             return
 
         build = Build(app_id=app.id, commit_sha=sha, phase=BuildPhase.running)
@@ -326,12 +329,17 @@ class Reconciler:
         app.current_build_id = build.id
         app.error = None
         log.info("build %s started for app %s at %s", build.id, app.slug, sha[:10])
+        activity.record(session, app.slug, "build started", "warning", app.requested_by or "reconciler")
 
     def _check_build(self, session, app: App):
         build = session.get(Build, app.current_build_id)
         if build is None:
             app.state = AppState.build_failed
             app.error = "build record missing"
+            activity.record(
+                session, app.slug, "build failed", "error", app.requested_by or "reconciler"
+            )
+            app.requested_by = None
             return
 
         job = _not_found_ok(
@@ -340,17 +348,17 @@ class Reconciler:
             self.settings.builds_namespace,
         )
         if job is None:
-            self._fail_build(build, app, "build job not found (expired or deleted)")
+            self._fail_build(session, build, app, "build job not found (expired or deleted)")
             return
 
         outcome, message = _job_outcome(job)
         if outcome == "succeeded":
-            self._succeed_build(build, app)
+            self._succeed_build(session, build, app)
             return
         if outcome == "failed":
             assert message is not None
             tail = build_log_tail(build.id, self.settings)
-            self._fail_build(build, app, message, tail)
+            self._fail_build(session, build, app, message, tail)
             return
 
         # Last-resort safety net: if the Job has reported no terminal signal
@@ -361,12 +369,13 @@ class Reconciler:
         timeout = self.settings.build_timeout_seconds + _BUILD_TIMEOUT_GRACE_SECONDS
         if elapsed > timeout:
             self._fail_build(
+                session,
                 build,
                 app,
                 f"build timed out after {int(elapsed)}s with no terminal status from the build job",
             )
 
-    def _succeed_build(self, build: Build, app: App):
+    def _succeed_build(self, session, build: Build, app: App):
         build.phase = BuildPhase.succeeded
         build.finished_at = datetime.now(UTC)
         app.current_image = build.image
@@ -375,12 +384,14 @@ class Reconciler:
         self._deploy(app)
         app.state = AppState.deploying
 
-    def _fail_build(self, build: Build, app: App, message: str, log_tail: str = ""):
+    def _fail_build(self, session, build: Build, app: App, message: str, log_tail: str = ""):
         build.phase = BuildPhase.failed
         build.finished_at = datetime.now(UTC)
         build.error = f"{message}\n{log_tail}".strip()
         app.state = AppState.build_failed
         app.error = message
+        activity.record(session, app.slug, "build failed", "error", app.requested_by or "reconciler")
+        app.requested_by = None
         log.warning("build %s failed for %s: %s", build.id, app.slug, message)
 
     # -- deploy ------------------------------------------------------------
@@ -507,7 +518,7 @@ class Reconciler:
             patch,
         )
 
-    def _maybe_hibernate(self, app: App):
+    def _maybe_hibernate(self, session, app: App):
         s = self.settings
         if app.state != AppState.running:
             # _ensure_base_path may have just kicked off a redeploy
@@ -527,8 +538,11 @@ class Reconciler:
         # waiting for the next tick's sleeping-state convergence
         self._ensure_ingress(app)
         log.info("hibernated %s after %ds idle", app.slug, int(idle_for))
+        activity.record(
+            session, app.slug, f"went to sleep (idle {int(idle_for)}s)", "default", "reconciler"
+        )
 
-    def _maybe_wake(self, app: App):
+    def _maybe_wake(self, session, app: App):
         if app.wake_requested_at is None:
             return
         app.wake_requested_at = None
@@ -536,6 +550,7 @@ class Reconciler:
         self._scale(app, replicas=1)
         app.state = AppState.deploying
         log.info("waking %s", app.slug)
+        activity.record(session, app.slug, "woke up", "info", "reconciler")
 
     def _maybe_poll_git(self, session, app: App):
         """Fallback redeploy trigger for git hosts that can't reach the
@@ -701,7 +716,7 @@ class Reconciler:
             patch,
         )
 
-    def _check_rollout(self, app: App):
+    def _check_rollout(self, session, app: App):
         dep = _not_found_ok(
             client.apps_v1().read_namespaced_deployment,
             resources.name_for(app),
@@ -712,6 +727,14 @@ class Reconciler:
         if (dep.status.ready_replicas or 0) >= 1 and (dep.status.updated_replicas or 0) >= 1:
             app.state = AppState.running
             app.error = None
+            activity.record(
+                session,
+                app.slug,
+                "redeployed successfully",
+                "success",
+                app.requested_by or "reconciler",
+            )
+            app.requested_by = None
             return
         # surface crash loops / pull errors instead of waiting forever
         pods = client.core().list_namespaced_pod(
@@ -728,6 +751,14 @@ class Reconciler:
                 ):
                     app.state = AppState.deploy_failed
                     app.error = f"{waiting.reason}: {waiting.message or ''}".strip()
+                    activity.record(
+                        session,
+                        app.slug,
+                        "deploy failed",
+                        "error",
+                        app.requested_by or "reconciler",
+                    )
+                    app.requested_by = None
                     return
 
     # -- delete ------------------------------------------------------------

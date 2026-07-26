@@ -19,13 +19,14 @@ import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import { useState } from "react";
+import ActivityRail from "@/components/ActivityRail";
 import AppCard from "@/components/AppCard";
 import AppsFilterBar, { applyFilter, EMPTY_FILTER, filterCount } from "@/components/AppsFilterBar";
 import AppsTable from "@/components/AppsTable";
 import CreateAppDialog from "@/components/CreateAppDialog";
+import FleetHealthStrip from "@/components/FleetHealthStrip";
 import Logo from "@/components/Logo";
 import { useAdminOverview, useApps, useMe } from "@/lib/api";
-import { fmtCpu, fmtMem } from "@/lib/format";
 import type { AdminAppOut, AppState } from "@/lib/types";
 
 export function AppsListBody({
@@ -131,7 +132,14 @@ export default function AppsOverview() {
   const allApps: AdminAppOut[] =
     isAdmin && overview
       ? overview.apps
-      : (apps ?? []).map((a) => ({ ...a, cpu: null, mem: null, restarts: null }));
+      : (apps ?? []).map((a) => ({
+          ...a,
+          cpu: null,
+          mem: null,
+          restarts: null,
+          cpu_series: [],
+          mem_series: [],
+        }));
   const filteredApps = applyFilter(allApps, filter);
 
   const removeState = (s: AppState) =>
@@ -143,16 +151,8 @@ export default function AppsOverview() {
 
   return (
     <>
-      <Stack direction="row" spacing={2} sx={{ alignItems: "flex-start", mb: 0.5 }}>
-        <Box>
-          <Typography variant="h5">Apps</Typography>
-          {isAdmin && overview && (
-            <Typography variant="body2" color="text.secondary">
-              {overview.totals.app_count} apps · {overview.totals.running_count} running ·{" "}
-              {fmtCpu(overview.totals.cpu)} CPU · {fmtMem(overview.totals.mem)} memory
-            </Typography>
-          )}
-        </Box>
+      <Stack direction="row" spacing={2} sx={{ alignItems: "center", mb: 2 }}>
+        <Typography variant="h5">Apps</Typography>
         <Box sx={{ flexGrow: 1 }} />
         <Tooltip title="Filters">
           <IconButton
@@ -217,28 +217,45 @@ export default function AppsOverview() {
         </Stack>
       )}
 
-      <Box sx={{ mt: 3 }}>
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            control plane unreachable: {String(error.message ?? error)}
-          </Alert>
-        )}
+      <FleetHealthStrip
+        apps={allApps}
+        totals={isAdmin && overview ? overview.totals : null}
+        filter={filter}
+        onChange={setFilter}
+      />
 
-        <Collapse in={filtersOpen}>
-          <AppsFilterBar apps={allApps} filter={filter} onChange={setFilter} />
-        </Collapse>
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          control plane unreachable: {String(error.message ?? error)}
+        </Alert>
+      )}
 
-        <AppsListBody
-          loading={isLoading || waitingForAdminData}
-          allApps={allApps}
-          filteredApps={filteredApps}
-          canCreate={canCreate}
-          view={view}
-          readOnly={readOnly}
-          onCreate={() => setCreateOpen(true)}
-          onClearFilters={() => setFilter(EMPTY_FILTER)}
-          onAction={setSnack}
-        />
+      <Collapse in={filtersOpen}>
+        <AppsFilterBar apps={allApps} filter={filter} onChange={setFilter} />
+      </Collapse>
+
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: { xs: "1fr", md: "1fr 300px" },
+          gap: 3,
+          alignItems: "start",
+        }}
+      >
+        <Box sx={{ minWidth: 0 }}>
+          <AppsListBody
+            loading={isLoading || waitingForAdminData}
+            allApps={allApps}
+            filteredApps={filteredApps}
+            canCreate={canCreate}
+            view={view}
+            readOnly={readOnly}
+            onCreate={() => setCreateOpen(true)}
+            onClearFilters={() => setFilter(EMPTY_FILTER)}
+            onAction={setSnack}
+          />
+        </Box>
+        <ActivityRail enabled={isAdmin} />
       </Box>
 
       <CreateAppDialog open={createOpen} onClose={() => setCreateOpen(false)} />

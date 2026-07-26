@@ -6,6 +6,7 @@ function app(overrides: Partial<AdminAppOut>): AdminAppOut {
   return {
     id: "1",
     slug: "my-app",
+    repo_url: "https://example.com/team/my-app",
     state: "running",
     owner_groups: [],
     tags: [],
@@ -33,8 +34,22 @@ describe("filterCount", () => {
 
 describe("applyFilter", () => {
   const apps = [
-    app({ id: "1", slug: "dashboard", state: "running", owner_groups: ["team-a"], tags: ["prod"] }),
-    app({ id: "2", slug: "reports", state: "sleeping", owner_groups: ["team-b"], tags: ["dev"] }),
+    app({
+      id: "1",
+      slug: "dashboard",
+      repo_url: "https://github.com/data-team/dashboard",
+      state: "running",
+      owner_groups: ["team-a"],
+      tags: ["prod"],
+    }),
+    app({
+      id: "2",
+      slug: "reports",
+      repo_url: "https://github.com/finance-team/reports",
+      state: "sleeping",
+      owner_groups: ["team-b"],
+      tags: ["dev"],
+    }),
   ];
 
   it("returns all apps for the empty filter", () => {
@@ -44,6 +59,11 @@ describe("applyFilter", () => {
   it("filters by case-insensitive slug search", () => {
     const result = applyFilter(apps, { ...EMPTY_FILTER, search: "DASH" });
     expect(result.map((a) => a.id)).toEqual(["1"]);
+  });
+
+  it("filters by case-insensitive repo URL search", () => {
+    const result = applyFilter(apps, { ...EMPTY_FILTER, search: "FINANCE-TEAM" });
+    expect(result.map((a) => a.id)).toEqual(["2"]);
   });
 
   it("filters by state", () => {

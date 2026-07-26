@@ -224,6 +224,22 @@ class AdminAppOut(AppOut):
     cpu: float | None  # cores, latest sample (None: no metrics yet)
     mem: float | None  # bytes, latest sample
     restarts: int | None  # total container restarts across the app's pods
+    # short trend for the overview page's mini sparklines - the reconciler's
+    # existing in-memory ring buffer (k8s.metrics.store), last ~12 samples;
+    # empty until the app has run long enough to collect any
+    cpu_series: list[float] = []
+    mem_series: list[float] = []
+
+
+class EventOut(BaseModel):
+    id: str
+    slug: str
+    text: str
+    level: str
+    actor: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
 
 
 class AdminScanOut(ScanOut):

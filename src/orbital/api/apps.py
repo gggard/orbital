@@ -7,7 +7,7 @@ from fastapi.responses import PlainTextResponse, StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .. import analytics, crypto
+from .. import activity, analytics, crypto
 from ..config import Settings, get_settings
 from ..db import get_db
 from ..k8s import inspect, metrics
@@ -182,9 +182,11 @@ def create_app(
         hibernate_after_seconds=payload.hibernate_after_seconds,
         poll_enabled=payload.poll_enabled,
         poll_interval_seconds=payload.poll_interval_seconds,
+        requested_by=user.email,
     )
     db.add(app)
     db.flush()
+    activity.record(db, app.slug, "created", "info", user.email)
     return to_app_out(app, settings)
 
 
@@ -327,6 +329,7 @@ def delete_app(
     app = _managed(db, app_id, user)
     app.pending_action = PendingAction.delete
     app.state = AppState.deleting
+    activity.record(db, app.slug, "delete requested", "warning", user.email)
     return {"status": "deleting"}
 
 
@@ -340,6 +343,7 @@ def deploy_app(
     if app.state == AppState.building:
         raise HTTPException(409, "a build is already in progress")
     app.pending_action = PendingAction.deploy
+    app.requested_by = user.email
     return {"status": "deploy scheduled"}
 
 
@@ -353,6 +357,7 @@ def reboot_app(
     if app.state not in (AppState.running, AppState.deploy_failed):
         raise HTTPException(409, f"cannot reboot app in state {app.state.value}")
     app.pending_action = PendingAction.reboot
+    app.requested_by = user.email
     return {"status": "reboot scheduled"}
 
 

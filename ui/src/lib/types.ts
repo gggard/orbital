@@ -168,6 +168,17 @@ export interface AdminAppOut extends AppOut {
   cpu: number | null; // cores, latest sample
   mem: number | null; // bytes, latest sample
   restarts: number | null; // total container restarts across the app's pods
+  cpu_series: number[]; // short trend for the overview page's sparklines
+  mem_series: number[];
+}
+
+export interface ActivityEvent {
+  id: string;
+  slug: string;
+  text: string;
+  level: "success" | "warning" | "error" | "info" | "default";
+  actor: string;
+  created_at: string;
 }
 
 export interface AdminTotals {

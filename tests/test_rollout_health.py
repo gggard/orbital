@@ -61,7 +61,10 @@ def test_check_rollout_marks_running_once_ready(reconciler, monkeypatch):
     monkeypatch.setattr(k8s_client, "apps_v1", lambda: apps_v1)
 
     app = make_app()
-    reconciler._check_rollout(app)
+    from orbital import db as db_mod
+
+    with db_mod.session_scope() as session:
+        reconciler._check_rollout(session, app)
 
     assert app.state == AppState.running
     assert app.error is None
@@ -80,7 +83,10 @@ def test_check_rollout_surfaces_crash_loop_backoff(reconciler, monkeypatch):
     monkeypatch.setattr(k8s_client, "core", lambda: core)
 
     app = make_app()
-    reconciler._check_rollout(app)
+    from orbital import db as db_mod
+
+    with db_mod.session_scope() as session:
+        reconciler._check_rollout(session, app)
 
     assert app.state == AppState.deploy_failed
     assert app.error == "CrashLoopBackOff: back-off restarting failed container"
@@ -96,6 +102,9 @@ def test_check_rollout_no_deployment_yet_is_a_noop(reconciler, monkeypatch):
     monkeypatch.setattr(k8s_client, "apps_v1", lambda: apps_v1)
 
     app = make_app()
-    reconciler._check_rollout(app)
+    from orbital import db as db_mod
+
+    with db_mod.session_scope() as session:
+        reconciler._check_rollout(session, app)
 
     assert app.state == AppState.deploying
