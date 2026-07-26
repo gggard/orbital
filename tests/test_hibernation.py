@@ -203,6 +203,40 @@ def _mock_k8s(monkeypatch):
     return apps_v1, core, networking
 
 
+def test_ensure_setup_applies_wake_endpoints_for_ip_host(monkeypatch):
+    monkeypatch.setenv("ORBITAL_DATABASE_URL", "sqlite://")
+    monkeypatch.setenv("ORBITAL_CONTROL_PLANE_SERVICE_HOST", "192.168.49.1")
+    get_settings.cache_clear()
+    from orbital.k8s.reconciler import Reconciler
+
+    _, core, _ = _mock_k8s(monkeypatch)
+    reconciler = Reconciler()
+    reconciler.ensure_setup()
+    core.create_namespaced_endpoints.assert_called_once()
+    call = core.create_namespaced_endpoints.call_args
+    assert call.args[0] == reconciler.settings.apps_namespace
+    assert call.args[1]["metadata"]["name"] == resources.WAKE_SERVICE_NAME
+    assert call.args[1]["subsets"][0]["addresses"] == [{"ip": "192.168.49.1"}]
+    get_settings.cache_clear()
+
+
+def test_ensure_setup_skips_wake_endpoints_for_hostname(monkeypatch):
+    monkeypatch.setenv("ORBITAL_DATABASE_URL", "sqlite://")
+    monkeypatch.setenv(
+        "ORBITAL_CONTROL_PLANE_SERVICE_HOST",
+        "orbital-control-plane.orbital-platform.svc.cluster.local",
+    )
+    get_settings.cache_clear()
+    from orbital.k8s.reconciler import Reconciler
+
+    _, core, _ = _mock_k8s(monkeypatch)
+    reconciler = Reconciler()
+    reconciler.ensure_setup()
+    core.create_namespaced_service.assert_called_once()  # wake_service itself is still applied
+    core.create_namespaced_endpoints.assert_not_called()
+    get_settings.cache_clear()
+
+
 def test_maybe_hibernate_scales_to_zero_after_timeout(reconciler, monkeypatch):
     apps_v1, _, networking = _mock_k8s(monkeypatch)
     app = make_app(state=AppState.running)
