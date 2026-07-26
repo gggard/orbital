@@ -149,6 +149,15 @@ class Reconciler:
                 self.settings.apps_namespace,
                 svc,
             )
+            endpoints = resources.wake_endpoints(self.settings)
+            if endpoints is not None:
+                _apply(
+                    client.core().create_namespaced_endpoints,
+                    client.core().replace_namespaced_endpoints,
+                    endpoints["metadata"]["name"],
+                    self.settings.apps_namespace,
+                    endpoints,
+                )
 
     # -- reconcile ---------------------------------------------------------
 
