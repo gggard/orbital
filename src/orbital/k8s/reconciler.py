@@ -312,7 +312,9 @@ class Reconciler:
             app.pending_action = PendingAction.none
             app.error = str(e)
             log.warning("commit resolution failed for %s: %s", app.slug, e)
-            activity.record(session, app.slug, "build failed", "error", app.requested_by or "reconciler")
+            activity.record(
+                session, app.slug, "build failed", "error", app.requested_by or "reconciler"
+            )
             app.requested_by = None
             return
 
@@ -329,7 +331,9 @@ class Reconciler:
         app.current_build_id = build.id
         app.error = None
         log.info("build %s started for app %s at %s", build.id, app.slug, sha[:10])
-        activity.record(session, app.slug, "build started", "warning", app.requested_by or "reconciler")
+        activity.record(
+            session, app.slug, "build started", "warning", app.requested_by or "reconciler"
+        )
 
     def _check_build(self, session, app: App):
         build = session.get(Build, app.current_build_id)
@@ -390,7 +394,9 @@ class Reconciler:
         build.error = f"{message}\n{log_tail}".strip()
         app.state = AppState.build_failed
         app.error = message
-        activity.record(session, app.slug, "build failed", "error", app.requested_by or "reconciler")
+        activity.record(
+            session, app.slug, "build failed", "error", app.requested_by or "reconciler"
+        )
         app.requested_by = None
         log.warning("build %s failed for %s: %s", build.id, app.slug, message)
 
