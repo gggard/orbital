@@ -137,6 +137,47 @@ def test_wake_service_shape(settings):
     assert svc["spec"]["externalName"] == settings.control_plane_service_host
 
 
+def test_wake_endpoints_not_needed_for_hostname_target(settings):
+    # ExternalName + cluster DNS handles a real hostname on its own.
+    assert resources.wake_endpoints(settings) is None
+
+
+def test_wake_service_for_ip_host_skips_external_name():
+    # ExternalName targets go through ingress-nginx's own DNS resolver, which
+    # NXDOMAINs on a bare IP "hostname" (see docs/DEVELOPMENT.md and
+    # wake_service()'s docstring) - a selectorless Service + Endpoints
+    # (test_wake_endpoints_for_ip_host below) routes by IP without DNS.
+    s = Settings(
+        apps_domain="apps.example.com",
+        control_plane_service_host="192.168.49.1",
+        _env_file=None,
+    )
+    svc = resources.wake_service(s)
+    assert svc["metadata"]["name"] == resources.WAKE_SERVICE_NAME
+    assert svc["spec"].get("type") != "ExternalName"
+    assert "externalName" not in svc["spec"]
+    assert "selector" not in svc["spec"]
+    assert svc["spec"]["ports"] == [
+        {"port": s.control_plane_service_port, "targetPort": s.control_plane_service_port}
+    ]
+
+
+def test_wake_endpoints_for_ip_host():
+    s = Settings(
+        apps_domain="apps.example.com",
+        control_plane_service_host="192.168.49.1",
+        _env_file=None,
+    )
+    endpoints = resources.wake_endpoints(s)
+    assert endpoints["metadata"]["name"] == resources.WAKE_SERVICE_NAME
+    assert endpoints["subsets"] == [
+        {
+            "addresses": [{"ip": "192.168.49.1"}],
+            "ports": [{"port": s.control_plane_service_port}],
+        }
+    ]
+
+
 # -- reconciler: hibernate / wake state transitions -------------------------
 
 

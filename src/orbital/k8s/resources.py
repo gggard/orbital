@@ -1,5 +1,6 @@
 """Per-app runtime manifests: Deployment, Service, Ingress, Secret (SPEC §5.3)."""
 
+import ipaddress
 from typing import Any
 
 from .. import crypto
@@ -14,10 +15,19 @@ APP_ID_LABEL = "app.orbital.io/app-id"
 # risk S5443 warns about doesn't apply here.
 _APP_TMP_DIR = "/tmp"  # NOSONAR
 
-# in-namespace ExternalName Service that lets the apps-namespace Ingress
-# objects reach the control plane (a different namespace) as the wake proxy
-# and activity-beacon backend (SPEC §5.6).
+# in-namespace Service that lets the apps-namespace Ingress objects reach the
+# control plane (a different namespace) as the wake proxy and activity-beacon
+# backend (SPEC §5.6). Also the name of its companion Endpoints object, when
+# one is needed - see wake_service()/wake_endpoints().
 WAKE_SERVICE_NAME = "sh-wake-proxy"
+
+
+def _is_ip_literal(host: str) -> bool:
+    try:
+        ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    return True
 
 
 def app_labels(app: App) -> dict:
@@ -169,7 +179,33 @@ def service(app: App, settings: Settings) -> dict:
 
 
 def wake_service(settings: Settings) -> dict:
-    """ExternalName Service in the apps namespace pointing at the control plane."""
+    """Service in the apps namespace pointing at the control plane.
+
+    ExternalName is the right shape when control_plane_service_host is a real
+    DNS hostname (the production Helm-chart topology, e.g.
+    orbital-control-plane.orbital-platform.svc.cluster.local) - cluster DNS
+    resolves it like any other CNAME. Local dev (see docs/DEVELOPMENT.md)
+    instead points this at the minikube docker-bridge gateway's bare IP,
+    because the control plane runs on the host, not in-cluster. ingress-nginx
+    resolves ExternalName targets through its own Lua DNS resolver regardless
+    of whether the target already looks like an IP, and cluster DNS has no A
+    record for a dotted-quad "hostname" - so with ExternalName the lookup
+    NXDOMAINs and every hibernating app's wake path 503s. A selectorless
+    Service with a matching Endpoints object (wake_endpoints()) routes to the
+    same IP without going through DNS at all, sidestepping that failure mode.
+    """
+    port = {
+        "port": settings.control_plane_service_port,
+        "targetPort": settings.control_plane_service_port,
+    }
+    if _is_ip_literal(settings.control_plane_service_host):
+        spec: dict[str, Any] = {"ports": [port]}
+    else:
+        spec = {
+            "type": "ExternalName",
+            "externalName": settings.control_plane_service_host,
+            "ports": [port],
+        }
     return {
         "apiVersion": "v1",
         "kind": "Service",
@@ -178,16 +214,32 @@ def wake_service(settings: Settings) -> dict:
             "namespace": settings.apps_namespace,
             "labels": MANAGED_BY,
         },
-        "spec": {
-            "type": "ExternalName",
-            "externalName": settings.control_plane_service_host,
-            "ports": [
-                {
-                    "port": settings.control_plane_service_port,
-                    "targetPort": settings.control_plane_service_port,
-                }
-            ],
+        "spec": spec,
+    }
+
+
+def wake_endpoints(settings: Settings) -> dict | None:
+    """Endpoints backing wake_service() when its target is a literal IP.
+
+    None when control_plane_service_host is a DNS hostname instead: that path
+    uses a plain ExternalName Service, which needs no Endpoints object.
+    """
+    if not _is_ip_literal(settings.control_plane_service_host):
+        return None
+    return {
+        "apiVersion": "v1",
+        "kind": "Endpoints",
+        "metadata": {
+            "name": WAKE_SERVICE_NAME,
+            "namespace": settings.apps_namespace,
+            "labels": MANAGED_BY,
         },
+        "subsets": [
+            {
+                "addresses": [{"ip": settings.control_plane_service_host}],
+                "ports": [{"port": settings.control_plane_service_port}],
+            }
+        ],
     }
 
 
