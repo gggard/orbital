@@ -61,7 +61,18 @@ export default function AppCard({
     <Card sx={{ display: "flex", flexDirection: "column" }}>
       <CardActionArea
         onClick={() => router.push(`/apps/${app.id}`)}
-        sx={{ p: 2, flexGrow: 1, alignItems: "stretch" }}
+        sx={{
+          p: 2,
+          flexGrow: 1,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "stretch",
+          // CardActionArea centers its content vertically by default; when a
+          // grid row stretches this card to match a taller sibling (e.g. one
+          // with an error line), that leftover space must collect below the
+          // content, not get split above it and push the header down.
+          justifyContent: "flex-start",
+        }}
       >
         <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
           <AppTypeIcon appType={app.app_type} />
