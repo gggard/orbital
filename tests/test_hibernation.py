@@ -398,6 +398,21 @@ def test_sleeping_app_host_shows_interstitial(client):
         assert app.wake_requested_at is not None
 
 
+def test_interstitial_marks_itself_pending_for_the_poll_script(client):
+    # the JS retry loop (see api/wake.py module docstring) tells "still
+    # sleeping" apart from "app is ready" / "transient gateway error" via
+    # this header - both of the latter can otherwise be 200s too.
+    from orbital.api.wake import WAKE_PENDING_HEADER
+
+    _sleep_app(client)
+    r = client.get("/", headers={"Host": "sleepy.apps.local"})
+    assert r.headers[WAKE_PENDING_HEADER] == "pending"
+    assert 'res.headers.get("X-Orbital-Wake")' in r.text
+    # a no-JS fallback still exists, just deferred so it can't race the poll
+    # loop into reloading straight into a gateway-error window
+    assert "<noscript>" in r.text
+
+
 def test_unrelated_host_is_not_intercepted(client):
     r = client.get("/healthz", headers={"Host": "streamlit.local"})
     assert r.status_code == 200

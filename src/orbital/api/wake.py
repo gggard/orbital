@@ -9,6 +9,15 @@ repointed at — normal, awake traffic never reaches the control plane:
   - `hibernation_middleware`: catches every other request whose Host header
     (subdomain routing) or path (path routing) resolves to a sleeping app,
     requests a wake-up, and serves an auto-refreshing interstitial.
+
+The interstitial polls via JS instead of a blind `<meta refresh>`: once the
+app is actually ready, the reconciler flips the Ingress backend from the
+wake proxy to the app's own Service, which needs an ingress-nginx config
+reload - and a request landing in that reload's narrow window gets a raw
+502/503 from nginx, not a fresh interstitial or the app. A blind timed
+reload can land there and hand the user a broken error page. Polling lets
+the client retry through that window transparently and only navigate once a
+real, non-transient response comes back.
 """
 
 import logging
@@ -29,11 +38,17 @@ log = logging.getLogger(__name__)
 
 router = APIRouter(tags=["wake"])
 
+# marks a response as the interstitial itself (as opposed to the woken app,
+# or a transient gateway error) so the polling script below can tell them
+# apart - the interstitial and a gateway error can otherwise both arrive as
+# plain 200s/error pages indistinguishable by status code alone.
+WAKE_PENDING_HEADER = "X-Orbital-Wake"
+
 INTERSTITIAL = """<!doctype html>
 <html>
 <head>
 <meta charset="utf-8">
-<meta http-equiv="refresh" content="2">
+<noscript><meta http-equiv="refresh" content="2"></noscript>
 <title>Waking up {slug}...</title>
 <style>
   body {{
@@ -51,6 +66,23 @@ INTERSTITIAL = """<!doctype html>
 <h2>Waking up {slug}&hellip;</h2>
 <p>This app was sleeping and is starting back up. This page refreshes automatically.</p>
 </div>
+<script>
+(function poll() {{
+  fetch(location.href, {{cache: "no-store"}}).then(function (res) {{
+    // still the interstitial (not ready yet), or the ingress hit a gateway
+    // error (502/503/504) mid-reload while the backend hand-off is in
+    // flight: keep waiting instead of navigating into either.
+    var pending = res.headers.get("{header}") || [502, 503, 504].includes(res.status);
+    if (pending) {{
+      setTimeout(poll, 1500);
+    }} else {{
+      location.reload();
+    }}
+  }}).catch(function () {{
+    setTimeout(poll, 1500);
+  }});
+}})();
+</script>
 </body>
 </html>"""
 
@@ -107,7 +139,7 @@ async def hibernation_middleware(request: Request, call_next):
         return await call_next(request)
     log.info("wake requested for %s via %s", app_slug, request.url.path)
     return HTMLResponse(
-        INTERSTITIAL.format(slug=app_slug),
+        INTERSTITIAL.format(slug=app_slug, header=WAKE_PENDING_HEADER),
         status_code=200,
-        headers={"Retry-After": "2"},
+        headers={"Retry-After": "2", WAKE_PENDING_HEADER: "pending"},
     )
