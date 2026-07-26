@@ -42,15 +42,47 @@ def test_record_appends_an_event(session):
     assert events[0].actor == "alice@example.com"
 
 
-def test_record_trims_history_beyond_max_events(session):
-    for i in range(activity.MAX_EVENTS + 5):
+def test_record_caps_history_per_app(session, monkeypatch):
+    monkeypatch.setattr(activity, "MAX_EVENTS_PER_APP", 5)
+    for i in range(10):
         activity.record(session, "app", f"event {i}", "default", "reconciler")
-    events = session.scalars(select(Event)).all()
-    assert len(events) == activity.MAX_EVENTS
-    # the oldest rows (event 0..4) were the ones trimmed
+    events = session.scalars(select(Event).where(Event.slug == "app")).all()
+    assert len(events) == 5
     texts = {e.text for e in events}
     assert "event 0" not in texts
-    assert f"event {activity.MAX_EVENTS + 4}" in texts
+    assert "event 9" in texts
+
+
+def test_record_caps_global_history_across_many_apps(session, monkeypatch):
+    monkeypatch.setattr(activity, "MAX_EVENTS_PER_APP", 2)
+    monkeypatch.setattr(activity, "MAX_EVENTS", 10)
+    for i in range(20):
+        activity.record(session, f"app-{i}", "created", "info", "dev@localhost")
+    events = session.scalars(select(Event)).all()
+    assert len(events) == 10
+    # the most recently-created apps' events are the ones kept
+    slugs = {e.slug for e in events}
+    assert "app-19" in slugs
+    assert "app-0" not in slugs
+
+
+def test_record_survives_a_noisy_neighbor(session, monkeypatch):
+    """Regression: a single app hammering the feed (a flapping build loop,
+    aggressive git polling…) must not be able to evict another app's
+    history just by generating enough volume - each slug is capped to its
+    own floor on every write, so its own row count never grows large enough
+    to threaten the global cap.
+    """
+    monkeypatch.setattr(activity, "MAX_EVENTS_PER_APP", 5)
+    monkeypatch.setattr(activity, "MAX_EVENTS", 50)
+    activity.record(session, "quiet-app", "created", "info", "alice@example.com")
+    for i in range(200):
+        activity.record(session, "noisy-app", f"build started {i}", "warning", "reconciler")
+    quiet_events = session.scalars(select(Event).where(Event.slug == "quiet-app")).all()
+    assert len(quiet_events) == 1
+    assert quiet_events[0].text == "created"
+    noisy_events = session.scalars(select(Event).where(Event.slug == "noisy-app")).all()
+    assert len(noisy_events) == 5
 
 
 # -- API hooks: create/delete/deploy/reboot -----------------------------------
