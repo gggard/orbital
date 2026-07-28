@@ -25,7 +25,7 @@ dev = [
     "pytest-cov>=7.1.0",
     "httpx>=0.28.1",
     "ruff>=0.16.0",
-    "mypy>=1.19.0",
+    "mypy>=2.3.0",
 ]
 docs = [
     "mkdocs-material>=9.5",
