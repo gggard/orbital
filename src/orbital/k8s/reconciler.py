@@ -43,6 +43,10 @@ _BUILD_TIMEOUT_GRACE_SECONDS = 120
 # cleared automatically once the app reconciles cleanly again.
 _RECONCILER_ERROR_PREFIX = "reconciler error:"
 
+# Recent-activity event text for a build that ended in build_failed, however
+# it got there (commit resolution error, missing build record, Job failure).
+_BUILD_FAILED_EVENT = "build failed"
+
 # How often to sweep apps_namespace for orphaned Deployment/Service/Ingress/
 # Secret objects whose app-id label has no matching row in the DB (#23) -
 # a namespace-wide list on every 3s tick would be wasteful, and this is a
@@ -91,7 +95,7 @@ def _job_outcome(job) -> tuple[str, str | None]:
         if cond.type == "Complete" and cond.status == "True":
             return "succeeded", None
         if cond.type == "Failed" and cond.status == "True":
-            return "failed", cond.message or "build failed"
+            return "failed", cond.message or _BUILD_FAILED_EVENT
     if (job.status.succeeded or 0) >= 1:
         return "succeeded", None
     if (job.status.failed or 0) >= 1:
@@ -313,7 +317,7 @@ class Reconciler:
             app.error = str(e)
             log.warning("commit resolution failed for %s: %s", app.slug, e)
             activity.record(
-                session, app.slug, "build failed", "error", app.requested_by or "reconciler"
+                session, app.slug, _BUILD_FAILED_EVENT, "error", app.requested_by or "reconciler"
             )
             app.requested_by = None
             return
@@ -341,7 +345,7 @@ class Reconciler:
             app.state = AppState.build_failed
             app.error = "build record missing"
             activity.record(
-                session, app.slug, "build failed", "error", app.requested_by or "reconciler"
+                session, app.slug, _BUILD_FAILED_EVENT, "error", app.requested_by or "reconciler"
             )
             app.requested_by = None
             return
@@ -395,7 +399,7 @@ class Reconciler:
         app.state = AppState.build_failed
         app.error = message
         activity.record(
-            session, app.slug, "build failed", "error", app.requested_by or "reconciler"
+            session, app.slug, _BUILD_FAILED_EVENT, "error", app.requested_by or "reconciler"
         )
         app.requested_by = None
         log.warning("build %s failed for %s: %s", build.id, app.slug, message)
