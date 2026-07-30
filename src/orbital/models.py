@@ -120,6 +120,13 @@ class App(Base):
     current_build_id: Mapped[str | None] = mapped_column(String(12), default=None)
     current_image: Mapped[str | None] = mapped_column(String(500), default=None)
 
+    # Email of the user who most recently requested a deploy/reboot, consumed
+    # by the reconciler to attribute the resulting activity-log events (SPEC
+    # §4.8-adjacent "recent activity" feed) to a person instead of
+    # "reconciler"; cleared once that action reaches a terminal outcome. None
+    # for actions the reconciler itself initiates (hibernate, wake, git poll).
+    requested_by: Mapped[str | None] = mapped_column(String(255), default=None)
+
     # Vulnerability scanning: pointer to the most recent scan *attempt*
     # (mirrors current_build_id); scan_requested_at is an on-demand-rescan
     # trigger flag (mirrors wake_requested_at), consumed by the reconciler.
@@ -267,3 +274,26 @@ class ViewEvent(Base):
     viewed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, index=True)
 
     app: Mapped[App] = relationship(back_populates="views")
+
+
+class Event(Base):
+    """One entry in the fleet-wide recent-activity feed (console home page).
+
+    Deliberately not FK'd to `apps`: an app can be deleted, but its history
+    of "created"/"deployed"/"deleted" events should still read back rather
+    than vanish or dangle a foreign key, so the slug is stored as a plain
+    denormalized string instead.
+    """
+
+    __tablename__ = "events"
+
+    id: Mapped[str] = mapped_column(String(12), primary_key=True, default=_uuid)
+    slug: Mapped[str] = mapped_column(String(63), index=True)
+    text: Mapped[str] = mapped_column(String(500))
+    # success/warning/error/info/default - purely a display hint (dot color
+    # in the activity rail), not a validated enum of event types
+    level: Mapped[str] = mapped_column(String(20), default="default")
+    actor: Mapped[str] = mapped_column(String(255))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_now, index=True
+    )

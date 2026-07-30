@@ -58,6 +58,13 @@ def test_overview_requires_admin(client):
     assert client.get("/api/v1/admin/overview").status_code == 200
 
 
+def test_activity_requires_admin(client):
+    as_user(client, VIEWER)
+    assert client.get("/api/v1/admin/activity").status_code == 403
+    as_user(client, ADMIN)
+    assert client.get("/api/v1/admin/activity").status_code == 200
+
+
 def test_logs_requires_admin(client):
     as_user(client, VIEWER)
     assert client.get("/api/v1/admin/logs").status_code == 403
@@ -81,24 +88,43 @@ def test_overview_totals_and_rows(client):
             session.get(App, app_id).state = AppState.running
 
     store.add(a1, Sample(ts=1.0, cpu=0.1, mem=100 * 2**20))
+    store.add(a1, Sample(ts=2.0, cpu=0.15, mem=110 * 2**20))
     store.add(a2, Sample(ts=1.0, cpu=0.2, mem=200 * 2**20))
     restart_counts.set(a1, RestartInfo(count=4, last_reason="Error", last_at=None))
     try:
         body = client.get("/api/v1/admin/overview").json()
         assert body["totals"]["app_count"] == 2
         assert body["totals"]["running_count"] == 2
-        assert body["totals"]["cpu"] == pytest.approx(0.3)
-        assert body["totals"]["mem"] == pytest.approx(300 * 2**20)
+        assert body["totals"]["cpu"] == pytest.approx(0.35)
+        assert body["totals"]["mem"] == pytest.approx(310 * 2**20)
         rows = {r["slug"]: r for r in body["apps"]}
-        assert rows["one"]["cpu"] == pytest.approx(0.1)
+        assert rows["one"]["cpu"] == pytest.approx(0.15)
         assert rows["one"]["owner_groups"] == ["data-team"]
         assert rows["one"]["restarts"] == 4
+        assert rows["one"]["cpu_series"] == pytest.approx([0.1, 0.15])
+        assert rows["one"]["mem_series"] == pytest.approx([100 * 2**20, 110 * 2**20])
         assert rows["two"]["mem"] == pytest.approx(200 * 2**20)
         assert rows["two"]["restarts"] is None
     finally:
         store.drop(a1)
         store.drop(a2)
         restart_counts.drop(a1)
+
+
+def test_overview_sparkline_series_capped_at_recent_samples(client):
+    as_user(client, ADMIN)
+    a1 = make_app(client, "chatty").json()["id"]
+    from orbital.api.admin import SPARKLINE_SAMPLES
+
+    try:
+        for i in range(SPARKLINE_SAMPLES + 5):
+            store.add(a1, Sample(ts=float(i), cpu=float(i), mem=float(i)))
+        row = client.get("/api/v1/admin/overview").json()["apps"][0]
+        assert len(row["cpu_series"]) == SPARKLINE_SAMPLES
+        # the most recent samples are kept, not the oldest
+        assert row["cpu_series"][-1] == pytest.approx(float(SPARKLINE_SAMPLES + 4))
+    finally:
+        store.drop(a1)
 
 
 def test_overview_app_without_metrics_reports_none(client):

@@ -88,6 +88,43 @@ def _build(phase=BuildPhase.running, created_at=None) -> Build:
     )
 
 
+# -- build/Job record missing -------------------------------------------------
+
+
+def test_check_build_missing_build_record_marks_build_failed(reconciler):
+    """current_build_id pointing at a row that no longer exists (e.g. pruned,
+    or a race with a delete) must fail the app rather than crash or spin
+    forever in "building"."""
+    app_id = _persist(make_app(current_build_id="nosuchbuild1"))
+
+    from orbital import db as db_mod
+
+    with db_mod.session_scope() as session:
+        app = session.get(App, app_id)
+        reconciler._check_build(session, app)
+        assert app.state == AppState.build_failed
+        assert app.error == "build record missing"
+
+
+def test_check_build_job_not_found_fails_build(reconciler, monkeypatch):
+    from orbital.k8s import client as k8s_client
+
+    batch = MagicMock()
+    from kubernetes.client import ApiException
+
+    batch.read_namespaced_job.side_effect = ApiException(status=404)
+    monkeypatch.setattr(k8s_client, "batch", lambda: batch)
+    app_id = _persist(make_app(), build=_build())
+
+    from orbital import db as db_mod
+
+    with db_mod.session_scope() as session:
+        app = session.get(App, app_id)
+        reconciler._check_build(session, app)
+        assert app.state == AppState.build_failed
+        assert "build job not found" in app.error
+
+
 # -- primary signal: Job conditions ------------------------------------------
 
 

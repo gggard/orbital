@@ -2,6 +2,7 @@
 
 import useSWR from "swr";
 import type {
+  ActivityEvent,
   AdminOverviewOut,
   AdminScanOut,
   AnalyticsOut,
@@ -143,6 +144,13 @@ export const useAdminOverview = (enabled = true) =>
     refreshInterval: 5000,
     keepPreviousData: true,
   });
+
+export const useActivity = (enabled = true, limit = 20) =>
+  useSWR<ActivityEvent[]>(
+    enabled ? `/api/v1/admin/activity?limit=${limit}` : null,
+    jsonFetcher,
+    { refreshInterval: 10000, keepPreviousData: true },
+  );
 
 export const useAppScans = (id: string) =>
   useSWR<ScanOut[]>(`/api/v1/apps/${id}/scans`, jsonFetcher, {

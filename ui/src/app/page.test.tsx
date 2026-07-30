@@ -39,6 +39,8 @@ function app(overrides: Partial<AdminAppOut>): AdminAppOut {
     cpu: null,
     mem: null,
     restarts: null,
+    cpu_series: [],
+    mem_series: [],
     ...overrides,
   };
 }
@@ -182,7 +184,7 @@ describe("AppsListBody", () => {
         onAction={noop}
       />,
     );
-    expect(screen.getByText("⟳ 5")).toBeInTheDocument();
+    expect(screen.getByText("⟳ 5 restarts")).toBeInTheDocument();
   });
 
   it("shows a Restarts column in the table view", () => {

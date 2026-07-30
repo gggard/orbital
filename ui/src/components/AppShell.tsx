@@ -11,7 +11,6 @@ import AppBar from "@mui/material/AppBar";
 import Avatar from "@mui/material/Avatar";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
-import Chip from "@mui/material/Chip";
 import Container from "@mui/material/Container";
 import IconButton from "@mui/material/IconButton";
 import Menu from "@mui/material/Menu";
@@ -32,12 +31,34 @@ function AdminLink() {
   const { data: me } = useMe();
   if (me?.role !== "admin") return null;
   return (
-    <Tooltip title="Admin">
-      <IconButton component={Link} href="/admin" color="inherit" aria-label="admin dashboard">
-        <AdminPanelSettingsOutlinedIcon />
-      </IconButton>
-    </Tooltip>
+    <Box
+      component={Link}
+      href="/admin"
+      aria-label="admin dashboard"
+      sx={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 0.75,
+        color: "text.secondary",
+        textDecoration: "none",
+        fontSize: 13,
+        fontWeight: 600,
+        px: 1.25,
+        py: 0.75,
+        borderRadius: 1,
+        "&:hover": { bgcolor: "action.hover" },
+      }}
+    >
+      <AdminPanelSettingsOutlinedIcon sx={{ fontSize: 17 }} />
+      Admin
+    </Box>
   );
+}
+
+function UserMenuDivider() {
+  const { data: me } = useMe();
+  if (!me || !me.auth_enabled) return null;
+  return <Box sx={{ width: "1px", height: 22, bgcolor: "divider", mx: 0.5 }} />;
 }
 
 function ThemeToggle() {
@@ -56,24 +77,32 @@ function ThemeToggle() {
   );
 }
 
+function userInitials(email: string): string {
+  const name = email.split("@")[0] ?? "";
+  const parts = name.split(/[._-]/).filter(Boolean);
+  const chars = parts.length > 1 ? [parts[0][0], parts[1][0]] : [name[0]];
+  return chars.join("").toUpperCase() || "?";
+}
+
 function UserMenu() {
   const { data: me } = useMe();
   const [anchor, setAnchor] = useState<null | HTMLElement>(null);
   if (!me || !me.auth_enabled) return null;
   return (
     <>
-      <Chip size="small" label={me.role} variant="outlined" sx={{ mr: 1, textTransform: "capitalize" }} />
-      <IconButton size="small" onClick={(e) => setAnchor(e.currentTarget)} aria-label="account">
-        <Avatar sx={{ width: 28, height: 28, fontSize: "0.8rem", bgcolor: "primary.main" }}>
-          {(me.email[0] ?? "?").toUpperCase()}
-        </Avatar>
-      </IconButton>
+      <Tooltip title={me.email}>
+        <IconButton size="small" onClick={(e) => setAnchor(e.currentTarget)} aria-label="account">
+          <Avatar sx={{ width: 26, height: 26, fontSize: "0.72rem", bgcolor: "action.selected", color: "primary.main" }}>
+            {userInitials(me.email)}
+          </Avatar>
+        </IconButton>
+      </Tooltip>
       <Menu anchorEl={anchor} open={!!anchor} onClose={() => setAnchor(null)}>
         <MenuItem disabled sx={{ opacity: "1 !important" }}>
           <Stack>
             <Typography variant="body2">{me.email}</Typography>
-            <Typography variant="caption" color="text.secondary">
-              {me.groups.join(", ") || "no groups"}
+            <Typography variant="caption" color="text.secondary" sx={{ textTransform: "capitalize" }}>
+              {me.role} · {me.groups.join(", ") || "no groups"}
             </Typography>
           </Stack>
         </MenuItem>
@@ -177,9 +206,10 @@ export default function AppShell({ children }: { readonly children: React.ReactN
             Orbital
           </Typography>
           <Box sx={{ flexGrow: 1 }} />
-          <AdminLink />
-          <UserMenu />
           <ThemeToggle />
+          <AdminLink />
+          <UserMenuDivider />
+          <UserMenu />
         </Toolbar>
       </AppBar>
       <Container maxWidth="lg" sx={{ py: 4 }}>

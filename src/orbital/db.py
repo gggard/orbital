@@ -37,6 +37,7 @@ _APPS_NEW_COLUMNS = [
     ("tags", "JSON NOT NULL DEFAULT '[]'", "'[]'"),
     ("last_scan_id", "VARCHAR(12)", None),
     ("scan_requested_at", "DATETIME", None),
+    ("requested_by", "VARCHAR(255)", None),
 ]
 # Columns that used to be NOT NULL (streamlit-only fields, now optional so
 # static apps can leave them unset).

@@ -238,10 +238,13 @@ def test_ensure_setup_skips_wake_endpoints_for_hostname(monkeypatch):
 
 
 def test_maybe_hibernate_scales_to_zero_after_timeout(reconciler, monkeypatch):
+    from orbital import db as db_mod
+
     apps_v1, _, networking = _mock_k8s(monkeypatch)
     app = make_app(state=AppState.running)
     app.last_active_at = datetime.now(UTC) - timedelta(hours=13)
-    reconciler._maybe_hibernate(app)
+    with db_mod.session_scope() as session:
+        reconciler._maybe_hibernate(session, app)
     assert app.state == AppState.sleeping
     call = apps_v1.patch_namespaced_deployment.call_args
     assert call.args[2]["spec"]["replicas"] == 0
@@ -249,28 +252,37 @@ def test_maybe_hibernate_scales_to_zero_after_timeout(reconciler, monkeypatch):
 
 
 def test_maybe_hibernate_skips_when_not_idle(reconciler, monkeypatch):
+    from orbital import db as db_mod
+
     apps_v1, _, _networking = _mock_k8s(monkeypatch)
     app = make_app(state=AppState.running)
     app.last_active_at = datetime.now(UTC)
-    reconciler._maybe_hibernate(app)
+    with db_mod.session_scope() as session:
+        reconciler._maybe_hibernate(session, app)
     assert app.state == AppState.running
     apps_v1.patch_namespaced_deployment.assert_not_called()
 
 
 def test_maybe_hibernate_respects_disabled_flag(reconciler, monkeypatch):
+    from orbital import db as db_mod
+
     apps_v1, _, _n = _mock_k8s(monkeypatch)
     app = make_app(state=AppState.running, hibernate_enabled=False)
     app.last_active_at = datetime.now(UTC) - timedelta(hours=13)
-    reconciler._maybe_hibernate(app)
+    with db_mod.session_scope() as session:
+        reconciler._maybe_hibernate(session, app)
     assert app.state == AppState.running
     apps_v1.patch_namespaced_deployment.assert_not_called()
 
 
 def test_maybe_hibernate_respects_per_app_override(reconciler, monkeypatch):
+    from orbital import db as db_mod
+
     apps_v1, _, _n = _mock_k8s(monkeypatch)
     app = make_app(state=AppState.running, hibernate_after_seconds=3600)
     app.last_active_at = datetime.now(UTC) - timedelta(minutes=90)
-    reconciler._maybe_hibernate(app)
+    with db_mod.session_scope() as session:
+        reconciler._maybe_hibernate(session, app)
     assert app.state == AppState.sleeping
 
 
@@ -289,7 +301,10 @@ def test_maybe_hibernate_clamps_per_app_override_to_platform_maximum(monkeypatch
     # per-app override (24h) far exceeds the 1h platform maximum
     app = make_app(state=AppState.running, hibernate_after_seconds=24 * 3600)
     app.last_active_at = datetime.now(UTC) - timedelta(hours=2)
-    reconciler._maybe_hibernate(app)
+    from orbital import db as db_mod
+
+    with db_mod.session_scope() as session:
+        reconciler._maybe_hibernate(session, app)
     assert app.state == AppState.sleeping
     get_settings.cache_clear()
 
@@ -320,17 +335,20 @@ def test_maybe_hibernate_survives_naive_last_active_at_after_db_roundtrip(tmp_pa
         reloaded = session.get(App, "abc123def456")
         assert reloaded.last_active_at.tzinfo is None  # confirms the round-trip stripped it
 
-        reconciler._maybe_hibernate(reloaded)  # must not raise
+        reconciler._maybe_hibernate(session, reloaded)  # must not raise
         assert reloaded.state == AppState.sleeping
 
     get_settings.cache_clear()
 
 
 def test_maybe_wake_scales_to_one_on_request(reconciler, monkeypatch):
+    from orbital import db as db_mod
+
     apps_v1, _, _n = _mock_k8s(monkeypatch)
     app = make_app(state=AppState.sleeping)
     app.wake_requested_at = datetime.now(UTC)
-    reconciler._maybe_wake(app)
+    with db_mod.session_scope() as session:
+        reconciler._maybe_wake(session, app)
     assert app.state == AppState.deploying
     assert app.wake_requested_at is None
     call = apps_v1.patch_namespaced_deployment.call_args
@@ -338,9 +356,12 @@ def test_maybe_wake_scales_to_one_on_request(reconciler, monkeypatch):
 
 
 def test_maybe_wake_noop_without_request(reconciler, monkeypatch):
+    from orbital import db as db_mod
+
     apps_v1, _, _n = _mock_k8s(monkeypatch)
     app = make_app(state=AppState.sleeping)
-    reconciler._maybe_wake(app)
+    with db_mod.session_scope() as session:
+        reconciler._maybe_wake(session, app)
     assert app.state == AppState.sleeping
     apps_v1.patch_namespaced_deployment.assert_not_called()
 

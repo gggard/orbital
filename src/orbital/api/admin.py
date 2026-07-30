@@ -9,12 +9,13 @@ from .. import logbuffer
 from ..config import Settings, get_settings
 from ..db import get_db
 from ..k8s import metrics
-from ..models import App, AppState, ScanResult
+from ..models import App, AppState, Event, ScanResult
 from ..schemas import (
     AdminAppOut,
     AdminOverviewOut,
     AdminScanOut,
     AdminTotals,
+    EventOut,
     ScanOut,
     VulnerabilityOut,
 )
@@ -22,6 +23,14 @@ from .apps import to_app_out
 from .security import User, get_current_user, require_admin
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
+
+# How many of the reconciler's in-memory samples to expose per app for the
+# overview page's mini cpu/mem sparklines - short trend, not the full ~30min
+# buffer the per-app Metrics tab charts (see k8s/metrics.py MAX_SAMPLES).
+SPARKLINE_SAMPLES = 12
+
+DEFAULT_ACTIVITY_LIMIT = 20
+MAX_ACTIVITY_LIMIT = 100
 
 
 @router.get("/overview", response_model=AdminOverviewOut)
@@ -38,6 +47,7 @@ def overview(
     running_count = 0
     for app in apps:
         sample = metrics.store.latest(app.id)
+        series = metrics.store.series(app.id)[-SPARKLINE_SAMPLES:]
         restarts = metrics.restart_counts.get(app.id)
         if app.state == AppState.running:
             running_count += 1
@@ -50,6 +60,8 @@ def overview(
                 cpu=sample.cpu if sample else None,
                 mem=sample.mem if sample else None,
                 restarts=restarts.count if restarts else None,
+                cpu_series=[s.cpu for s in series],
+                mem_series=[s.mem for s in series],
             )
         )
 
@@ -62,6 +74,21 @@ def overview(
         ),
         apps=rows,
     )
+
+
+@router.get("/activity", response_model=list[EventOut])
+def list_activity(
+    db: Annotated[Session, Depends(get_db)],
+    user: Annotated[User, Depends(get_current_user)],
+    limit: int = DEFAULT_ACTIVITY_LIMIT,
+):
+    """Most recent fleet-wide events, newest first, for the console home
+    page's "Recent activity" rail.
+    """
+    require_admin(user)
+    limit = max(1, min(limit, MAX_ACTIVITY_LIMIT))
+    events = db.scalars(select(Event).order_by(Event.created_at.desc()).limit(limit)).all()
+    return events
 
 
 @router.get("/scans", response_model=list[AdminScanOut])
@@ -78,7 +105,11 @@ def scans(
     ]
 
 
-@router.get("/scans/{scan_id}/vulnerabilities", response_model=list[VulnerabilityOut])
+@router.get(
+    "/scans/{scan_id}/vulnerabilities",
+    response_model=list[VulnerabilityOut],
+    responses={404: {"description": "scan not found"}},
+)
 def scan_vulnerabilities(
     scan_id: str,
     db: Annotated[Session, Depends(get_db)],
