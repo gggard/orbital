@@ -361,7 +361,7 @@ class Reconciler:
 
         outcome, message = _job_outcome(job)
         if outcome == "succeeded":
-            self._succeed_build(session, build, app)
+            self._succeed_build(build, app)
             return
         if outcome == "failed":
             assert message is not None
@@ -383,7 +383,7 @@ class Reconciler:
                 f"build timed out after {int(elapsed)}s with no terminal status from the build job",
             )
 
-    def _succeed_build(self, session, build: Build, app: App):
+    def _succeed_build(self, build: Build, app: App):
         build.phase = BuildPhase.succeeded
         build.finished_at = datetime.now(UTC)
         app.current_image = build.image
