@@ -105,7 +105,11 @@ def scans(
     ]
 
 
-@router.get("/scans/{scan_id}/vulnerabilities", response_model=list[VulnerabilityOut])
+@router.get(
+    "/scans/{scan_id}/vulnerabilities",
+    response_model=list[VulnerabilityOut],
+    responses={404: {"description": "scan not found"}},
+)
 def scan_vulnerabilities(
     scan_id: str,
     db: Annotated[Session, Depends(get_db)],

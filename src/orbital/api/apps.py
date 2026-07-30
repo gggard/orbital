@@ -502,7 +502,11 @@ def _get_scan(db: Session, app_id: str, scan_id: str) -> ScanResult:
     return scan
 
 
-@router.get("/apps/{app_id}/scans/{scan_id}/vulnerabilities", response_model=list[VulnerabilityOut])
+@router.get(
+    "/apps/{app_id}/scans/{scan_id}/vulnerabilities",
+    response_model=list[VulnerabilityOut],
+    responses={404: {"description": "scan not found"}},
+)
 def scan_vulnerabilities(
     app_id: str,
     scan_id: str,
