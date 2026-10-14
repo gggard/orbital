@@ -30,7 +30,7 @@ dev = [
 docs = [
     "mkdocs-material>=9.7.7",
     "mkdocs-include-markdown-plugin>=7.3.0",
-    "mkdocs-llmstxt>=0.5",
+    "mkdocs-llmstxt>=0.5.1",
 ]
 
 [build-system]
