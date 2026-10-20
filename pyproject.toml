@@ -5,7 +5,7 @@ description = "Self-hosted Streamlit hosting platform on Kubernetes"
 requires-python = ">=3.12"
 license = "GPL-3.0-or-later"
 dependencies = [
-    "fastapi>=0.143.0",
+    "fastapi>=0.143.3",
     "uvicorn[standard]>=0.54.0",
     "sqlalchemy>=2.1.5",
     "pydantic>=2.14.0",
