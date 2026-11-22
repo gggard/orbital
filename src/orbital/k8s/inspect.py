@@ -2,8 +2,10 @@
 
 import logging
 from collections.abc import Iterator
+from typing import cast
 
 from kubernetes.client import ApiException
+from urllib3 import HTTPResponse
 
 from ..config import Settings
 from . import client
@@ -16,13 +18,18 @@ def _pods_for(namespace: str, selector: str):
 
 
 def _read_log(pod: str, namespace: str, tail: int | None, container: str | None = None) -> str:
-    # _preload_content=False + decode: the client otherwise returns a bytes repr
-    resp = client.core().read_namespaced_pod_log(
-        pod,
-        namespace,
-        _preload_content=False,
-        **({"tail_lines": tail} if tail is not None else {}),
-        **({"container": container} if container else {}),
+    # _preload_content=False + decode: the client otherwise returns a bytes repr.
+    # The stub always types the return as str; with _preload_content=False it's
+    # actually the underlying urllib3 HTTPResponse.
+    resp = cast(
+        HTTPResponse,
+        client.core().read_namespaced_pod_log(
+            pod,
+            namespace,
+            container=container or None,
+            tail_lines=tail,
+            _preload_content=False,
+        ),
     )
     try:
         return resp.data.decode(errors="replace")
@@ -45,12 +52,15 @@ def app_log_stream(app_id: str, settings: Settings, tail: int = 100) -> Iterator
     if not pods:
         yield b"[no running pods]\n"
         return
-    resp = client.core().read_namespaced_pod_log(
-        pods[0].metadata.name,
-        settings.apps_namespace,
-        tail_lines=tail,
-        follow=True,
-        _preload_content=False,
+    resp = cast(
+        HTTPResponse,
+        client.core().read_namespaced_pod_log(
+            pods[0].metadata.name,
+            settings.apps_namespace,
+            tail_lines=tail,
+            follow=True,
+            _preload_content=False,
+        ),
     )
     try:
         yield from resp.stream()
