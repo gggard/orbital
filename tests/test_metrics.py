@@ -12,6 +12,7 @@ from orbital.k8s.metrics import (
     RestartCounts,
     RestartInfo,
     Sample,
+    fetch_app_usage,
     fetch_pod_restarts,
     parse_quantity,
     restart_counts,
@@ -151,6 +152,36 @@ def test_fetch_pod_restarts_pod_with_no_container_statuses_yet():
     with patch("orbital.k8s.metrics.client.core", return_value=fake_core):
         info = fetch_pod_restarts("app1", Settings())
     assert info.count == 0
+
+
+def test_fetch_pod_restarts_skips_pod_without_status():
+    fake_core = Mock()
+    fake_core.list_namespaced_pod.return_value = Mock(
+        items=[Mock(status=None), _pod([_container_status(3)])]
+    )
+    with patch("orbital.k8s.metrics.client.core", return_value=fake_core):
+        info = fetch_pod_restarts("app1", Settings())
+    assert info.count == 3
+
+
+# -- fetch_app_usage (metrics.k8s.io, mocked) -------------------------------
+
+
+def test_fetch_app_usage_sums_containers_across_pods():
+    fake_api = Mock()
+    fake_api.list_namespaced_custom_object.return_value = {
+        "items": [
+            {"containers": [{"usage": {"cpu": "250m", "memory": "1Mi"}}]},
+            {"containers": [{"usage": {"cpu": "500m", "memory": "2Mi"}}, {"usage": {}}]},
+        ]
+    }
+    with (
+        patch("orbital.k8s.metrics.client.api"),
+        patch("orbital.k8s.metrics.k8s_client.CustomObjectsApi", return_value=fake_api),
+    ):
+        sample = fetch_app_usage("app1", Settings())
+    assert sample.cpu == pytest.approx(0.75)
+    assert sample.mem == 3 * 2**20
 
 
 # -- endpoint --------------------------------------------------------------

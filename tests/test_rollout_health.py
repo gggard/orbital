@@ -92,6 +92,31 @@ def test_check_rollout_surfaces_crash_loop_backoff(reconciler, monkeypatch):
     assert app.error == "CrashLoopBackOff: back-off restarting failed container"
 
 
+def test_check_rollout_skips_pods_without_status_or_state(reconciler, monkeypatch):
+    from orbital.k8s import client as k8s_client
+
+    apps_v1 = MagicMock()
+    apps_v1.read_namespaced_deployment.return_value = _deployment()
+    no_state = SimpleNamespace(
+        status=SimpleNamespace(container_statuses=[SimpleNamespace(state=None)])
+    )
+    core = MagicMock()
+    core.list_namespaced_pod.return_value = SimpleNamespace(
+        items=[SimpleNamespace(status=None), no_state, _pod("ImagePullBackOff", "not found")]
+    )
+    monkeypatch.setattr(k8s_client, "apps_v1", lambda: apps_v1)
+    monkeypatch.setattr(k8s_client, "core", lambda: core)
+
+    app = make_app()
+    from orbital import db as db_mod
+
+    with db_mod.session_scope() as session:
+        reconciler._check_rollout(session, app)
+
+    assert app.state == AppState.deploy_failed
+    assert app.error == "ImagePullBackOff: not found"
+
+
 def test_check_rollout_no_deployment_yet_is_a_noop(reconciler, monkeypatch):
     from kubernetes.client import ApiException
 
