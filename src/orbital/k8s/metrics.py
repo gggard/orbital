@@ -12,6 +12,7 @@ import time
 from collections import deque
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any, cast
 
 from kubernetes import client as k8s_client
 from kubernetes.client import ApiException
@@ -77,12 +78,16 @@ def fetch_app_usage(app_id: str, settings: Settings) -> Sample | None:
     """
     api = k8s_client.CustomObjectsApi(client.api())
     try:
-        result = api.list_namespaced_custom_object(
-            "metrics.k8s.io",
-            "v1beta1",
-            settings.apps_namespace,
-            "pods",
-            label_selector=f"app.orbital.io/app-id={app_id}",
+        # the custom-objects API returns arbitrary CRD content, so the stub types it as object
+        result = cast(
+            dict[str, Any],
+            api.list_namespaced_custom_object(
+                "metrics.k8s.io",
+                "v1beta1",
+                settings.apps_namespace,
+                "pods",
+                label_selector=f"app.orbital.io/app-id={app_id}",
+            ),
         )
     except ApiException as e:
         # 404/503: metrics.k8s.io not served (metrics-server absent/unready)
@@ -157,6 +162,8 @@ def fetch_pod_restarts(app_id: str, settings: Settings) -> RestartInfo | None:
     last_reason: str | None = None
     last_at: datetime | None = None
     for pod in pods:
+        if pod.status is None:
+            continue
         for cs in pod.status.container_statuses or []:
             count += cs.restart_count
             terminated = cs.last_state.terminated if cs.last_state else None

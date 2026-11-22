@@ -1,4 +1,4 @@
-"""Reconciler._delete_app: cluster cleanup + in-memory metrics teardown."""
+"""Reconciler._delete_app and orphan GC: cluster cleanup + in-memory metrics teardown."""
 
 from unittest.mock import Mock, patch
 
@@ -6,7 +6,7 @@ import pytest
 
 from orbital.config import get_settings
 from orbital.k8s import metrics
-from orbital.k8s.reconciler import Reconciler
+from orbital.k8s.reconciler import _APP_ID_LABEL, Reconciler
 from orbital.models import App, AppState, AppType, PendingAction
 
 
@@ -97,4 +97,53 @@ def test_delete_app_deletes_matching_jobs(reconciler):
     assert fake_batch.delete_namespaced_job.call_count == 2  # one per namespace's matching job
     fake_batch.delete_namespaced_job.assert_any_call(
         "build-job-1", reconciler.settings.builds_namespace, propagation_policy="Background"
+    )
+
+
+def test_delete_app_skips_jobs_without_metadata(reconciler):
+    app = make_app()
+    job = Mock()
+    job.metadata.name = "build-job-1"
+
+    fake_batch = Mock()
+    fake_batch.list_namespaced_job.return_value = Mock(items=[Mock(metadata=None), job])
+
+    with (
+        patch("orbital.k8s.reconciler.client.networking", return_value=Mock()),
+        patch("orbital.k8s.reconciler.client.apps_v1", return_value=Mock()),
+        patch("orbital.k8s.reconciler.client.core", return_value=Mock()),
+        patch("orbital.k8s.reconciler.client.batch", return_value=fake_batch),
+    ):
+        reconciler._delete_app(Mock(), app)
+
+    assert fake_batch.delete_namespaced_job.call_count == 2  # only the real job, per namespace
+
+
+def _labelled(name: str, app_id: str) -> Mock:
+    item = Mock()
+    item.metadata.name = name
+    item.metadata.labels = {_APP_ID_LABEL: app_id}
+    return item
+
+
+def test_gc_deletes_orphans_and_skips_items_without_metadata(reconciler):
+    fake_apps_v1 = Mock()
+    fake_apps_v1.list_namespaced_deployment.return_value = Mock(
+        items=[Mock(metadata=None), _labelled("app-gone", "gone"), _labelled("app-live", "live")]
+    )
+    fake_core = Mock()
+    fake_core.list_namespaced_service.return_value = Mock(items=[])
+    fake_core.list_namespaced_secret.return_value = Mock(items=[])
+    fake_networking = Mock()
+    fake_networking.list_namespaced_ingress.return_value = Mock(items=[])
+
+    with (
+        patch("orbital.k8s.reconciler.client.networking", return_value=fake_networking),
+        patch("orbital.k8s.reconciler.client.apps_v1", return_value=fake_apps_v1),
+        patch("orbital.k8s.reconciler.client.core", return_value=fake_core),
+    ):
+        reconciler._gc_orphaned_resources([make_app("live")])
+
+    fake_apps_v1.delete_namespaced_deployment.assert_called_once_with(
+        "app-gone", reconciler.settings.apps_namespace
     )

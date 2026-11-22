@@ -7,8 +7,9 @@ import logging
 import threading
 import time
 from datetime import UTC, datetime
+from typing import cast
 
-from kubernetes.client import ApiException
+from kubernetes.client import ApiException, V1Job, V1Service
 from sqlalchemy import select
 
 from .. import activity
@@ -259,6 +260,8 @@ class Reconciler:
         )
         for kind, list_fn, delete_fn in resource_kinds:
             for item in list_fn(ns, label_selector=_APP_ID_LABEL).items:
+                if item.metadata is None:
+                    continue
                 app_id = (item.metadata.labels or {}).get(_APP_ID_LABEL)
                 if app_id and app_id not in live_ids:
                     _not_found_ok(delete_fn, item.metadata.name, ns)
@@ -337,7 +340,7 @@ class Reconciler:
         build.image = self.settings.app_image(app.id, build.id, pull=True)
 
         job = builder.build_job(app, build, self.settings)
-        client.batch().create_namespaced_job(self.settings.builds_namespace, job)
+        client.batch().create_namespaced_job(self.settings.builds_namespace, cast(V1Job, job))
 
         app.state = AppState.building
         app.pending_action = PendingAction.none
@@ -437,7 +440,7 @@ class Reconciler:
         )
         svc = resources.service(app, s)
         try:
-            client.core().create_namespaced_service(s.apps_namespace, svc)
+            client.core().create_namespaced_service(s.apps_namespace, cast(V1Service, svc))
         except ApiException as e:
             if e.status != 409:
                 raise  # Service replace requires resourceVersion; existing one is fine
@@ -631,7 +634,7 @@ class Reconciler:
         session.flush()
 
         job = scanner.scan_job(app, scan, self.settings)
-        client.batch().create_namespaced_job(self.settings.scans_namespace, job)
+        client.batch().create_namespaced_job(self.settings.scans_namespace, cast(V1Job, job))
 
         app.last_scan_id = scan.id
         app.scan_requested_at = None
@@ -761,8 +764,10 @@ class Reconciler:
             label_selector=f"app.orbital.io/app-id={app.id}",
         )
         for pod in pods.items:
+            if pod.status is None:
+                continue
             for cs in pod.status.container_statuses or []:
-                waiting = cs.state.waiting
+                waiting = cs.state.waiting if cs.state else None
                 if waiting and waiting.reason in (
                     "CrashLoopBackOff",
                     "ErrImagePull",
@@ -797,6 +802,8 @@ class Reconciler:
                 label_selector=f"app.orbital.io/app-id={app.id}",
             )
             for job in jobs.items:
+                if job.metadata is None:
+                    continue
                 _not_found_ok(
                     client.batch().delete_namespaced_job,
                     job.metadata.name,

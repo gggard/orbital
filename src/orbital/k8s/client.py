@@ -1,4 +1,5 @@
 import logging
+from typing import cast
 
 from kubernetes import client, config
 
@@ -41,7 +42,9 @@ def networking() -> client.NetworkingV1Api:
 
 def ensure_namespace(name: str) -> None:
     try:
-        core().create_namespace({"metadata": {"name": name}})
+        # the client validates this dict and sends it unchanged; the V1Namespace hint is stricter
+        # than what it accepts
+        core().create_namespace(cast(client.V1Namespace, {"metadata": {"name": name}}))
         log.info("created namespace %s", name)
     except client.ApiException as e:
         if e.status == 403:
