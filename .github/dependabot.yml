@@ -5,7 +5,9 @@
 
 version: 2
 updates:
-  - package-ecosystem: "pip"
+  # "uv", not "pip": the pip updater only edits pyproject.toml and leaves uv.lock
+  # stale, which breaks the Dockerfile's `uv sync --locked`
+  - package-ecosystem: "uv"
     directory: "/" # Location of package manifests
     schedule:
       interval: "weekly"
