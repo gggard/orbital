@@ -26,6 +26,11 @@ jobs:
       - name: Install Python
         run: uv python install 3.12
 
+      # make install resolves from pyproject.toml, so without this a stale uv.lock only
+      # surfaces when release.yml builds the Dockerfile (`uv sync --locked`)
+      - name: Check uv.lock matches pyproject.toml
+        run: uv lock --check
+
       - name: Install dependencies
         run: make install
 
