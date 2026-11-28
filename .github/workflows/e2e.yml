@@ -36,12 +36,22 @@ jobs:
 
       - name: Set up Helm
         uses: azure/setup-helm@2f5e7bc67f1f9972ab16657bb795f36d8f04de0e # v5.1.0
+        with:
+          version: v3.20.2  # the install step uses Helm 3's --wait / --wait-for-jobs
+
+      # the chart requires a secrets-encryption key; a throwaway one per run
+      - name: Generate a secrets-encryption key
+        run: |
+          key=$(python3 -c "import base64, os; print(base64.urlsafe_b64encode(os.urandom(32)).decode())")
+          echo "::add-mask::$key"
+          echo "ORBITAL_E2E_ENCRYPTION_KEY=$key" >> "$GITHUB_ENV"
 
       - name: Lint and render the chart with the e2e values
         run: |
-          helm lint deploy/chart/orbital -f e2e/minikube-values.yaml --set apps.domain=e2e.nip.io
-          helm template orbital deploy/chart/orbital -n orbital-platform \
-            -f e2e/minikube-values.yaml --set apps.domain=e2e.nip.io > /dev/null
+          args=(-f e2e/minikube-values.yaml --set apps.domain=e2e.nip.io
+                --set secrets.encryptionKey="$ORBITAL_E2E_ENCRYPTION_KEY")
+          helm lint deploy/chart/orbital "${args[@]}"
+          helm template orbital deploy/chart/orbital -n orbital-platform "${args[@]}" > /dev/null
 
       - name: Install minikube ${{ env.MINIKUBE_VERSION }}
         run: |
@@ -72,6 +82,7 @@ jobs:
           helm install orbital deploy/chart/orbital -n orbital-platform --create-namespace \
             -f e2e/minikube-values.yaml \
             --set apps.domain="$(minikube -p "$PROFILE" ip).nip.io" \
+            --set secrets.encryptionKey="$ORBITAL_E2E_ENCRYPTION_KEY" \
             --wait --wait-for-jobs --timeout 25m
           kubectl -n orbital-platform rollout status deploy/orbital-control-plane --timeout=5m
 
@@ -99,6 +110,10 @@ jobs:
         if: failure()
         run: |
           set +e
+          if ! kubectl cluster-info > /dev/null 2>&1; then
+            echo "no cluster was started; see the failing step above"
+            exit 0
+          fi
           kubectl get pods,jobs,ingress,svc -A -o wide
           kubectl -n orbital-platform logs deploy/orbital-control-plane --tail=300
           for ns in streamlit-builds streamlit-apps; do
