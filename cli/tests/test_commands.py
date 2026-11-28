@@ -691,3 +691,26 @@ def test_version_flag(cli):
     result = cli("--version")
     assert result.exit_code == 0
     assert result.stdout == f"orbital-cli {__version__}\n"
+
+
+@pytest.mark.parametrize(
+    ("args", "expected"),
+    [
+        (["apps", "list", "-o", "name"], ["-o", "name", "apps", "list"]),
+        (["apps", "list", "--output=name", "-q"], ["--output=name", "-q", "apps", "list"]),
+        (["apps", "list", "-oname"], ["-oname", "apps", "list"]),
+        (["--url", "u", "logs", "x", "-f", "-v"], ["--url", "u", "-v", "logs", "x", "-f"]),
+        (["login", "--token-stdin"], ["login", "--token-stdin"]),  # login's own flag
+        (["apps", "get", "--", "-o"], ["apps", "get", "--", "-o"]),
+    ],
+)
+def test_hoist_global_options(args, expected):
+    from orbital_cli.main import hoist_global_options
+
+    assert hoist_global_options(args) == expected
+
+
+def test_global_options_after_the_subcommand(cli, one_app):
+    assert cli("apps", "list", "-o", "name").stdout == "demo\nother\n"
+    result = cli("apps", "get", "missing", "-o", "table")
+    assert result.stderr.strip() == "error: app 'missing' not found"

@@ -14,10 +14,53 @@ from .errors import CliError, ExitCode
 from .output import default_format
 from .state import State, get_state, set_state
 
+# Global options, accepted anywhere on the command line: people (and agents)
+# write `orbital apps list -o json` as often as `orbital -o json apps list`.
+_GLOBAL_WITH_VALUE = {"--url", "--profile", "--token", "-o", "--output"}
+_GLOBAL_FLAGS = {"--token-stdin", "--no-input", "-q", "--quiet", "-v", "--verbose"}
+
+
+def hoist_global_options(args: list[str]) -> list[str]:
+    """Move global options that appear after the subcommand to the front,
+    where Click expects them. Stops at `--`."""
+    front: list[str] = []
+    rest: list[str] = []
+    subcommand: str | None = None
+    i = 0
+    while i < len(args):
+        arg = args[i]
+        if arg == "--":
+            rest.extend(args[i:])
+            break
+        name = arg.split("=", 1)[0]
+        if subcommand is None:
+            if arg.startswith("-"):
+                front.append(arg)
+                if arg in _GLOBAL_WITH_VALUE and i + 1 < len(args):
+                    front.append(args[i + 1])
+                    i += 1
+            else:
+                subcommand = arg
+                rest.append(arg)
+        elif name in _GLOBAL_WITH_VALUE or (arg.startswith("-o") and len(arg) > 2):
+            front.append(arg)
+            if arg in _GLOBAL_WITH_VALUE and i + 1 < len(args):
+                front.append(args[i + 1])
+                i += 1
+        elif arg in _GLOBAL_FLAGS and not (subcommand == "login" and arg == "--token-stdin"):
+            front.append(arg)
+        else:
+            rest.append(arg)
+        i += 1
+    return front + rest
+
 
 class OrbitalGroup(TyperGroup):
-    """Root group: turns CliError (from any subcommand) into a message on
-    stderr and the documented exit code."""
+    """Root group: accepts global options anywhere, and turns CliError (from
+    any subcommand) into a message on stderr and the documented exit code."""
+
+    def parse_args(self, ctx: Any, args: list[str]) -> list[str]:
+        return super().parse_args(ctx, hoist_global_options(list(args)))
 
     def invoke(self, ctx: Any) -> Any:
         try:
