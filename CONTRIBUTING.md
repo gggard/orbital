@@ -30,11 +30,12 @@ Run what CI runs:
 make test        # control plane (pytest)
 make lint         # control plane (ruff)
 make typecheck    # control plane (mypy)
+make cli-install cli-test cli-lint cli-typecheck   # CLI, if you touched cli/ or the API
 cd ui && npm run build   # console (Next.js build)
 cd ui && npm run lint    # console (eslint)
 ```
 
-Both the `test-python` and `build-ui` jobs in
+The `test-python`, `test-cli` and `build-ui` jobs in
 [.github/workflows/ci.yml](.github/workflows/ci.yml) must pass on your PR.
 
 ### pre-commit (optional but recommended)

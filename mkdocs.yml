@@ -49,7 +49,7 @@ nav:
   - User Guide: USER.md
   - Admin: ADMIN.md
   - API: API.md
-  - CLI (planned): CLI.md
+  - CLI: CLI.md
   - UI Spec: UI-SPEC.md
   - Development: DEVELOPMENT.md
   - Contributing: CONTRIBUTING.md
@@ -84,7 +84,7 @@ plugins:
           - DEVELOPMENT.md: Contribute to Orbital — local dev on minikube.
         Reference:
           - API.md: Deploy and monitor apps via the REST API.
-          - CLI.md: Planned orbital command-line interface for CI and agents.
+          - CLI.md: The orbital command-line interface, for terminals, CI pipelines and agents.
           - UI-SPEC.md: UI specification for the management console.
           - SPEC.md: Full functional specification and architecture.
           - CONTRIBUTING.md: PR and issue workflow.

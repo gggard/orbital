@@ -1,7 +1,9 @@
 # Orbital — REST API Guide
 
 Audience: developers who want to deploy and monitor apps programmatically
-instead of (or alongside) the console. For the console-based flow see
+instead of (or alongside) the console. For CI pipelines and agents, the
+[`orbital` CLI](CLI.md) wraps this API with waiting, JSON output and exit
+codes. For the console-based flow see
 [USER.md](USER.md); for local development see [DEVELOPMENT.md](DEVELOPMENT.md).
 
 All endpoints are served by the control plane (default `http://localhost:8000`
@@ -178,8 +180,14 @@ redeploy without any polling.
 
 ### Status and build history
 
+`pending_action` (`none`, `deploy`, `reboot` or `delete`) is an action
+that was requested but that the reconciler hasn't picked up yet. Right
+after `POST /deploy`, the app still reads `running` on its previous
+build until `pending_action` returns to `none` and a new
+`current_build_id` appears. Wait for that before judging the outcome.
+
 ```bash
-curl -s "$BASE/apps/$APP_ID" | jq '.state, .error, .current_build_id'
+curl -s "$BASE/apps/$APP_ID" | jq '.state, .pending_action, .error, .current_build_id'
 curl -s "$BASE/apps/$APP_ID/builds" | jq '.[] | {id, phase, commit_sha}'
 curl -s "$BASE/apps/$APP_ID/builds/$BUILD_ID/logs"
 ```

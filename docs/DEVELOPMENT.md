@@ -209,3 +209,19 @@ DELETE /api/v1/me/tokens/{id}           revoke a token
 
 See [API.md](API.md) for full deploy/monitor walkthroughs with shell, Python,
 and JS examples.
+
+## CLI
+
+The `orbital` CLI lives in [`cli/`](../cli) as its own distribution
+(`orbital-cli`). Install it into the dev venv next to the control plane,
+then point it at your local control plane:
+
+```bash
+make cli-install                  # editable install, plus the control plane
+.venv/bin/orbital --url http://localhost:8000 apps list
+make cli-test cli-lint cli-typecheck
+```
+
+`cli/tests/test_contract.py` runs CLI commands against the real API
+in-process (no cluster needed), so an API change that breaks the CLI fails
+in the same PR. User docs: [CLI.md](CLI.md).

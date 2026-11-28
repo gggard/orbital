@@ -1,9 +1,8 @@
 # Proposal: `orbital` command-line interface
 
-Status: **proposal, for review**. Nothing described here is built yet.
-The user-facing documentation for the planned CLI is in
-[CLI.md](../CLI.md). Review that file as the contract, and this file
-as the plan for meeting it.
+Status: **accepted and implemented** in #294 (decisions in §9). The
+user-facing documentation is [CLI.md](../CLI.md); this file records
+the design and what remains (§8, §6).
 
 ## 1. Why
 
@@ -77,7 +76,7 @@ cli/
     main.py            # Typer app, global options, exit-code mapping
     config.py          # env + config file + profiles resolution
     client.py          # httpx wrapper: auth header, base URL, error -> exception
-    output.py          # table / json / yaml(-ish) renderers
+    output.py          # table / json / name renderers
     resolve.py         # slug-or-id -> app id
     wait.py            # state polling, build-log follow, timeouts
     manifest.py        # orbital.toml parsing + diff against AppOut
@@ -139,11 +138,16 @@ shell history and process listings. `--token-stdin` is offered instead.
 
 ### 5.2 Output
 
-- `-o/--output table|json|yaml|name`. The default is `table`, unless
-  `ORBITAL_OUTPUT` says otherwise.
+- `-o/--output table|json|name`. When no format is given (flag,
+  `ORBITAL_OUTPUT`, or the profile's `output`), the default is `table`
+  when stdout is a terminal and `json` when it isn't (a pipe, a file, or
+  CI log capture). Scripts and agents get machine-readable output without
+  asking. Pass `-o table` to force the table.
 - `json` output is the **API response unchanged** (`AppOut`, `BuildOut`,
   ...). The CLI does not reshape it, so the JSON schema is the
   OpenAPI schema and `jq` recipes from API.md keep working.
+- YAML output was dropped to avoid a PyYAML dependency; pipe JSON
+  through `yq` if needed.
 - `name` prints one identifier per line (slug for apps, id for builds,
   tokens, scans), for `xargs` pipelines.
 - Data goes to stdout; progress, build logs streamed during `--wait`,
@@ -174,22 +178,31 @@ An agent can then branch on structured data instead of parsing text.
 `deploy --wait`, `apply --wait`, `wake --wait`, `reboot --wait`,
 `scans run --wait` and `orbital wait` share one implementation:
 
-1. Record the latest build id **before** triggering the action, so that
-   "the new build" can be identified afterwards. Without this, a fast
-   poll could see the *previous* `running` state and report success
-   too early. §6 removes this workaround.
+1. Snapshot the app (`current_build_id`, `updated_at`) **before**
+   triggering the action, so "the new build" can be identified. Without
+   this, a fast poll could see the *previous* `running` state and report
+   success too early.
 2. Poll `GET /apps/{id}` with backoff (1 s, growing to 5 s).
-3. Success when the app state is `running` and `current_build_id` is the
-   new build (`deploy`/`apply`). For `wake`: state `running`. For
-   `reboot`: back to `running` after leaving it, or after the
-   restart-count increase seen in `GET /metrics`.
-4. Failure (exit 8) on `build_failed` / `deploy_failed`. The app's
-   `error` field and the last 50 lines of build logs are printed to stderr.
-5. `--timeout` (default 15 min) gives exit 7. The deploy keeps running
+3. While `pending_action` (added to `AppOut` in this PR, see S2′ in §6)
+   is still set, the reconciler hasn't picked the request up: keep
+   waiting.
+4. Success when the app is `running` on a build newer than the snapshot
+   (`deploy`/`apply`/`create`), `running` again once the reboot request
+   is cleared (`reboot`), or `running` with nothing pending (`wake`,
+   `wait`).
+5. Failure (exit 8) on `build_failed` / `deploy_failed` once the request
+   was picked up. This includes the case where the request was cleared
+   without a new build, because resolving the branch head failed. The
+   app's `error` field and the last 50 lines of the build log are
+   printed to stderr.
+6. `--timeout` (default 15 min) gives exit 7. The deploy keeps running
    server-side, and the message says so.
-6. `--follow` streams build logs, then runtime logs, while waiting.
-   Phase 1 does this by polling the build-logs endpoint (the server
-   offers no build-log streaming today).
+7. `--follow` streams the build log while waiting, by polling the
+   build-logs endpoint and printing only lines not seen before (the
+   endpoint returns a tail, so the overlap is matched).
+
+Servers that predate `pending_action` fall back to comparing
+`current_build_id` and `updated_at` with the snapshot.
 
 ### 5.5 Non-interactive detection
 
@@ -239,14 +252,17 @@ committed. They are pushed separately with
 
 ## 6. Server-side changes this plan relies on
 
-None of these block Phase 1, which has client-side workarounds. They
-make the CLI simpler and more reliable, and each would be a small,
-separate PR:
+None of these blocked the CLI, which has client-side workarounds. They
+would make it simpler and more reliable, and each would be a small,
+separate PR. **S2′ shipped with the CLI** instead of S2: exposing
+`pending_action` gives `--wait` a reliable signal without restructuring
+how the reconciler creates builds.
 
 | # | Change | Why | Workaround until then |
 |---|---|---|---|
 | S1 | `GET /apps?slug=<slug>` filter (or `GET /apps/by-slug/{slug}`) | Resolve a slug without listing every visible app | List all apps and filter client-side |
-| S2 | `POST /apps/{id}/deploy` returns the id of the build it scheduled (reconciler creates the `Build` row eagerly, or returns a correlation id) | Reliable `--wait`: wait for *this* build | Snapshot the latest build id before deploying (§5.4) |
+| S2 | `POST /apps/{id}/deploy` returns the id of the build it scheduled (reconciler creates the `Build` row eagerly, or returns a correlation id) | Reliable `--wait`: wait for *this* build | Superseded by S2′ |
+| S2′ | **Done.** `AppOut.pending_action` (`none`/`deploy`/`reboot`/`delete`) | Tells "not picked up yet" apart from "finished" | n/a |
 | S3 | `POST /apps/{id}/deploy` accepts an optional `{"commit": "<sha>"}` (already listed in SPEC §7) | Deploy exactly the commit CI tested, not the branch head at reconcile time | Not available: the CLI documents that it deploys the branch head |
 | S4 | Streaming build logs (`?follow=true` on build logs, like runtime logs) | `--follow` without polling | Poll every 2 s and print only the new lines |
 | S5 | Log `User-Agent` in activity events | Audit which actions came from CI or agents | None needed |
@@ -273,49 +289,28 @@ separate PR:
 
 ## 8. Delivery phases
 
-Each phase is one or more PRs, shippable on its own.
+Phases 1–3 were delivered together in #294, because review approved the
+plan as a whole:
 
-**Phase 1: CI deploy MVP**
-- Package skeleton, config/profiles, client, output, exit codes
-- `login`/`logout`/`whoami`, `version`, `health`
-- `apps list|get`, `status`, `deploy [--wait] [--follow] [--timeout]`,
-  `reboot`, `wake`, `wait`
-- `logs [-f]`, `builds list|logs`
-- Unit and contract tests, CI job, docs page published
+| Phase | Scope | Status |
+|---|---|---|
+| 1. CI deploy MVP | config/profiles, client, output, exit codes; `login`/`logout`/`whoami`, `version`, `health`; `apps list\|get`, `status`, `deploy`, `reboot`, `wake`, `wait`; `logs`, `builds`; tests, CI job, docs | Done |
+| 2. Full app management | `apps create\|update\|delete`, `secrets`, `apply` + `--dry-run` | Done |
+| 3. Ecosystem | `metrics`, `analytics`, `scans` (+ `--fail-on` gate), `tokens`, `admin *`, `completion`; container image, PyPI publishing, GitHub Action, GitLab example | Done. PyPI needs a one-time trusted-publisher setup (see `release.yml`) |
+| Server | S2′ | Done |
+| Server | S1, S3, S4, S5 | Not started; separate PRs |
 
-**Phase 2: full app management**
-- `apps create|update|delete`, `secrets get|set`
-- `apply` with `orbital.toml` (+ `--dry-run`)
-- Server: S1, S2
+**Later / separate proposals**: OIDC device-flow login (declined for
+now, §9), token scopes (S6), `orbital rollback` once
+`POST /apps/{id}/rollback` exists.
 
-**Phase 3: ecosystem**
-- `metrics`, `analytics`, `scans`, `tokens`, `admin *`
-- `completion`, container image, PyPI publishing in `release.yml`
-- GitHub Action wrapper, GitLab CI example
-- Server: S3, S4, S5
+## 9. Decisions (review of #294)
 
-**Later / separate proposals**: OIDC device-flow login (§9), token
-scopes (S6), `orbital rollback` once `POST /apps/{id}/rollback` exists.
-
-## 9. Open questions for reviewers
-
-1. **Separate distribution vs. extra of the server package.** This plan
-   proposes `orbital-cli` as a separate distribution in `cli/`. The
-   alternative, `pip install orbital[cli]`, would pull every server
-   dependency into CI images. Agreed?
-2. **Typer vs. stdlib `argparse`.** Typer adds one dependency (plus
-   Click), and in return gives completions and a cleaner codebase. Is
-   that acceptable?
-3. **Default output.** Should the CLI switch to `json` automatically
-   when stdout is not a TTY? The proposal says *no*, because silently
-   changing output by context surprises people; `ORBITAL_OUTPUT=json`
-   is the explicit opt-in.
-4. **Login.** Phase 1 asks the user to paste a personal API token. Is an
-   OIDC device-authorization flow (`orbital login --browser`) wanted,
-   given that not every OIDC provider supports the device grant?
-5. **`apply --redeploy` default.** On (a push to main means "ship it")
-   or off (apply only changes settings)? The proposal says on, since
-   the main use case is CI on push.
-6. **Manifest name and format.** `orbital.toml` (stdlib parser,
-   consistent with `secrets.toml` and `pyproject.toml`) vs.
-   `orbital.yaml`.
+| # | Question | Decision |
+|---|---|---|
+| 1 | Separate distribution vs. extra of the server package | **Separate** `orbital-cli` distribution in `cli/` |
+| 2 | Typer vs. `argparse` | **Typer** |
+| 3 | Switch to JSON automatically when stdout is not a TTY | **Yes** (§5.2) |
+| 4 | OIDC device-flow login | **Not for now.** Pasted personal API tokens only |
+| 5 | `apply --redeploy` default | **On** (`--no-redeploy` to opt out) |
+| 6 | Manifest name and format | **`orbital.toml`** |
