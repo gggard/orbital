@@ -167,6 +167,34 @@ def test_static_site(orbital, slug):
     assert STATIC_MARKER in page.text
 
 
+def test_static_site_ignores_the_repos_dockerignore(orbital, slug):
+    """Regression for #296: this repo's .dockerignore excludes docs/, which
+    used to make a static app serving docs/ fail with '"/docs": not found'."""
+    if STATIC_REPO != "https://github.com/gggard/orbital":
+        pytest.skip("needs Orbital's own repo (docs/ excluded by its .dockerignore)")
+    created = orbital(
+        "apps",
+        "create",
+        slug,
+        "--type",
+        "static",
+        "--repo",
+        STATIC_REPO,
+        "--branch",
+        STATIC_BRANCH,
+        "--output-dir",
+        "docs",
+        "--wait",
+        "--follow",
+        "--timeout",
+        DEPLOY_TIMEOUT,
+    )
+    assert created.code == 0, created.stderr[-4000:]
+    assert "does not apply to static builds" in created.stderr  # streamed build log
+    page = eventually(lambda: (r := fetch(created.json["url"])).status_code == 200 and r)
+    assert "<html" in page.text.lower()
+
+
 def test_broken_build_fails_with_exit_8(orbital, slug):
     result = orbital(
         "apps",

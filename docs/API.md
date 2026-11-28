@@ -132,7 +132,9 @@ console.log(app.id, app.state, app.url);
 
 Same endpoint, `app_type: "static"` instead. With no `build_command`, the
 repo's files are served as-is; with one, it runs in an npm build stage
-(requires `package.json`) before the `output_dir` is served.
+(requires `package.json`) before the `output_dir` is served. The repo's
+`.dockerignore` doesn't apply to static builds, so an `output_dir` it
+excludes (a common case for `docs/`) is still served.
 
 ```bash
 curl -sX POST "$BASE/apps" \

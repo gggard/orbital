@@ -218,3 +218,54 @@ def test_static_npm_build_without_lockfile_still_copies_package_json(static_repo
     assert "package-lock.json" not in df
     assert "yarn.lock" not in df
     assert "pnpm-lock.yaml" not in df
+
+
+# -- static builds don't inherit the repo's .dockerignore (issue #296) -------
+
+
+def ignore_file(src: Path) -> Path:
+    return src / "Dockerfile.orbital.dockerignore"
+
+
+def ignore_patterns(src: Path) -> list[str]:
+    lines = ignore_file(src).read_text().splitlines()
+    return [line for line in lines if line.strip() and not line.lstrip().startswith("#")]
+
+
+def test_static_no_build_writes_pattern_free_dockerfile_specific_ignore(static_repo: Path):
+    (static_repo / "docs").mkdir()
+    (static_repo / "docs" / "index.html").write_text("<html></html>\n")
+    (static_repo / ".dockerignore").write_text(".venv/\ndocs/\n")
+    r = run_detect_static(static_repo, output_dir="docs")
+    assert r.returncode == 0, r.stderr
+    assert "COPY --chown=1000:1000 docs /usr/share/nginx/html" in dockerfile(static_repo)
+    # BuildKit prefers Dockerfile.orbital.dockerignore over .dockerignore, and
+    # it excludes nothing, so docs/ stays in the build context
+    assert ignore_file(static_repo).exists()
+    assert ignore_patterns(static_repo) == []
+    assert "does not apply to static builds" in r.stdout
+    # the repo's own file is left untouched
+    assert (static_repo / ".dockerignore").read_text() == ".venv/\ndocs/\n"
+
+
+def test_static_npm_build_writes_dockerfile_specific_ignore(static_repo: Path):
+    (static_repo / "package.json").write_text('{"name": "x"}\n')
+    (static_repo / ".dockerignore").write_text("src/\n")
+    r = run_detect_static(static_repo, build_command="npm run build", output_dir="dist")
+    assert r.returncode == 0, r.stderr
+    assert ignore_patterns(static_repo) == []
+
+
+def test_static_without_repo_dockerignore_has_no_note(static_repo: Path):
+    r = run_detect_static(static_repo)
+    assert r.returncode == 0, r.stderr
+    assert ignore_file(static_repo).exists()
+    assert "does not apply" not in r.stdout
+
+
+def test_streamlit_build_keeps_honouring_repo_dockerignore(repo: Path):
+    (repo / "requirements.txt").write_text("pandas\n")
+    (repo / ".dockerignore").write_text("data/\n")
+    r = run_detect(repo)
+    assert r.returncode == 0, r.stderr
+    assert not ignore_file(repo).exists()
