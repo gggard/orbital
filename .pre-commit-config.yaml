@@ -3,9 +3,9 @@ repos:
     rev: v6.0.0
     hooks:
       - id: trailing-whitespace
-        files: ^(src|tests|ui/src)/
+        files: ^(src|tests|cli/src|cli/tests|ui/src)/
       - id: end-of-file-fixer
-        files: ^(src|tests|ui/src)/
+        files: ^(src|tests|cli/src|cli/tests|ui/src)/
       - id: check-yaml
         exclude: ^deploy/chart/.*/templates/
       - id: check-toml
@@ -18,6 +18,10 @@ repos:
       - id: ruff-check
         args: [--fix]
         files: ^(src|tests)/
+      - id: ruff-check
+        name: ruff check (cli)
+        args: [--fix, --config, cli/pyproject.toml]
+        files: ^cli/(src|tests)/
 
   - repo: local
     hooks:
@@ -26,6 +30,13 @@ repos:
         entry: .venv/bin/mypy src
         language: system
         files: ^src/.*\.py$
+        pass_filenames: false
+
+      - id: mypy-cli
+        name: mypy (cli)
+        entry: bash -c 'cd cli && ../.venv/bin/mypy'
+        language: system
+        files: ^cli/src/.*\.py$
         pass_filenames: false
 
       - id: eslint

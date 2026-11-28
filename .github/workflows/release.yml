@@ -47,6 +47,9 @@ jobs:
           - image: console
             context: ui
             dockerfile: ui/Dockerfile
+          - image: cli
+            context: cli
+            dockerfile: cli/Dockerfile
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -104,6 +107,40 @@ jobs:
         with:
           name: helm-chart
           path: dist/*.tgz
+
+  # Publishes orbital-cli to PyPI via trusted publishing (OIDC, no stored
+  # token). One-time setup: on pypi.org, add a trusted publisher for project
+  # orbital-cli -> repo gggard/orbital, workflow release.yml, environment pypi.
+  # The GitHub release doesn't depend on this job, so a PyPI outage or a
+  # missing publisher never blocks the images and chart.
+  publish-cli:
+    needs: version
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
+
+      - name: Check the CLI version matches the release
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          cli_version=$(sed -n 's/^__version__ = "\(.*\)"$/\1/p' cli/src/orbital_cli/__init__.py)
+          if [ "$cli_version" != "$VERSION" ]; then
+            echo "::error::cli/src/orbital_cli/__init__.py says $cli_version, releasing $VERSION"
+            exit 1
+          fi
+
+      - name: Build
+        run: uv build --project cli -o dist
+
+      - name: Publish to PyPI
+        run: uv publish --trusted-publishing always dist/*
 
   github-release:
     needs: [version, build-images, publish-chart]
