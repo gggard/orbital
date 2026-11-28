@@ -224,4 +224,6 @@ make cli-test cli-lint cli-typecheck
 
 `cli/tests/test_contract.py` runs CLI commands against the real API
 in-process (no cluster needed), so an API change that breaks the CLI fails
-in the same PR. User docs: [CLI.md](CLI.md).
+in the same PR. End-to-end tests that drive the real `orbital` binary
+(locally, and against minikube in CI) are described in
+[e2e/README.md](../e2e/README.md). User docs: [CLI.md](CLI.md).

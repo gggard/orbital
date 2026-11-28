@@ -8,3 +8,4 @@ tests/
 deploy/
 docs/
 cli/
+e2e/

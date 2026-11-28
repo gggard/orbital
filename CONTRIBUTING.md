@@ -31,12 +31,15 @@ make test        # control plane (pytest)
 make lint         # control plane (ruff)
 make typecheck    # control plane (mypy)
 make cli-install cli-test cli-lint cli-typecheck   # CLI, if you touched cli/ or the API
+make e2e-local     # end-to-end: real CLI binary vs. a real control plane
 cd ui && npm run build   # console (Next.js build)
 cd ui && npm run lint    # console (eslint)
 ```
 
 The `test-python`, `test-cli` and `build-ui` jobs in
 [.github/workflows/ci.yml](.github/workflows/ci.yml) must pass on your PR.
+For changes to the reconciler, builds or the chart, add the `e2e` label to
+run the cluster end-to-end suite on minikube ([e2e/README.md](e2e/README.md)).
 
 ### pre-commit (optional but recommended)
 

@@ -90,6 +90,11 @@ jobs:
       - name: Run tests
         run: make cli-test
 
+      # the real `orbital` binary against a real control plane over HTTP
+      # (Kubernetes simulated); the cluster tier runs in e2e.yml
+      - name: End-to-end tests (local tier)
+        run: make e2e-local
+
       - name: Report coverage
         if: always()
         run: |

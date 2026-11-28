@@ -42,10 +42,18 @@ cli-test:
 	cd cli && ../$(VENV)/bin/pytest -q --cov=orbital_cli --cov-report=term-missing --cov-report=xml
 
 cli-lint:
-	cd cli && ../$(VENV)/bin/ruff check . && ../$(VENV)/bin/ruff format --check .
+	cd cli && ../$(VENV)/bin/ruff check . ../e2e && ../$(VENV)/bin/ruff format --check . ../e2e
 
 cli-typecheck:
 	cd cli && ../$(VENV)/bin/mypy
+
+# End-to-end tests (e2e/README.md). Local tier: the real CLI binary against a
+# real control plane, Kubernetes simulated. Cluster tier: needs ORBITAL_E2E_URL.
+e2e-local:
+	$(VENV)/bin/pytest e2e/test_cli_local.py -v -p no:cacheprovider
+
+e2e-cluster:
+	$(VENV)/bin/pytest e2e/test_cli_cluster.py -v -p no:cacheprovider
 
 docs-install: $(VENV)/bin/python
 	uv pip install -p $(VENV)/bin/python -e '.[docs]'
@@ -70,4 +78,4 @@ push-images:
 	docker push $(IMAGE_PREFIX)/console:$(TAG)
 	docker push $(IMAGE_PREFIX)/cli:$(TAG)
 
-.PHONY: install run test lint typecheck cli-install cli-test cli-lint cli-typecheck setup-minikube setup-auth ui-install ui-dev ui docs-install docs-serve docs-build images push-images
+.PHONY: install run test lint typecheck cli-install cli-test cli-lint cli-typecheck e2e-local e2e-cluster setup-minikube setup-auth ui-install ui-dev ui docs-install docs-serve docs-build images push-images

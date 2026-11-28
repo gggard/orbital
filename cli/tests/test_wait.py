@@ -214,3 +214,20 @@ def test_wait_for_scan_failure(api):
         wait.wait_for_scan(client(), make_app(), previous_scan_id=None, timeout=60, progress=False)
     assert e.value.code == ExitCode.FAILED
     assert "trivy crashed" in e.value.message
+
+
+def test_follow_survives_log_fetch_errors(api, capsys):
+    api.on(
+        "GET",
+        APP,
+        make_app(state="building", current_build_id="b2"),
+        make_app(state="building", current_build_id="b2"),
+        make_app(state="running", current_build_id="b2"),
+    )
+    api.on(
+        "GET", f"{APP}/builds/b2/logs", (500, {"detail": "boom"}), (500, {"detail": "boom"}), "ok\n"
+    )
+    result = wait.wait_for_rollout(client(), make_app(), timeout=60, follow=True, progress=False)
+    assert result["state"] == "running"
+    err = capsys.readouterr().err
+    assert err.count("build log unavailable") == 1 and "ok" in err

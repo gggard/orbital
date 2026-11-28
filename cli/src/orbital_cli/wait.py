@@ -82,13 +82,22 @@ class BuildLogFollower:
     app_id: str
     build_id: str | None = None
     printed: list[str] = field(default_factory=list)
+    warned: bool = False
 
     def update(self, build_id: str) -> None:
         if build_id != self.build_id:
             self.build_id = build_id
             self.printed = []
             info(f"--- build {build_id} ---")
-        text = self.client.get_text(f"/apps/{self.app_id}/builds/{build_id}/logs")
+        try:
+            text = self.client.get_text(f"/apps/{self.app_id}/builds/{build_id}/logs")
+        except CliError as e:
+            # log streaming is best effort: a hiccup fetching logs (the build
+            # pod not scheduled yet, a 5xx) must not fail the wait itself
+            if not self.warned:
+                info(f"(build log unavailable for now: {e.message})")
+                self.warned = True
+            return
         lines = [] if text.strip() == _NO_LOGS else text.splitlines()
         for line in new_lines(self.printed, lines):
             info(line)
