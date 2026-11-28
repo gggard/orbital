@@ -1,0 +1,67 @@
+[project]
+name = "orbital-cli"
+dynamic = ["version"]
+description = "Command-line interface for Orbital, for terminals, CI pipelines and agents"
+readme = "README.md"
+requires-python = ">=3.12"
+license = "GPL-3.0-or-later"
+dependencies = [
+    "httpx>=0.28.1",
+    "typer>=0.29.3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=9.2.0",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.17.4",
+    "mypy>=2.4.1",
+]
+
+[project.scripts]
+orbital = "orbital_cli.main:run"
+
+[project.urls]
+Documentation = "https://gggard.github.io/orbital/CLI/"
+Source = "https://github.com/gggard/orbital"
+
+[build-system]
+requires = ["setuptools>=84.2.1"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.dynamic]
+version = { attr = "orbital_cli.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["src/orbital_cli"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "UP", "C4", "SIM"]
+ignore = [
+    "B008",  # Typer's `typer.Option(...)` idiom relies on call-in-default-argument
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["orbital_cli"]
+
+[tool.mypy]
+python_version = "3.12"
+packages = ["orbital_cli"]
+mypy_path = "src"
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
