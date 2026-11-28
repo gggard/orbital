@@ -41,8 +41,8 @@ export ORBITAL_E2E_INGRESS=http://192.168.49.2
 make e2e-cluster
 ```
 
-It deploys a public Streamlit example and Orbital's own `docs/` as a static
-site, under unique `e2e-<random>` slugs that are deleted afterwards. The
+It deploys a public Streamlit example and this repo's
+`e2e/fixtures/static-site` as a static site, under unique `e2e-<random>` slugs that are deleted afterwards. The
 repositories, branches, timeouts and an optional vulnerability scan are
 configurable: see the docstring of `test_cli_cluster.py`. On minikube, the
 first build of each Python version also waits for the chart's base-image

@@ -12,7 +12,7 @@ e2e/README.md.
                           the app's Host header, so no DNS is needed. Default:
                           the app's own URL.
     ORBITAL_E2E_STREAMLIT_REPO / _BRANCH / _MAIN_FILE
-    ORBITAL_E2E_STATIC_REPO / _BRANCH / _OUTPUT_DIR
+    ORBITAL_E2E_STATIC_REPO / _BRANCH / _OUTPUT_DIR / _MARKER (text the page must contain)
     ORBITAL_E2E_SCANS=1   also run a vulnerability scan (needs trivy in-cluster)
 """
 
@@ -36,10 +36,12 @@ STREAMLIT_REPO = os.environ.get(
 )
 STREAMLIT_BRANCH = os.environ.get("ORBITAL_E2E_STREAMLIT_BRANCH", "master")
 STREAMLIT_MAIN = os.environ.get("ORBITAL_E2E_STREAMLIT_MAIN_FILE", "streamlit_app.py")
-# Orbital's own repo doubles as a static site: docs/index.html is the landing page
+# Orbital's own repo doubles as a static site: e2e/fixtures/static-site. (Not
+# docs/: the repo's .dockerignore excludes it, and builds honour that file.)
 STATIC_REPO = os.environ.get("ORBITAL_E2E_STATIC_REPO", "https://github.com/gggard/orbital")
 STATIC_BRANCH = os.environ.get("ORBITAL_E2E_STATIC_BRANCH", "main")
-STATIC_OUTPUT_DIR = os.environ.get("ORBITAL_E2E_STATIC_OUTPUT_DIR", "docs")
+STATIC_OUTPUT_DIR = os.environ.get("ORBITAL_E2E_STATIC_OUTPUT_DIR", "e2e/fixtures/static-site")
+STATIC_MARKER = os.environ.get("ORBITAL_E2E_STATIC_MARKER", "orbital-e2e-static-ok")
 
 
 @pytest.fixture
@@ -162,7 +164,7 @@ def test_static_site(orbital, slug):
     assert created.code == 0, created.stderr[-4000:]
     url = created.json["url"]
     page = eventually(lambda: (r := fetch(url)).status_code == 200 and r)
-    assert "<html" in page.text.lower()
+    assert STATIC_MARKER in page.text
 
 
 def test_broken_build_fails_with_exit_8(orbital, slug):

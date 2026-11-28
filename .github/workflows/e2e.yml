@@ -99,7 +99,7 @@ jobs:
           for _ in $(seq 1 30); do curl -sf http://127.0.0.1:8000/healthz > /dev/null && break; sleep 1; done
           export ORBITAL_E2E_URL=http://127.0.0.1:8000
           export ORBITAL_E2E_INGRESS="http://$(minikube -p "$PROFILE" ip)"
-          # deploy this commit's own docs as the static site
+          # deploy this commit's e2e/fixtures/static-site as the static site
           export ORBITAL_E2E_STATIC_BRANCH="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
           if [ "$HEAD_REPO" != "$GITHUB_REPOSITORY" ]; then
             export ORBITAL_E2E_STATIC_BRANCH=main   # fork branches aren't in this repo
