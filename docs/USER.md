@@ -52,6 +52,10 @@ Notes:
   lost on restart.
 - Default resources per app: ~1 CPU / 2 GiB memory (platform-configurable).
   The app is restarted if it exceeds its memory limit.
+- Your repo's `.dockerignore` is honored for Streamlit apps: files it
+  excludes are not copied into the app (handy for local data or a `.venv`).
+  It is **not** applied to static sites, whose whole repository is
+  available to the build.
 - Your repo's `.streamlit/config.toml` (repo root) is honored — except a few
   locked options (error details hidden from viewers, XSRF protection on).
 

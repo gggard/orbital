@@ -9,6 +9,8 @@ DESCRIPTIONS = {
     "USER.md": "Deploy and manage your own Streamlit apps and static sites as an Orbital user.",
     "ADMIN.md": "Operate an Orbital platform — roles, RBAC, and upgrades.",
     "API.md": "Deploy and monitor Orbital apps via the REST API.",
+    "CLI.md": "Deploy and manage Orbital apps from a terminal, CI pipeline or AI agent.",
+    "proposals/CLI-PLAN.md": "Design and implementation plan of the Orbital command-line interface.",
     "UI-SPEC.md": "UI specification for the Orbital management console.",
     "DEVELOPMENT.md": "Set up a local Orbital development environment on minikube.",
     "CONTRIBUTING.md": "How to contribute to Orbital — PR and issue workflow.",

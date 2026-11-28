@@ -97,6 +97,7 @@ Developers and Admins authenticate to the dashboard via the organization's OIDC 
 - **FR-3a.1** `static` apps have no Python dependency resolution (§4.3 does not apply). With no `build_command` set, the app's `output_dir` (default the repository root) is served as-is.
 - **FR-3a.2** If `build_command` is set, it requires a `package.json` at the repository root (npm-based builds only in v1 - Hugo/Jekyll/other generators are out of scope, extensible later) and runs in an isolated `node` build stage; the resulting `output_dir` is what gets served.
 - **FR-3a.3** Static apps are served by a shared platform-maintained static-file-server base image (nginx), analogous to the Streamlit base image (§5.2), with the app's files layered on top at build time.
+- **FR-3a.4** Static builds ignore the repository's `.dockerignore`: it is written for the repo's own Dockerfile, not the generated one, and could exclude the very `output_dir` being served (#296). The build step writes an Orbital-owned, pattern-free `Dockerfile.orbital.dockerignore`, which BuildKit uses instead of the root `.dockerignore`. Streamlit builds keep honouring `.dockerignore` (e.g. to keep local data or a `.venv` out of the image).
 
 ### 4.4 Secrets management
 

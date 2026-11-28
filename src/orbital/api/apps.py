@@ -91,6 +91,7 @@ def to_app_out(app: App, settings: Settings) -> AppOut:
         owner_groups=app.owner_groups or [],
         tags=app.tags or [],
         state=app.state,
+        pending_action=app.pending_action or PendingAction.none,
         error=app.error,
         current_build_id=app.current_build_id,
         latest_scan=ScanOut.model_validate(latest_scan) if latest_scan else None,

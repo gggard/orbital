@@ -331,3 +331,12 @@ def test_tags_endpoint_filters_by_substring(client):
     client.patch(f"/api/v1/apps/{make_app(client).json()['id']}", json={"tags": ["ml", "web"]})
     assert client.get("/api/v1/tags?q=ml").json()["tags"] == ["ml"]
     assert client.get("/api/v1/tags?q=nope").json()["tags"] == []
+
+
+def test_pending_action_is_exposed(client):
+    """API clients (the CLI's --wait) use pending_action to tell a request
+    the reconciler hasn't picked up yet from one it has finished."""
+    app_id = make_app(client).json()["id"]
+    assert client.get(f"/api/v1/apps/{app_id}").json()["pending_action"] == "deploy"
+    client.delete(f"/api/v1/apps/{app_id}")
+    assert client.get(f"/api/v1/apps/{app_id}").json()["pending_action"] == "delete"

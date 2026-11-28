@@ -1,0 +1,27 @@
+# Helm values for the e2e cluster (.github/workflows/e2e.yml): minikube with
+# the registry + ingress addons. apps.domain is set on the command line
+# (<minikube ip>.nip.io); the tests reach apps through the ingress by Host
+# header, so nip.io DNS isn't actually needed.
+image:
+  controlPlane:
+    repository: localhost:5000/orbital/control-plane
+    tag: e2e
+    pullPolicy: Always
+
+apps:
+  urlPort: 80
+
+console:
+  enabled: false   # the CLI only needs the API
+
+builds:
+  rootless: false  # user namespaces are unavailable inside minikube's docker driver
+
+networkPolicy:
+  enabled: false   # minikube's default CNI doesn't enforce them (see examples/minikube-values.yaml)
+
+hibernation:
+  enabled: false   # keep e2e apps awake for the whole run
+
+controlPlane:
+  reconcileInterval: 2

@@ -1,0 +1,127 @@
+name: E2E
+
+# The cluster end-to-end suite: install the chart on minikube, then drive the
+# real platform with the `orbital` CLI (real BuildKit builds, ingress, logs,
+# reboot, delete). ~20-30 minutes, so it runs on pushes to main, nightly, on
+# demand, and on PRs labelled `e2e`, not on every PR. The cluster-free local
+# e2e tier runs in ci.yml on every PR.
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+  pull_request:
+    types: [labeled, synchronize, opened, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  MINIKUBE_VERSION: v1.38.1
+  PROFILE: orbital-e2e
+
+jobs:
+  cluster:
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'e2e')
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Helm
+        uses: azure/setup-helm@2f5e7bc67f1f9972ab16657bb795f36d8f04de0e # v5.1.0
+        with:
+          version: v3.20.2  # the install step uses Helm 3's --wait / --wait-for-jobs
+
+      # the chart requires a secrets-encryption key; a throwaway one per run
+      - name: Generate a secrets-encryption key
+        run: |
+          key=$(python3 -c "import base64, os; print(base64.urlsafe_b64encode(os.urandom(32)).decode())")
+          echo "::add-mask::$key"
+          echo "ORBITAL_E2E_ENCRYPTION_KEY=$key" >> "$GITHUB_ENV"
+
+      - name: Lint and render the chart with the e2e values
+        run: |
+          args=(-f e2e/minikube-values.yaml --set apps.domain=e2e.nip.io
+                --set secrets.encryptionKey="$ORBITAL_E2E_ENCRYPTION_KEY")
+          helm lint deploy/chart/orbital "${args[@]}"
+          helm template orbital deploy/chart/orbital -n orbital-platform "${args[@]}" > /dev/null
+
+      - name: Install minikube ${{ env.MINIKUBE_VERSION }}
+        run: |
+          base=https://github.com/kubernetes/minikube/releases/download/$MINIKUBE_VERSION
+          curl -sSfLo minikube "$base/minikube-linux-amd64"
+          echo "$(curl -sSfL "$base/minikube-linux-amd64.sha256")  minikube" | sha256sum -c
+          sudo install minikube /usr/local/bin/minikube && rm minikube
+
+      - name: Start the cluster
+        run: |
+          minikube start -p "$PROFILE" --driver=docker --cpus=4 --memory=10g --wait=all
+          minikube -p "$PROFILE" addons enable registry
+          minikube -p "$PROFILE" addons enable ingress
+          minikube -p "$PROFILE" addons enable metrics-server
+          kubectl -n ingress-nginx rollout status deploy/ingress-nginx-controller --timeout=5m
+          kubectl -n kube-system wait --for=condition=ready pod \
+            -l kubernetes.io/minikube-addons=registry --timeout=5m
+
+      - name: Build the control-plane image and push it to the cluster registry
+        run: |
+          docker build -t localhost:45000/orbital/control-plane:e2e .
+          kubectl -n kube-system port-forward svc/registry 45000:80 > /dev/null 2>&1 &
+          for _ in $(seq 1 30); do curl -sf http://localhost:45000/v2/ > /dev/null && break; sleep 1; done
+          docker push localhost:45000/orbital/control-plane:e2e
+
+      - name: Install Orbital
+        run: |
+          helm install orbital deploy/chart/orbital -n orbital-platform --create-namespace \
+            -f e2e/minikube-values.yaml \
+            --set apps.domain="$(minikube -p "$PROFILE" ip).nip.io" \
+            --set secrets.encryptionKey="$ORBITAL_E2E_ENCRYPTION_KEY" \
+            --wait --wait-for-jobs --timeout 25m
+          kubectl -n orbital-platform rollout status deploy/orbital-control-plane --timeout=5m
+
+      - name: Install the CLI and test tools
+        run: |
+          python3 -m venv .venv
+          .venv/bin/pip install --quiet ./cli pytest
+
+      - name: Run the cluster e2e suite
+        env:
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+        run: |
+          kubectl -n orbital-platform port-forward svc/orbital-control-plane 8000:8000 > /tmp/pf.log 2>&1 &
+          for _ in $(seq 1 30); do curl -sf http://127.0.0.1:8000/healthz > /dev/null && break; sleep 1; done
+          export ORBITAL_E2E_URL=http://127.0.0.1:8000
+          export ORBITAL_E2E_INGRESS="http://$(minikube -p "$PROFILE" ip)"
+          # deploy this commit's e2e/fixtures/static-site as the static site
+          export ORBITAL_E2E_STATIC_BRANCH="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+          if [ "$HEAD_REPO" != "$GITHUB_REPOSITORY" ]; then
+            export ORBITAL_E2E_STATIC_BRANCH=main   # fork branches aren't in this repo
+          fi
+          .venv/bin/pytest e2e/test_cli_cluster.py -v -p no:cacheprovider
+
+      - name: Diagnostics
+        if: failure()
+        run: |
+          set +e
+          if ! kubectl cluster-info > /dev/null 2>&1; then
+            echo "no cluster was started; see the failing step above"
+            exit 0
+          fi
+          kubectl get pods,jobs,ingress,svc -A -o wide
+          kubectl -n orbital-platform logs deploy/orbital-control-plane --tail=300
+          for ns in streamlit-builds streamlit-apps; do
+            for pod in $(kubectl -n "$ns" get pods -o name); do
+              echo "::group::$ns $pod"
+              kubectl -n "$ns" logs "$pod" --all-containers --tail=200
+              kubectl -n "$ns" describe "$pod" | tail -30
+              echo "::endgroup::"
+            done
+          done
+          kubectl get events -A --sort-by=.lastTimestamp | tail -80

@@ -44,6 +44,9 @@ management, logs, automatic redeploys on push, and hibernation of idle apps.
   indicators, and delete.
 - **Hibernation** — idle apps scale to zero and wake automatically on the
   next request.
+- **CLI for CI and agents** — `orbital deploy my-app --wait`, declarative
+  `orbital apply -f orbital.toml`, JSON output and stable exit codes; ships
+  as a Python package, a container image and a GitHub Action.
 - **Analytics** — per-app view counts and unique-viewer trends for owners and
   admins.
 - **Safe multi-tenancy** — every app is an isolated, hardened Deployment
@@ -64,6 +67,7 @@ See [SPEC.md](SPEC.md) for the full functional specification and architecture.
 | [docs/ADMIN.md](docs/ADMIN.md) | Operate the platform (roles, RBAC, upgrades) |
 | [docs/USER.md](docs/USER.md) | Deploy and manage your own apps |
 | [docs/API.md](docs/API.md) | Deploy and monitor apps via the REST API |
+| [docs/CLI.md](docs/CLI.md) | Deploy and manage apps from a terminal, CI pipeline or AI agent with the `orbital` CLI |
 | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | Contribute to Orbital (local dev on minikube) |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | PR/issue workflow and contribution guidelines |
 | [SPEC.md](SPEC.md) | Full specification |

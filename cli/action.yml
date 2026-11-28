@@ -1,0 +1,70 @@
+name: Orbital CLI
+description: Run an `orbital` CLI command, e.g. deploy an app and wait for it to go live.
+author: Orbital contributors
+branding:
+  icon: upload-cloud
+  color: blue
+
+inputs:
+  command:
+    description: >-
+      Arguments for `orbital`, e.g. `apply -f orbital.toml --wait` or
+      `deploy my-app --wait --follow`.
+    required: true
+  url:
+    description: Control-plane base URL (ORBITAL_URL).
+    required: true
+  token:
+    description: Personal API token (ORBITAL_TOKEN). Pass it from a secret.
+    required: false
+    default: ""
+  output:
+    description: Output format (table, json, name).
+    required: false
+    default: json
+
+outputs:
+  result:
+    description: The command's stdout (JSON by default).
+    value: ${{ steps.run.outputs.result }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+      with:
+        python-version: "3.12"
+        update-environment: false
+      id: python
+
+    # installed from this action's own checkout, so the CLI version always
+    # matches the action ref (gggard/orbital/cli@vX.Y.Z)
+    - name: Install the orbital CLI
+      shell: bash
+      env:
+        PYTHON: ${{ steps.python.outputs.python-path }}
+        ACTION_PATH: ${{ github.action_path }}
+      run: |
+        "$PYTHON" -m venv "$RUNNER_TEMP/orbital-cli"
+        "$RUNNER_TEMP/orbital-cli/bin/pip" install --quiet "$ACTION_PATH"
+
+    - name: orbital ${{ inputs.command }}
+      id: run
+      shell: bash
+      env:
+        ORBITAL_URL: ${{ inputs.url }}
+        ORBITAL_TOKEN: ${{ inputs.token }}
+        ORBITAL_OUTPUT: ${{ inputs.output }}
+        ORBITAL_COMMAND: ${{ inputs.command }}
+        CI: "true"
+      run: |
+        # word-split the command input on purpose; it's the caller's own argument list
+        # shellcheck disable=SC2086
+        set -o pipefail
+        out_file="$RUNNER_TEMP/orbital-output"
+        "$RUNNER_TEMP/orbital-cli/bin/orbital" $ORBITAL_COMMAND | tee "$out_file"
+        {
+          echo "result<<ORBITAL_EOF"
+          cat "$out_file"
+          echo "ORBITAL_EOF"
+        } >> "$GITHUB_OUTPUT"

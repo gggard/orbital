@@ -3,7 +3,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field, ValidationInfo, field_validator, model_validator
 
-from .models import AppState, AppType, BuildPhase, ScanStatus, Severity
+from .models import AppState, AppType, BuildPhase, PendingAction, ScanStatus, Severity
 
 SLUG_RE = re.compile(r"^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$")
 
@@ -164,6 +164,10 @@ class AppOut(BaseModel):
     owner_groups: list[str]
     tags: list[str]
     state: AppState
+    # an action requested but not yet picked up by the reconciler (deploy,
+    # reboot, delete); lets API clients such as the CLI's --wait tell "not
+    # started yet" apart from "finished"
+    pending_action: PendingAction = PendingAction.none
     error: str | None
     current_build_id: str | None
     latest_scan: ScanOut | None
